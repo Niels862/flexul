@@ -1,0 +1,6 @@
+.vscode/
+*.o
+*.d
+*.bin
+/fxi/fxi
+/fxc/fxc
