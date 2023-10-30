@@ -10,6 +10,7 @@ class Parser {
 public:
     Parser();
     Parser(std::ifstream &file);
+    ~Parser();
     void reset();
     Node *parse();
 private:

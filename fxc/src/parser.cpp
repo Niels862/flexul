@@ -13,25 +13,16 @@ Parser::Parser(std::ifstream &file) {
     tokenizer = Tokenizer(text);
 }
 
-void Parser::reset() {
+Parser::~Parser() {
     for (Node * const node : trees) {
         delete node;
     }
-    trees.clear();
-    tokenizer.reset();
 }
 
 Node *Parser::parse() {
     get_token();
-    Node *root;
-    try {
-        root = parse_filebody();
-    } catch (std::exception const &e) {
-        reset();
-        throw;
-    }
+    Node *root = parse_filebody();
     if (get_token().get_type() != TokenType::EndOfFile) {
-        reset();
         throw std::runtime_error(
                 "Unexpected token: " + tokenizer.get_token().to_string());
     }
