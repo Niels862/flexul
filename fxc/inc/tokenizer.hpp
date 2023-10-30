@@ -9,6 +9,7 @@ class Tokenizer {
 public:
     Tokenizer();
     Tokenizer(std::string const &text);
+    void reset();
     Token get_token();
     bool eof();
 private:

@@ -16,7 +16,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     Parser parser(infile);
-    parser.parse();
-    
+    try {
+        Node *node = parser.parse();
+        Node::print(node);
+    } catch (std::exception const &e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
     return 0;
 }

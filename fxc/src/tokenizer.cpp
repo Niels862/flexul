@@ -8,6 +8,10 @@ Tokenizer::Tokenizer()
 Tokenizer::Tokenizer(std::string const &text) 
         : text(text), i(0) {}
 
+void Tokenizer::reset() {
+    i = 0;
+}
+
 Token Tokenizer::get_token() {
     char c;
     cleanup();

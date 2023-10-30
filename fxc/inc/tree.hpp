@@ -7,22 +7,13 @@
 class Node {
 public:
     Node();
-    Node(Token token, Node *a, Node *b, Node *c);
+    Node(Token token, std::vector<Node *> children);
+    ~Node();
+    static void print(Node *node, std::string const labelPrefix = "", 
+            std::string const branchPrefix = "");
 private:
     Token token;
-    Node *a;
-    Node *b;
-    Node *c;
-};
-
-class Tree {
-public:
-    Tree();
-    Node *add_node(Token token, Node *a = nullptr, Node *b = nullptr, Node *c = nullptr);
-private:
-
-    std::vector<Node> nodes;
-    Node *root;
+    std::vector<Node *> children;
 };
 
 #endif
