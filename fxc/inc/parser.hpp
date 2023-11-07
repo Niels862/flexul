@@ -26,6 +26,7 @@ private:
 
     Node *parse_filebody();
     Node *parse_function_declaration();
+    Node *parse_argslist(bool declaration);
     Node *parse_statement();
     Node *parse_expression();
     Node *parse_sum();

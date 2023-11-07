@@ -30,6 +30,7 @@ int main(int argc, char *argv[]) {
     Intermediate intermediate;
     try {
         Node *node = parser.parse();
+        node->rename();
         Node::print(node);
         node->translate(intermediate);
         intermediate.assemble(outfile);

@@ -22,7 +22,11 @@ std::string Token::to_string() const {
     if (data.empty()) {
         return type_string;
     }
-    return type_string + ": " + data;
+    return type_string + ": '" + data + "'";
+}
+
+bool Token::is_synthetic(std::string const &cmp_data) const {
+    return type == TokenType::Synthetic && data == cmp_data;
 }
 
 std::string Token::type_string(TokenType type) {

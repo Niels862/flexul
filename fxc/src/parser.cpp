@@ -110,23 +110,51 @@ Token Parser::expect_type(TokenType type) {
 }
 
 Node *Parser::parse_filebody() {
-    return parse_function_declaration();
+    std::vector<Node *> nodes;
+    while (curr_token.get_type() != TokenType::EndOfFile) {
+        nodes.push_back(parse_function_declaration());
+    }
+    return new_n_ary(Token(TokenType::Synthetic, "filebody"), nodes);
 }
 
 Node *Parser::parse_function_declaration() {
     Node *statement;
     Token fn_token = expect_data("fn");
-    Token identifier_token = expect_type(TokenType::Identifier);
-    expect_data("("); // TODO: args
-    expect_data(")");
+    Node *identifier = new_leaf(expect_type(TokenType::Identifier));
+    Node *argslist = parse_argslist(true);
     expect_data("{");
     expect_data("return");
     statement = parse_statement();
     expect_data("}");
     return new_ternary(fn_token, 
-            new_leaf(identifier_token), 
-            new_n_ary(Token(TokenType::Synthetic, "args"), {}), 
+            identifier, 
+            argslist, 
             new_n_ary(Token(TokenType::Synthetic, "body"), {statement}));
+}
+
+Node *Parser::parse_argslist(bool declaration) {
+    std::vector<Node *> nodes;
+    Node *node;
+    expect_data("(");
+    if (curr_token.get_data() == ")") {
+        get_token();
+    } else {
+        while (true) {
+            if (declaration) {
+                node = new_leaf(expect_type(TokenType::Identifier));
+            } else {
+                node = parse_expression();
+            }
+            nodes.push_back(node);
+            if (curr_token.get_data() == ",") {
+                get_token();
+            } else {
+                expect_data(")");
+                break;
+            }
+        }
+    }
+    return new_n_ary(Token(TokenType::Synthetic, "args"), nodes);
 }
 
 Node *Parser::parse_statement() {
@@ -165,8 +193,14 @@ Node *Parser::parse_term() {
 Node *Parser::parse_value() {
     Token token = curr_token;
     Node *expression;
-    if (token.get_type() == TokenType::IntLit) {
+    if (token.get_type() == TokenType::IntLit 
+            || token.get_type() == TokenType::Identifier) {
         get_token();
+        if (curr_token.get_data() == "(") {
+            return new_binary(Token(TokenType::Synthetic, "call"),
+                    new_leaf(token),
+                    parse_argslist(false));
+        }
         return new_leaf(token);
     }
     if (token.get_data() == "-" || token.get_data() == "+") {

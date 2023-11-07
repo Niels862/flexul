@@ -13,6 +13,22 @@ Node::~Node() {
     }
 }
 
+void Node::rename() {
+    if (!token.is_synthetic("filebody")) {
+        throw std::runtime_error("Rename may only be used on filebody node");
+    }
+    std::unordered_map<std::string, std::string> global_scope_map;
+    size_t i = 0;
+    for (Node * const child : children) { // First pass: rename funcs
+        if (child->token.get_data() == "fn") {
+            child->children[0]->assign_new_name(global_scope_map, i);
+        }
+    }
+    for (Node * const child : children) {
+        child->rename(global_scope_map, i);
+    }
+}
+
 void Node::translate(Intermediate &intermediate) const {
     translate_dispatch(intermediate);
     intermediate.add_instr(Instruction(OpCode::SysCall, FuncCode::Exit));
@@ -39,6 +55,35 @@ void Node::print(Node *node, std::string const labelPrefix,
             branchPrefix + "    ");
 }
 
+void Node::assign_new_name(RenameMap &scope_map, size_t &i) {
+    std::string new_name = "v" + std::to_string(i);
+    scope_map[token.get_data()] = new_name;
+    token = Token(TokenType::Identifier, new_name);
+    i++;
+}
+
+void Node::rename(RenameMap &scope_map, size_t &i) {
+    if (token.get_data() == "fn") {
+        RenameMap func_scope_map(scope_map);
+        for (Node * const child : children[1]->children) { // args
+            child->assign_new_name(func_scope_map, i);
+        }
+        children[2]->rename(func_scope_map, i);
+    } else if (token.get_type() == TokenType::Identifier) {
+        RenameMap::const_iterator iter = scope_map.find(token.get_data());
+        if (iter == scope_map.end()) {
+            throw std::runtime_error(
+                    "Undeclared variable: " + token.get_data());
+        } else {
+            token = Token(TokenType::Identifier, iter->second);
+        }
+    } else {
+        for (Node * const child : children) {
+            child->rename(scope_map, i);
+        }
+    }
+}
+
 void Node::translate_dispatch(Intermediate &intermediate) const {
     switch (arity) {
         case 0:
@@ -63,6 +108,9 @@ void Node::translate_dispatch(Intermediate &intermediate) const {
 }
 
 void Node::translate_value(Intermediate &intermediate) const {
+    if (token.get_type() != TokenType::IntLit) {
+        throw std::runtime_error("Not implemented");
+    }
     uint32_t value = std::stoi(token.get_data());
     intermediate.add_instr(Instruction(OpCode::Push, value & 0xFFFF));
     if (value >> 16) {

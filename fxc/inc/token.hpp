@@ -15,6 +15,7 @@ public:
     TokenType get_type() const;
     std::string get_data() const;
     std::string to_string() const;
+    bool is_synthetic(std::string const &cmp_data) const;
     static std::string type_string(TokenType type);
 private:
     TokenType type;
