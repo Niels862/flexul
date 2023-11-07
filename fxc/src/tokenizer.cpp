@@ -1,6 +1,11 @@
 #include "tokenizer.hpp"
 #include <cctype>
+#include <unordered_set>
 #include <stdexcept>
+
+std::unordered_set<std::string> keywords = {
+    "fn", "return"
+};
 
 Tokenizer::Tokenizer()
         : text(), i(0) {}
@@ -47,10 +52,15 @@ void Tokenizer::cleanup() {
 
 Token Tokenizer::get_identifier() {
     size_t start = i;
+    std::string identifier;
     do {
         i++;
     } while (std::isalpha(text[i]) || std::isdigit(text[i]) || text[i] == '_');
-    return Token(TokenType::Identifier, text.substr(start, i - start));
+    identifier = text.substr(start, i - start);
+    if (keywords.find(identifier) == keywords.end()) {
+        return Token(TokenType::Identifier, identifier);
+    }
+    return Token(TokenType::Keyword, identifier);
 }
 
 Token Tokenizer::get_intlit() {

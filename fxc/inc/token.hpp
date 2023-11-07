@@ -4,7 +4,8 @@
 #define FLEXUL_TOKEN_HPP
 
 enum class TokenType {
-    Null, Identifier, IntLit, Operator, Separator, Synthetic, EndOfFile
+    Null, Identifier, IntLit, Keyword, Operator, Separator, 
+    Synthetic, EndOfFile
 };
 
 class Token {

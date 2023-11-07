@@ -63,13 +63,7 @@ void Node::assign_new_name(RenameMap &scope_map, size_t &i) {
 }
 
 void Node::rename(RenameMap &scope_map, size_t &i) {
-    if (token.get_data() == "fn") {
-        RenameMap func_scope_map(scope_map);
-        for (Node * const child : children[1]->children) { // args
-            child->assign_new_name(func_scope_map, i);
-        }
-        children[2]->rename(func_scope_map, i);
-    } else if (token.get_type() == TokenType::Identifier) {
+    if (token.get_type() == TokenType::Identifier) {
         RenameMap::const_iterator iter = scope_map.find(token.get_data());
         if (iter == scope_map.end()) {
             throw std::runtime_error(
@@ -77,6 +71,12 @@ void Node::rename(RenameMap &scope_map, size_t &i) {
         } else {
             token = Token(TokenType::Identifier, iter->second);
         }
+    } else if (token.get_data() == "fn") {
+        RenameMap func_scope_map(scope_map);
+        for (Node * const child : children[1]->children) { // args
+            child->assign_new_name(func_scope_map, i);
+        }
+        children[2]->rename(func_scope_map, i);
     } else {
         for (Node * const child : children) {
             child->rename(scope_map, i);
