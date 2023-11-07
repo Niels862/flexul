@@ -4,7 +4,7 @@
 #define FLEXUL_TOKEN_HPP
 
 enum class TokenType {
-    Null, Identifier, IntLit, Operator, Separator, EndOfFile
+    Null, Identifier, IntLit, Operator, Separator, Synthetic, EndOfFile
 };
 
 class Token {
@@ -15,6 +15,7 @@ public:
     TokenType get_type() const;
     std::string get_data() const;
     std::string to_string() const;
+    static std::string type_string(TokenType type);
 private:
     TokenType type;
     std::string data;

@@ -17,12 +17,12 @@ public:
     Instruction(OpCode opcode, FuncCode funccode, uint32_t operand = 0);
     uint32_t assemble(LabelMap const &label_map) const;
     void set_operand(uint32_t operand);
-    void set_label_ref(std::string const &label);
 private:
     OpCode opcode;
     FuncCode funccode;
     uint32_t operand;
     std::string label;
+    std::string operand_ref;
 };
 
 class Intermediate {

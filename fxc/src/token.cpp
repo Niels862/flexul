@@ -18,20 +18,30 @@ std::string Token::get_data() const {
 }
 
 std::string Token::to_string() const {
+    std::string type_string = Token::type_string(type);
+    if (data.empty()) {
+        return type_string;
+    }
+    return type_string + ": " + data;
+}
+
+std::string Token::type_string(TokenType type) {
     switch (type) {
         case TokenType::Identifier:
-            return "ID: " + data;
+            return "identifier";
         case TokenType::IntLit:
-            return "NUM: " + data;
+            return "number";
         case TokenType::Operator:
-            return "OP: " + data;
+            return "operator";
         case TokenType::Separator:
-            return "SEP: " + data;
+            return "separator";
+        case TokenType::Synthetic:
+            return "synthetic";
         case TokenType::Null:
-            return "NULL";
+            return "null";
         case TokenType::EndOfFile:
-            return "EOL";
+            return "end of file";
         default:
-            return "ERRTOKEN";
+            return "errortype";
     }
 }

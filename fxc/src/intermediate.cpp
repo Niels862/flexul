@@ -29,10 +29,6 @@ void Instruction::set_operand(uint32_t operand) {
     this->operand = operand;
 }
 
-void Instruction::set_label_ref(std::string const &label) {
-    this->label = label;
-}
-
 Intermediate::Intermediate() {}
 
 void Intermediate::assemble(std::ofstream &file) {

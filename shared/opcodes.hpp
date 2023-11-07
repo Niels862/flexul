@@ -4,21 +4,23 @@
 enum class OpCode {
     Nop = 0,
     SysCall,
+    Unary,
     Binary,
     Push,
     SetHi
 };
 
 enum class FuncCode {
-    Nop = 0,
+    Nop = 0, // binary
     Add,
     Sub,
     Mul,
     Div,
+    Mod,
 
-    Exit = 1
+    Neg = 1, // unary
+
+    Exit = 1 // syscall
 };
-
-
 
 #endif

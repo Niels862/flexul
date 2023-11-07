@@ -15,6 +15,9 @@ int main(int argc, char *argv[]) {
     }
     Program program = Program::load(file);
     program.disassemble();
-    std::cout << program.run() << std::endl;
+    std::cout << "Program finished with exit code " 
+            << program.run() << std::endl;
+    std::cout << "Stack:" << std::endl;
+    program.dump_stack();
     return 0;
 }

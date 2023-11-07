@@ -34,6 +34,15 @@ int Program::run() {
                     default: break;
                 }
                 break;
+            case OpCode::Unary:
+                a = stack[stack.size() - 1];
+                switch (funccode) {
+                    case FuncCode::Nop: break;
+                    case FuncCode::Neg: y = -a; break;
+                    default: break;
+                }
+                stack[stack.size() - 1] = y;
+                break;
             case OpCode::Binary: 
                 a = stack[stack.size() - 2];
                 b = stack[stack.size() - 1];
@@ -43,6 +52,7 @@ int Program::run() {
                     case FuncCode::Sub: y = a - b; break;
                     case FuncCode::Mul: y = a * b; break;
                     case FuncCode::Div: y = a / b; break;
+                    case FuncCode::Mod: y = a % b; break;
                     default: break;
                 }
                 stack[stack.size() - 2] = y;
@@ -58,7 +68,7 @@ int Program::run() {
         }
         ip++;
     }
-    return 0;
+    return -1;
 }
 
 void Program::dump_stack() {
@@ -78,7 +88,9 @@ void Program::disassemble_instr(uint32_t instr) const {
     FuncCode funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
     uint32_t operand = instr >> 16;
     std::string func_name;
-    if (opcode == OpCode::Binary) {
+    if (opcode == OpCode::Unary) {
+        func_name = unary_func_names[static_cast<size_t>(funccode)];
+    } else if (opcode == OpCode::Binary) {
         func_name = binary_func_names[static_cast<size_t>(funccode)];
     } else if (opcode == OpCode::SysCall) {
         func_name = syscall_func_names[static_cast<size_t>(funccode)];
