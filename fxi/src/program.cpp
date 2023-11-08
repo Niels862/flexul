@@ -17,7 +17,8 @@ Program Program::load(std::ifstream &file) {
 }
 
 int Program::run() {
-    uint32_t instr, operand, a, b, y;
+    uint32_t instr, operand;
+    int32_t a, b, y;
     OpCode opcode;
     FuncCode funccode;
     while (ip < stack.size()) {

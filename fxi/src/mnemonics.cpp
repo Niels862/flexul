@@ -9,7 +9,7 @@ std::string const unary_func_names[] = {
 };
 
 std::string const binary_func_names[] = {
-    "nop", "add", "sub", "mul", "div"
+    "nop", "add", "sub", "mul", "div", "mod"
 };
 
 std::string const syscall_func_names[] = {
