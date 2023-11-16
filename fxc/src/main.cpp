@@ -29,12 +29,13 @@ int main(int argc, char *argv[]) {
     Parser parser(infile);
     Intermediate intermediate;
     try {
-        Node *node = parser.parse();
-        node->prepare(intermediate);
-        Node::print(node);
-        node->translate(intermediate);
-        intermediate.assemble(outfile);
-        std::cout << "Successfully wrote to " << outfilename << std::endl;
+        BaseNode *node = parser.parse();
+        // node->prepare(intermediate);
+        BaseNode::print(node);
+        // node->translate(intermediate);
+        // intermediate.assemble(outfile);
+        // std::cout << "Successfully wrote to " << outfilename << std::endl;
+        return 1;
     } catch (std::exception const &e) {
         std::cerr << e.what() << std::endl;
         return 1;

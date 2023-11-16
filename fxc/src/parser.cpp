@@ -15,14 +15,14 @@ Parser::Parser(std::ifstream &file) {
 }
 
 Parser::~Parser() {
-    for (Node * const node : trees) {
+    for (BaseNode * const node : trees) {
         delete node;
     }
 }
 
-Node *Parser::parse() {
+BaseNode *Parser::parse() {
     get_token();
-    Node *root = parse_filebody();
+    BaseNode *root = parse_filebody();
     if (get_token().get_type() != TokenType::EndOfFile) {
         throw std::runtime_error(
                 "Unexpected token: " + tokenizer.get_token().to_string());
@@ -30,53 +30,44 @@ Node *Parser::parse() {
     return root;
 }
 
-Node *Parser::new_leaf(Token token) {
-    Node *node = new Node(token, 0, {});
+BaseNode *Parser::new_intlit(Token token) {
+    BaseNode *node = new IntLitNode(token);
     trees.insert(node);
     return node;
 }
 
-Node *Parser::new_unary(Token token, Node *first) {
-    Node *node = new Node(token, 1, {first});
+BaseNode *Parser::new_variable(Token token) {
+    BaseNode *node = new IntLitNode(token);
+    trees.insert(node);
+    return node;
+}
+
+BaseNode *Parser::new_unary(Token token, BaseNode *first) {
+    BaseNode *node = new UnaryNode(token, first);
     adopt(first);
     trees.insert(node);
     return node;
 }
 
-Node *Parser::new_binary(Token token, Node *first, Node *second) {
-    Node *node = new Node(token, 2, {first, second});
-    adopt(first);
-    adopt(second);
-    trees.insert(node);
-    return node;
-}
-
-Node *Parser::new_ternary(Token token, Node *first, Node *second, Node *third) {
-    Node *node = new Node(token, 3, {first, second, third});
+BaseNode *Parser::new_binary(Token token, BaseNode *first, BaseNode *second) {
+    BaseNode *node = new BinaryNode(token, first, second);
     adopt(first);
     adopt(second);
-    adopt(third);
     trees.insert(node);
     return node;
 }
 
-Node *Parser::new_n_ary(Token token, std::vector<Node *> children) {
-    Node *node = new Node(token, -1, children);
-    for (Node * const child : children) {
+BaseNode *Parser::new_block(std::vector<BaseNode *> children) {
+    BaseNode *node = new BlockNode(children);
+    for (BaseNode * const child : children) {
         adopt(child);
     }
     trees.insert(node);
     return node;
 }
 
-void Parser::adopt(Node *node) {
+void Parser::adopt(BaseNode *node) {
     if (trees.find(node) == trees.end()) {
-        for (Node * const subtree : trees) {
-            std::cerr << "Have: " << subtree << std::endl;
-            Node::print(subtree);
-        }
-        std::cerr << "Child: " << node << std::endl;
-        Node::print(node);
         throw std::runtime_error("Violation: child is not a (sub)tree");
     }
     trees.erase(node);
@@ -109,66 +100,66 @@ Token Parser::expect_type(TokenType type) {
     return token;
 }
 
-Node *Parser::parse_filebody() {
-    std::vector<Node *> nodes;
+BaseNode *Parser::parse_filebody() {
+    std::vector<BaseNode *> nodes;
     while (curr_token.get_type() != TokenType::EndOfFile) {
-        nodes.push_back(parse_function_declaration());
+        nodes.push_back(parse_statement());
     }
-    return new_n_ary(Token(TokenType::Synthetic, "filebody"), nodes);
+    return new_block(nodes);
 }
 
-Node *Parser::parse_function_declaration() {
-    Node *statement;
-    Token fn_token = expect_data("fn");
-    Node *identifier = new_leaf(expect_type(TokenType::Identifier));
-    Node *argslist = parse_argslist(true);
-    expect_data("{");
-    expect_data("return");
-    statement = parse_statement();
-    expect_data("}");
-    return new_ternary(fn_token, 
-            identifier, 
-            argslist, 
-            new_n_ary(Token(TokenType::Synthetic, "body"), {statement}));
-}
+// BaseNode *Parser::parse_function_declaration() {
+//     BaseNode *statement;
+//     Token fn_token = expect_data("fn");
+//     BaseNode *identifier = new_leaf(expect_type(TokenType::Identifier));
+//     BaseNode *argslist = parse_argslist(true);
+//     expect_data("{");
+//     expect_data("return");
+//     statement = parse_statement();
+//     expect_data("}");
+//     return new_ternary(fn_token, 
+//             identifier, 
+//             argslist, 
+//             new_n_ary(Token(TokenType::Synthetic, "body"), {statement}));
+// }
 
-Node *Parser::parse_argslist(bool declaration) {
-    std::vector<Node *> nodes;
-    Node *node;
-    expect_data("(");
-    if (curr_token.get_data() == ")") {
-        get_token();
-    } else {
-        while (true) {
-            if (declaration) {
-                node = new_leaf(expect_type(TokenType::Identifier));
-            } else {
-                node = parse_expression();
-            }
-            nodes.push_back(node);
-            if (curr_token.get_data() == ",") {
-                get_token();
-            } else {
-                expect_data(")");
-                break;
-            }
-        }
-    }
-    return new_n_ary(Token(TokenType::Synthetic, "args"), nodes);
-}
+// BaseNode *Parser::parse_argslist(bool declaration) {
+//     std::vector<BaseNode *> nodes;
+//     BaseNode *node;
+//     expect_data("(");
+//     if (curr_token.get_data() == ")") {
+//         get_token();
+//     } else {
+//         while (true) {
+//             if (declaration) {
+//                 node = new_leaf(expect_type(TokenType::Identifier));
+//             } else {
+//                 node = parse_expression();
+//             }
+//             nodes.push_back(node);
+//             if (curr_token.get_data() == ",") {
+//                 get_token();
+//             } else {
+//                 expect_data(")");
+//                 break;
+//             }
+//         }
+//     }
+//     return new_n_ary(Token(TokenType::Synthetic, "args"), nodes);
+// }
 
-Node *Parser::parse_statement() {
-    Node *node = parse_expression();
+BaseNode *Parser::parse_statement() {
+    BaseNode *node = parse_expression();
     expect_data(";");
     return node;
 }
 
-Node *Parser::parse_expression() {
+BaseNode *Parser::parse_expression() {
     return parse_sum();
 }
 
-Node *Parser::parse_sum() {
-    Node *left = parse_term();
+BaseNode *Parser::parse_sum() {
+    BaseNode *left = parse_term();
     Token token = curr_token;
     while (token.get_data() == "+" || token.get_data() == "-") {
         get_token();
@@ -178,8 +169,8 @@ Node *Parser::parse_sum() {
     return left;
 }
 
-Node *Parser::parse_term() {
-    Node *left = parse_value();
+BaseNode *Parser::parse_term() {
+    BaseNode *left = parse_value();
     Token token = curr_token;
     while (token.get_data() == "*" || token.get_data() == "/" 
             || token.get_data() == "%") {
@@ -190,18 +181,18 @@ Node *Parser::parse_term() {
     return left;
 }
 
-Node *Parser::parse_value() {
+BaseNode *Parser::parse_value() {
     Token token = curr_token;
-    Node *expression;
+    BaseNode *expression;
     if (token.get_type() == TokenType::IntLit 
             || token.get_type() == TokenType::Identifier) {
         get_token();
-        if (curr_token.get_data() == "(") {
-            return new_binary(Token(TokenType::Synthetic, "call"),
-                    new_leaf(token),
-                    parse_argslist(false));
-        }
-        return new_leaf(token);
+        // if (curr_token.get_data() == "(") {
+        //     return new_binary(Token(TokenType::Synthetic, "call"),
+        //             new_leaf(token),
+        //             parse_argslist(false));
+        // }
+        return new_intlit(token);
     }
     if (token.get_data() == "-" || token.get_data() == "+") {
         get_token();

@@ -11,29 +11,28 @@ public:
     Parser();
     Parser(std::ifstream &file);
     ~Parser();
-    void reset();
-    Node *parse();
+    BaseNode *parse();
 private:
-    Node *new_leaf(Token token);
-    Node *new_unary(Token token, Node *first);
-    Node *new_binary(Token token, Node *first, Node *second);
-    Node *new_ternary(Token token, Node *first, Node *second, Node *third);
-    Node *new_n_ary(Token token, std::vector<Node *> children);
-    void adopt(Node *node);
+    BaseNode *new_intlit(Token token);
+    BaseNode* new_variable(Token token);
+    BaseNode *new_unary(Token token, BaseNode *first);
+    BaseNode *new_binary(Token token, BaseNode *first, BaseNode *second);
+    BaseNode *new_block(std::vector<BaseNode *> children);
+    void adopt(BaseNode *BaseNode);
     Token get_token();
     Token expect_data(std::string const &data);
     Token expect_type(TokenType type);
 
-    Node *parse_filebody();
-    Node *parse_function_declaration();
-    Node *parse_argslist(bool declaration);
-    Node *parse_statement();
-    Node *parse_expression();
-    Node *parse_sum();
-    Node *parse_term();
-    Node *parse_value();
+    BaseNode *parse_filebody();
+    // BaseNode *parse_function_declaration();
+    // BaseNode *parse_argslist(bool declaration);
+    BaseNode *parse_statement();
+    BaseNode *parse_expression();
+    BaseNode *parse_sum();
+    BaseNode *parse_term();
+    BaseNode *parse_value();
     
-    std::unordered_set<Node *> trees;
+    std::unordered_set<BaseNode *> trees;
     Tokenizer tokenizer;
     Token curr_token;
 };
