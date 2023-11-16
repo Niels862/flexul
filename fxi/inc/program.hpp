@@ -1,9 +1,9 @@
+#ifndef FLEXUL_PROGRAM_HPP
+#define FLEXUL_PROGRAM_HPP
+
 #include <fstream>
 #include <vector>
 #include <cstdint>
-
-#ifndef FLEXUL_PROGRAM_HPP
-#define FLEXUL_PROGRAM_HPP
 
 class Program {
 public:

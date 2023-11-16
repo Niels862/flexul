@@ -13,9 +13,9 @@ Node::~Node() {
     }
 }
 
-void Node::rename() {
+void Node::prepare(Intermediate intermediate) {
     if (!token.is_synthetic("filebody")) {
-        throw std::runtime_error("Rename may only be used on filebody node");
+        throw std::runtime_error("Prepare may only be used on filebody node");
     }
     std::unordered_map<std::string, std::string> global_scope_map;
     size_t i = 0;
@@ -24,14 +24,26 @@ void Node::rename() {
             child->children[0]->assign_new_name(global_scope_map, i);
         }
     }
-    for (Node * const child : children) {
+    for (Node * const child : children) { // Second pass
         child->rename(global_scope_map, i);
+        if (child->token.get_data() == "fn") {
+            child->register_function(intermediate);
+        }
     }
+    intermediate.print_addr_map();
 }
 
 void Node::translate(Intermediate &intermediate) const {
     translate_dispatch(intermediate);
     intermediate.add_instr(Instruction(OpCode::SysCall, FuncCode::Exit));
+}
+
+Token Node::get_token() const {
+    return token;
+}
+
+std::vector<Node *> Node::get_children() const {
+    return children;
 }
 
 void Node::print(Node *node, std::string const labelPrefix, 
@@ -51,7 +63,7 @@ void Node::print(Node *node, std::string const labelPrefix,
                 branchPrefix + "\u2502   ");
     }
     Node::print(node->children[i], 
-            branchPrefix + "\u2514\u2500\u2500\u2500", 
+            branchPrefix + "\u2570\u2500\u2500\u2500", 
             branchPrefix + "    ");
 }
 
@@ -130,6 +142,12 @@ void Node::translate_unary(Intermediate &intermediate) const {
 void Node::translate_binary(Intermediate &intermediate) const {
     FuncCode funccode;
     std::string data = token.get_data();
+    if (data == "call") { // First push arguments, then function address
+        children[1]->translate_dispatch(intermediate);
+        children[0]->translate_dispatch(intermediate);
+        intermediate.add_instr(Instruction(OpCode::Call));
+        return;
+    }
     if (data == "+") {
         funccode = FuncCode::Add;
     } else if (data == "-") {
@@ -149,5 +167,26 @@ void Node::translate_binary(Intermediate &intermediate) const {
 }
 
 void Node::translate_ternary(Intermediate &intermediate) const {
-    children[2]->translate_dispatch(intermediate);
+    if (token.get_data() == "fn") {
+        intermediate.add_instr(Instruction(OpCode::SetFrame, 0));
+        children[2]->translate_dispatch(intermediate);
+        intermediate.add_instr(Instruction(OpCode::Ret));
+    }
+}
+
+void Node::register_function(Intermediate &intermediate) const {
+    std::cout << "Registering " << children[0]->token.get_data() << std::endl;
+    uint32_t addr = -children[1]->children.size() - 1;
+    intermediate.set_addr(children[0]->token.get_data(), {0, false});
+    for (Node * const arg_node : children[1]->children) {
+        intermediate.set_addr(arg_node->token.get_data(), {addr, true});
+        addr++;
+    }
+    addr = 1;
+}
+
+void Node::register_declarations(Intermediate &intermediate, 
+        uint32_t addr) const {
+    (void)(intermediate);
+    (void)(addr);
 }

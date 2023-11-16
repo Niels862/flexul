@@ -7,7 +7,10 @@ enum class OpCode {
     Unary,
     Binary,
     Push,
-    SetHi
+    SetHi,
+    Call,
+    SetFrame,
+    Ret
 };
 
 enum class FuncCode {

@@ -17,7 +17,7 @@ Program Program::load(std::ifstream &file) {
 }
 
 int Program::run() {
-    uint32_t instr, operand;
+    uint32_t instr, operand, addr;
     int32_t a, b, y;
     OpCode opcode;
     FuncCode funccode;
@@ -64,6 +64,33 @@ int Program::run() {
                 break;
             case OpCode::SetHi:
                 stack[stack.size() - 1] |= operand << 16;
+                break;
+            case OpCode::Call:
+                addr = stack[stack.size() - 1];
+                stack.pop_back();
+                if (addr == 0) {
+                    // temp add simulator
+                    a = stack[stack.size() - 2];
+                    b = stack[stack.size() - 1];
+                    stack[stack.size() - 2] = a + b;
+                    stack.pop_back();
+                } else {
+                    stack.push_back(bp);
+                    stack.push_back(ip);
+                    ip = addr;
+                }
+                break;
+            case OpCode::SetFrame:
+                bp = stack.size() - 1;
+                std::cout << "bp: " << bp << std::endl;
+                // reserve more memory on stack (operand)
+
+                break;
+            case OpCode::Ret:
+                ip = stack[bp];
+                bp = stack[bp] - 1;
+                a = stack[bp + 1];
+                // free stack frame (operand)
                 break;
             default: break;
         }

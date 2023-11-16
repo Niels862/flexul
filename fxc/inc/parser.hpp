@@ -1,10 +1,10 @@
+#ifndef FLEXUL_PARSER_HPP
+#define FLEXUL_PARSER_HPP
+
 #include "tokenizer.hpp"
 #include "tree.hpp"
 #include <fstream>
 #include <unordered_set>
-
-#ifndef FLEXUL_PARSER_HPP
-#define FLEXUL_PARSER_HPP
 
 class Parser {
 public:

@@ -44,3 +44,23 @@ void Intermediate::assemble(std::ofstream &file) {
 void Intermediate::add_instr(Instruction const &instr) {
     stack.push_back(instr);
 }
+
+Address Intermediate::get_addr(std::string const &var) const {
+    AddressMap::const_iterator iter = addr_map.find(var);
+    if (iter == addr_map.end()) {
+        throw std::runtime_error("No address entry for " + var);
+    }
+    return iter->second;
+}
+
+void Intermediate::set_addr(std::string const &var, Address addr) {
+    addr_map[var] = addr;
+}
+
+void Intermediate::print_addr_map() const {
+    for (auto const &addr_key_value : addr_map) {
+        std::cout << addr_key_value.first << " --> " 
+                << static_cast<int32_t>(addr_key_value.second.address) 
+                << " local: " << addr_key_value.second.relative << std::endl;
+    }
+}

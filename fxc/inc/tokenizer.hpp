@@ -1,9 +1,9 @@
+#ifndef FLEXUL_TOKENIZER_HPP
+#define FLEXUL_TOKENIZER_HPP
+
 #include "token.hpp"
 #include <vector>
 #include <string>
-
-#ifndef FLEXUL_TOKENIZER_HPP
-#define FLEXUL_TOKENIZER_HPP
 
 class Tokenizer {
 public:

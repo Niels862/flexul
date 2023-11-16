@@ -1,7 +1,7 @@
-#include <string>
-
 #ifndef FLEXUL_TOKEN_HPP
 #define FLEXUL_TOKEN_HPP
+
+#include <string>
 
 enum class TokenType {
     Null, Identifier, IntLit, Keyword, Operator, Separator, 

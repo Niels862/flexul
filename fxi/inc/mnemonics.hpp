@@ -1,7 +1,7 @@
-#include <string>
-
 #ifndef FLEXUL_MNEMONICS_HPP
 #define FLEXUL_MNEMONICS_HPP
+
+#include <string>
 
 extern std::string const op_names[];
 
