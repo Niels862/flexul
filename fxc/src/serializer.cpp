@@ -50,17 +50,17 @@ uint32_t StackEntry::assemble(LabelMap const &map) const {
 Serializer::Serializer()
         {}
 
-Serializer Serializer::add_data(uint32_t data) {
+Serializer &Serializer::add_data(uint32_t data) {
     stack.push_back(StackEntry(data));
     return *this;
 }
 
-Serializer Serializer::add_instr(OpCode opcode, FuncCode funccode) {
+Serializer &Serializer::add_instr(OpCode opcode, FuncCode funccode) {
     stack.push_back(StackEntry(opcode, funccode));
     return *this;
 }
 
-Serializer Serializer::with_label(uint32_t label) {
+Serializer &Serializer::with_label(uint32_t label) {
     if (stack.empty()) {
         throw std::runtime_error("Empty program: cannot assign label");
     }

@@ -9,14 +9,14 @@ class Program {
 public:
     Program();
     static Program load(std::ifstream &file);
-    int run();
+    uint32_t run();
     void dump_stack();
     void disassemble() const;
     void disassemble_instr(uint32_t instr) const;
 private:
     std::vector<uint32_t> stack;
-    size_t ip;
-    size_t bp;
+    uint32_t ip;
+    uint32_t bp;
 };
 
 #endif

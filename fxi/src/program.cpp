@@ -16,17 +16,13 @@ Program Program::load(std::ifstream &file) {
     return program;
 }
 
-int Program::run() {
+uint32_t Program::run() {
     uint32_t instr, addr, ret_val, n_args, ret_bp;
     int32_t a, b, y;
     OpCode opcode;
     FuncCode funccode;
     while (ip < stack.size()) {
         instr = stack[ip];
-        std::cerr << "at " << ip << std::endl;
-        disassemble_instr(instr);
-        dump_stack();
-        std::cerr << std::endl;
         opcode = static_cast<OpCode>(instr & 0xFF);
         funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
         switch (opcode) {

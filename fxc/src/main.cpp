@@ -29,15 +29,18 @@ int main(int argc, char *argv[]) {
 
     Parser parser(infile);
     Serializer serializer;
-    serializer.add_instr(OpCode::Push);
-    serializer.add_data(0);
-    serializer.add_instr(OpCode::Push);
-    serializer.add_data().with_label(100);
+    
+    serializer.add_instr(OpCode::Push)
+              .add_data(0);
+    serializer.add_instr(OpCode::Push)
+              .add_data().with_label(100);
     serializer.add_instr(OpCode::Call);
     serializer.add_instr(OpCode::SysCall, FuncCode::Exit);
-    serializer.add_instr(OpCode::Push).with_label(100);
-    serializer.add_data(42);
+    serializer.add_instr(OpCode::Push).with_label(100)
+              .add_data(1);
+    serializer.add_instr(OpCode::Unary, FuncCode::Neg);
     serializer.add_instr(OpCode::Ret);
+
     serializer.assemble(outfile);
 
     // try {

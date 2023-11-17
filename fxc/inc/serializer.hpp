@@ -29,9 +29,9 @@ private:
 class Serializer {
 public:
     Serializer();
-    Serializer add_data(uint32_t data = 0);
-    Serializer add_instr(OpCode opcode, FuncCode funccode = FuncCode::Nop);
-    Serializer with_label(uint32_t label);
+    Serializer &add_data(uint32_t data = 0);
+    Serializer &add_instr(OpCode opcode, FuncCode funccode = FuncCode::Nop);
+    Serializer &with_label(uint32_t label);
     void assemble(std::ofstream &file) const;
 private:
     std::vector<StackEntry> stack;
