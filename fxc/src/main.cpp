@@ -1,4 +1,5 @@
 #include "parser.hpp"
+#include "serializer.hpp"
 #include <iostream>
 #include <fstream>
 
@@ -27,18 +28,25 @@ int main(int argc, char *argv[]) {
     }
 
     Parser parser(infile);
-    Intermediate intermediate;
-    try {
-        BaseNode *node = parser.parse();
-        // node->prepare(intermediate);
-        BaseNode::print(node);
-        // node->translate(intermediate);
-        // intermediate.assemble(outfile);
-        // std::cout << "Successfully wrote to " << outfilename << std::endl;
-        return 1;
-    } catch (std::exception const &e) {
-        std::cerr << e.what() << std::endl;
-        return 1;
-    }
+    Serializer serializer;
+    serializer.add_instr(OpCode::Push);
+    serializer.add_data(0);
+    serializer.add_instr(OpCode::Push);
+    serializer.add_data().with_label(100);
+    serializer.add_instr(OpCode::Call);
+    serializer.add_instr(OpCode::SysCall, FuncCode::Exit);
+    serializer.add_instr(OpCode::Push).with_label(100);
+    serializer.add_data(42);
+    serializer.add_instr(OpCode::Ret);
+    serializer.assemble(outfile);
+
+    // try {
+    //     BaseNode *node = parser.parse();
+    //     BaseNode::print(node);
+    //     return 1;
+    // } catch (std::exception const &e) {
+    //     std::cerr << e.what() << std::endl;
+    //     return 1;
+    // }
     return 0;
 }

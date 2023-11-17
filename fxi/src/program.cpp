@@ -17,15 +17,18 @@ Program Program::load(std::ifstream &file) {
 }
 
 int Program::run() {
-    uint32_t instr, operand, addr;
+    uint32_t instr, addr, ret_val, n_args, ret_bp;
     int32_t a, b, y;
     OpCode opcode;
     FuncCode funccode;
     while (ip < stack.size()) {
         instr = stack[ip];
+        std::cerr << "at " << ip << std::endl;
+        disassemble_instr(instr);
+        dump_stack();
+        std::cerr << std::endl;
         opcode = static_cast<OpCode>(instr & 0xFF);
         funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
-        operand = instr >> 16;
         switch (opcode) {
             case OpCode::Nop: break;
             case OpCode::SysCall:
@@ -59,38 +62,28 @@ int Program::run() {
                 stack[stack.size() - 2] = y;
                 stack.pop_back();
                 break;
-            case OpCode::Push: 
-                stack.push_back(operand);
-                break;
-            case OpCode::SetHi:
-                stack[stack.size() - 1] |= operand << 16;
+            case OpCode::Push:
+                ip++; 
+                stack.push_back(stack[ip]);
                 break;
             case OpCode::Call:
+                // Before call: arguments, N arguments and func address pushed
                 addr = stack[stack.size() - 1];
                 stack.pop_back();
-                if (addr == 0) {
-                    // temp add simulator
-                    a = stack[stack.size() - 2];
-                    b = stack[stack.size() - 1];
-                    stack[stack.size() - 2] = a + b;
-                    stack.pop_back();
-                } else {
-                    stack.push_back(bp);
-                    stack.push_back(ip);
-                    ip = addr;
-                }
-                break;
-            case OpCode::SetFrame:
-                bp = stack.size() - 1;
-                std::cout << "bp: " << bp << std::endl;
-                // reserve more memory on stack (operand)
-
+                stack.push_back(bp);
+                stack.push_back(ip);
+                bp = stack.size();
+                ip = addr - 1;
                 break;
             case OpCode::Ret:
-                ip = stack[bp];
-                bp = stack[bp] - 1;
-                a = stack[bp + 1];
-                // free stack frame (operand)
+                n_args = stack[bp - 3];
+                ret_bp = stack[bp - 2];
+                addr = stack[bp - 1];
+                ret_val = stack[stack.size() - 1];
+                stack.resize(bp - 3 - n_args);
+                stack.push_back(ret_val);
+                bp = ret_bp;
+                ip = addr;
                 break;
             default: break;
         }

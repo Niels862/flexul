@@ -7,9 +7,7 @@ enum class OpCode {
     Unary,
     Binary,
     Push,
-    SetHi,
     Call,
-    SetFrame,
     Ret
 };
 

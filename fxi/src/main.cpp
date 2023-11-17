@@ -14,7 +14,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     Program program = Program::load(file);
-    program.disassemble();
     int exit_code = program.run();
     std::cout << "Program finished with exit code " 
             << exit_code << std::endl;
