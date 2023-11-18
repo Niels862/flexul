@@ -2,9 +2,10 @@
 #include "mnemonics.hpp"
 #include "opcodes.hpp"
 #include <iostream>
+#include <iomanip>
 
 Program::Program() 
-        : ip(0), bp(0) {}
+        : ip(0), bp(0), completed_instrs(0), execution_time(0) {}
 
 Program Program::load(std::ifstream &file) {
     Program program;
@@ -21,6 +22,8 @@ uint32_t Program::run() {
     int32_t a, b, y;
     OpCode opcode;
     FuncCode funccode;
+    clock_t start = std::clock();
+    completed_instrs = 0;
     while (ip < stack.size()) {
         instr = stack[ip];
         opcode = static_cast<OpCode>(instr & 0xFF);
@@ -30,8 +33,10 @@ uint32_t Program::run() {
             case OpCode::SysCall:
                 switch (funccode) {
                     case FuncCode::Exit:
+                        execution_time = std::clock() - start;
                         return stack[stack.size() - 1];
-                    default: break;
+                    default: 
+                        break;
                 }
                 break;
             case OpCode::Unary:
@@ -42,7 +47,8 @@ uint32_t Program::run() {
                     case FuncCode::Neg:
                         y = -a;
                         break;
-                    default: break;
+                    default: 
+                        break;
                 }
                 stack[stack.size() - 1] = y;
                 break;
@@ -70,7 +76,8 @@ uint32_t Program::run() {
                     case FuncCode::Mod: 
                         y = a % b;
                         break;
-                    default: break;
+                    default: 
+                        break;
                 }
                 stack[stack.size() - 2] = y;
                 stack.pop_back();
@@ -101,29 +108,46 @@ uint32_t Program::run() {
                 bp = ret_bp;
                 ip = addr;
                 break;
-            default: break;
+            default: 
+                break;
         }
+        completed_instrs++;
         ip++;
     }
+    execution_time = std::clock() - start;
     return -1;
 }
 
-void Program::dump_stack() {
+void Program::analytics() const {
+    double execution_time_secs = execution_time / CLOCKS_PER_SEC;
+    std::cout << "Instructions completed:  " 
+            << completed_instrs << std::endl;
+    std::cout << "Execution time:          " 
+            << execution_time_secs << std::endl;
+    std::cout << "Seconds per instruction: " 
+            << (execution_time_secs / completed_instrs) << std::endl;
+    std::cout << "Instructions per second: " 
+            << (completed_instrs / execution_time_secs) << std::endl;
+}
+
+void Program::dump_stack() const {
     for (uint32_t const &elem : stack) {
         std::cout << elem << std::endl;
     }
 }
 
 void Program::disassemble() const {
-    for (uint32_t const &elem : stack) {
-        disassemble_instr(elem);
+    uint32_t i;
+    for (i = 0; i < stack.size(); i++) {
+        std::cerr << std::setw(6) << i << ": ";
+        disassemble_instr(stack[i], i + 1 < stack.size() ? stack[i + 1] : 0, i);
     }
 }
 
-void Program::disassemble_instr(uint32_t instr) const {
+void Program::disassemble_instr(
+        uint32_t instr, uint32_t next, uint32_t &i) const {
     OpCode opcode = static_cast<OpCode>(instr & 0xFF);
     FuncCode funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
-    uint32_t operand = instr >> 16;
     std::string func_name;
     if (opcode == OpCode::Unary) {
         func_name = unary_func_names[static_cast<size_t>(funccode)];
@@ -133,10 +157,14 @@ void Program::disassemble_instr(uint32_t instr) const {
         func_name = syscall_func_names[static_cast<size_t>(funccode)];
     }
     if (func_name.empty()) {
-        std::cout << op_names[static_cast<size_t>(opcode)] 
-                << " " << operand << std::endl;
+        std::cerr << op_names[static_cast<size_t>(opcode)];
     } else {
-        std::cout << op_names[static_cast<size_t>(opcode)] 
-                << " " << func_name << " " << operand << std::endl;
+        std::cerr << op_names[static_cast<size_t>(opcode)] << " " << func_name;
+    }
+    if (opcode == OpCode::Push) {
+        std::cerr << " " << next << std::endl;
+        i++;
+    } else {
+        std::cerr << std::endl;
     }
 }

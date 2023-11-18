@@ -2,7 +2,7 @@
 #include <iostream>
 
 BaseNode::BaseNode(uint32_t arity, Token token, std::vector<BaseNode *> children)
-        : token(token), children(children) {
+        : token(token), children(children), symbol_id(0) {
     if (arity != children.size()) {
         throw std::runtime_error(
                 "Syntax tree arity mismatch: expected " + std::to_string(arity) 
@@ -11,12 +11,25 @@ BaseNode::BaseNode(uint32_t arity, Token token, std::vector<BaseNode *> children
 }
 
 BaseNode::BaseNode(Token token, std::vector<BaseNode *> children)
-        : token(token), children(children) {}
+        : token(token), children(children), symbol_id(0) {}
 
 BaseNode::~BaseNode() {
     for (BaseNode const *child : children) {
         delete child;
     }
+}
+
+void BaseNode::resolve_symbols_first_pass(Serializer &, SymbolMap &) {}
+
+void BaseNode::resolve_symbols_second_pass(
+        Serializer &serializer, SymbolMap &symbol_map) {
+    for (BaseNode *child : get_children()) {
+        child->resolve_symbols_second_pass(serializer, symbol_map);
+    }
+}
+
+uint32_t BaseNode::register_symbol(Serializer &, SymbolMap &) const {
+    return 0;
 }
 
 Token BaseNode::get_token() const {
@@ -37,6 +50,14 @@ BaseNode *BaseNode::get_second() const {
 
 BaseNode *BaseNode::get_third() const {
     return get_nth(2, "third");
+}
+
+void BaseNode::set_id(uint32_t id) {
+    symbol_id = id;
+}
+
+uint32_t BaseNode::get_id() const {
+    return symbol_id;
 }
 
 BaseNode *BaseNode::get_nth(uint32_t n, std::string const &ordinal) const {
@@ -87,8 +108,26 @@ void IntLitNode::serialize(Serializer &serializer) const {
 VariableNode::VariableNode(Token token, std::vector<BaseNode *> children)
         : BaseNode(0, token, children) {}
 
-void VariableNode::serialize(Serializer &) const {
-    throw std::runtime_error("not implemented");
+void VariableNode::resolve_symbols_second_pass(
+        Serializer &, SymbolMap &symbol_map) {
+    auto iter = symbol_map.find(get_token().get_data());
+    if (iter == symbol_map.end()) {
+        throw std::runtime_error(
+                "Unresolved reference: " + get_token().get_data());
+    }
+    set_id(iter->second);
+}
+
+uint32_t VariableNode::register_symbol(
+        Serializer &serializer, SymbolMap &symbol_map) const {
+    uint32_t symbol_id = serializer.get_symbol_id();
+    symbol_map[get_token().get_data()] = symbol_id;
+    return symbol_id;
+}
+
+void VariableNode::serialize(Serializer &serializer) const {
+    serializer.add_instr(OpCode::Push);
+    serializer.add_data().attach_label(get_id());
 }
 
 UnaryNode::UnaryNode(Token token, std::vector<BaseNode *> children)
@@ -134,8 +173,25 @@ void BinaryNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Binary, funccode);
 }
 
+CallNode::CallNode(Token token, std::vector<BaseNode *> children)
+        : BaseNode(2, token, children) {}
+
+void CallNode::serialize(Serializer &serializer) const {
+    serializer.add_instr(OpCode::Push);
+    serializer.add_data(get_second()->get_children().size());
+    get_first()->serialize(serializer);
+    serializer.add_instr(OpCode::Call);
+}
+
 BlockNode::BlockNode(Token token, std::vector<BaseNode *> children)
         : BaseNode(token, children) {}
+
+void BlockNode::resolve_symbols_first_pass(
+        Serializer &serializer, SymbolMap &symbol_map) {
+    for (BaseNode *child : get_children()) {
+        child->resolve_symbols_first_pass(serializer, symbol_map);
+    }
+}
 
 void BlockNode::serialize(Serializer &serializer) const {
     for (BaseNode const *child : get_children()) {
@@ -146,8 +202,23 @@ void BlockNode::serialize(Serializer &serializer) const {
 FunctionNode::FunctionNode(Token token, std::vector<BaseNode *> children)
         : BaseNode(3, token, children) {}
 
+void FunctionNode::resolve_symbols_first_pass(
+        Serializer &serializer, SymbolMap &symbol_map) {
+    uint32_t func_id = get_first()->register_symbol(serializer, symbol_map);
+    set_id(func_id);
+}
+
+void FunctionNode::resolve_symbols_second_pass(
+        Serializer &serializer, SymbolMap &symbol_map) {
+    get_third()->resolve_symbols_second_pass(serializer, symbol_map);
+}
+
 void FunctionNode::serialize(Serializer &serializer) const {
-    serializer.attach_entry_label();
+    uint32_t id = get_id();
+    if (id == 0) {
+        throw std::runtime_error("Unresolved name");
+    }
+    serializer.attach_label(id);
     get_third()->serialize(serializer);
 }
 

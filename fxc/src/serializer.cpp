@@ -1,4 +1,5 @@
 #include "serializer.hpp"
+#include <iostream>
 #include <stdexcept>
 
 StackEntry::StackEntry()
@@ -48,7 +49,14 @@ uint32_t StackEntry::assemble(LabelMap const &map) const {
 }
 
 Serializer::Serializer()
-        : stack({StackEntry(OpCode::Nop)}), label_counter(1) {}
+        : stack({StackEntry(OpCode::Nop)}), 
+        counter(2) {}
+
+uint32_t Serializer::get_symbol_id() {
+    uint32_t symbol_id = counter;
+    counter++;
+    return symbol_id;
+}
 
 Serializer &Serializer::add_data(uint32_t data) {
     stack.push_back(StackEntry(data));
@@ -61,15 +69,16 @@ Serializer &Serializer::add_instr(OpCode opcode, FuncCode funccode) {
 }
 
 uint32_t Serializer::attach_label() {
-    uint32_t label = label_counter;
+    uint32_t label = counter;
     stack[stack.size() - 1].set_label(label);
-    label_counter++;
+    counter++;
     return label;
 }
 
-uint32_t Serializer::attach_entry_label() {
-    stack[stack.size() - 1].set_label(0); // 0 => entry label
-    return 0;
+
+uint32_t Serializer::attach_label(uint32_t label) {
+    stack[stack.size() - 1].set_label(label);
+    return label;
 }
 
 void Serializer::references_label(uint32_t label) {
@@ -77,8 +86,22 @@ void Serializer::references_label(uint32_t label) {
 }
 
 void Serializer::serialize(BaseNode *root) {
+    std::vector<std::string> symbol_table; // maps from int_id to identifier
+    std::unordered_map<std::string, uint32_t> global_symbol_map;
+    uint32_t entry_label;
+
+    root->resolve_symbols_first_pass(*this, global_symbol_map);
+    root->resolve_symbols_second_pass(*this, global_symbol_map);
+    // Note that 'main' may not be a function name but could be another
+    // global scope definition, this is intended behavior.
+    auto iter = global_symbol_map.find("main"); // TODO: variable entry point
+    if (iter == global_symbol_map.end()) {
+        throw std::runtime_error("Entry point 'main' was not defined");
+    }
+    entry_label = iter->second;
+
     add_instr(OpCode::Push).add_data(0);
-    add_instr(OpCode::Push).add_data().references_label(0);
+    add_instr(OpCode::Push).add_data().references_label(entry_label);
     add_instr(OpCode::Call);
     add_instr(OpCode::SysCall, FuncCode::Exit);
     root->serialize(*this);

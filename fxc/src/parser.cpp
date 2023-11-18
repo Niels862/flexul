@@ -152,20 +152,28 @@ BaseNode *Parser::parse_term() {
 BaseNode *Parser::parse_value() {
     Token token = curr_token;
     BaseNode *expression;
-    if (token.get_type() == TokenType::IntLit 
-            || token.get_type() == TokenType::Identifier) {
-        get_token();
-        return add<IntLitNode>(token);
-    }
     if (token.get_data() == "-" || token.get_data() == "+") {
         get_token();
-        return add<UnaryNode>(token, {parse_value()});
-    }
-    if (token.get_data() == "(") {
+        expression = add<UnaryNode>(token, {parse_value()});
+    } else if (token.get_type() == TokenType::IntLit) {
+        get_token();
+        expression = add<IntLitNode>(token);
+    } else if (token.get_type() == TokenType::Identifier) {
+        get_token();
+        expression = add<VariableNode>(token);
+    } else if (token.get_data() == "(") {
         get_token();
         expression = parse_expression();
         expect_data(")");
-        return expression;
+    } else {
+        throw std::runtime_error("Expected value, got " + token.to_string());
     }
-    throw std::runtime_error("Expected value, got " + token.to_string());
+    if (curr_token.get_data() == "(") {
+        get_token();
+        expect_data(")");
+        expression = add<CallNode>(Token::synthetic("<call>"), {
+            expression, add<BlockNode>(Token::synthetic("<params>"))
+        });
+    }
+    return expression;
 }

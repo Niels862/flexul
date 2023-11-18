@@ -1,3 +1,11 @@
+fn f() {
+    return g() + g();
+}
+
 fn main() {
-    return 0;
+    return f();
+}
+
+fn g() {
+    return 21;
 }
