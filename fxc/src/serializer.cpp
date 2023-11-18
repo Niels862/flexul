@@ -27,7 +27,7 @@ void StackEntry::register_label(LabelMap &map, uint32_t idx) const {
             throw std::runtime_error(
                     "Redefinition of label " + std::to_string(label));
         }
-        map[label] = idx;
+        map[label] = idx + 1; // label points to next entry
     }
 }
 
@@ -48,7 +48,7 @@ uint32_t StackEntry::assemble(LabelMap const &map) const {
 }
 
 Serializer::Serializer()
-        {}
+        : stack({StackEntry(OpCode::Nop)}), label_counter(1) {}
 
 Serializer &Serializer::add_data(uint32_t data) {
     stack.push_back(StackEntry(data));
@@ -60,12 +60,28 @@ Serializer &Serializer::add_instr(OpCode opcode, FuncCode funccode) {
     return *this;
 }
 
-Serializer &Serializer::with_label(uint32_t label) {
-    if (stack.empty()) {
-        throw std::runtime_error("Empty program: cannot assign label");
-    }
+uint32_t Serializer::attach_label() {
+    uint32_t label = label_counter;
     stack[stack.size() - 1].set_label(label);
-    return *this;
+    label_counter++;
+    return label;
+}
+
+uint32_t Serializer::attach_entry_label() {
+    stack[stack.size() - 1].set_label(0); // 0 => entry label
+    return 0;
+}
+
+void Serializer::references_label(uint32_t label) {
+    stack[stack.size() - 1].set_label(label);
+}
+
+void Serializer::serialize(BaseNode *root) {
+    add_instr(OpCode::Push).add_data(0);
+    add_instr(OpCode::Push).add_data().references_label(0);
+    add_instr(OpCode::Call);
+    add_instr(OpCode::SysCall, FuncCode::Exit);
+    root->serialize(*this);
 }
 
 void Serializer::assemble(std::ofstream &file) const {

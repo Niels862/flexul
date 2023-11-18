@@ -9,6 +9,10 @@ Token::Token(TokenType type)
 Token::Token(TokenType type, std::string data) 
         : type(type), data(data) {}
 
+Token Token::synthetic(std::string data) {
+    return Token(TokenType::Synthetic, data);
+}
+
 TokenType Token::get_type() const {
     return type;
 }

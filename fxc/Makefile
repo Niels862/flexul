@@ -2,7 +2,7 @@ TARGET = fxc
 CXX = g++
 INC_DIR = inc ../shared
 SRC_DIR = src
-CFLAGS = -Wall -Wextra -Wpedantic -std=c++11 -g
+CFLAGS = -Wall -Wextra -Wpedantic -Wfatal-errors -std=c++11 -g
 
 CPPFLAGS = $(addprefix -I, $(INC_DIR))
 SOURCES = $(sort $(shell find $(SRC_DIR) -name '*.cpp'))

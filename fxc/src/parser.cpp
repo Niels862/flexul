@@ -30,36 +30,10 @@ BaseNode *Parser::parse() {
     return root;
 }
 
-BaseNode *Parser::new_intlit(Token token) {
-    BaseNode *node = new IntLitNode(token);
-    trees.insert(node);
-    return node;
-}
-
-BaseNode *Parser::new_variable(Token token) {
-    BaseNode *node = new IntLitNode(token);
-    trees.insert(node);
-    return node;
-}
-
-BaseNode *Parser::new_unary(Token token, BaseNode *first) {
-    BaseNode *node = new UnaryNode(token, first);
-    adopt(first);
-    trees.insert(node);
-    return node;
-}
-
-BaseNode *Parser::new_binary(Token token, BaseNode *first, BaseNode *second) {
-    BaseNode *node = new BinaryNode(token, first, second);
-    adopt(first);
-    adopt(second);
-    trees.insert(node);
-    return node;
-}
-
-BaseNode *Parser::new_block(std::vector<BaseNode *> children) {
-    BaseNode *node = new BlockNode(children);
-    for (BaseNode * const child : children) {
+template <typename T>
+T *Parser::add(Token token, std::vector<BaseNode *> const &children) {
+    T *node = new T(token, children);
+    for (BaseNode *child : children) {
         adopt(child);
     }
     trees.insert(node);
@@ -103,53 +77,46 @@ Token Parser::expect_type(TokenType type) {
 BaseNode *Parser::parse_filebody() {
     std::vector<BaseNode *> nodes;
     while (curr_token.get_type() != TokenType::EndOfFile) {
-        nodes.push_back(parse_statement());
+        nodes.push_back(parse_function_declaration());
     }
-    return new_block(nodes);
+    return add<BlockNode>(Token(TokenType::Synthetic, "<filebody>"), nodes);
 }
 
-// BaseNode *Parser::parse_function_declaration() {
-//     BaseNode *statement;
-//     Token fn_token = expect_data("fn");
-//     BaseNode *identifier = new_leaf(expect_type(TokenType::Identifier));
-//     BaseNode *argslist = parse_argslist(true);
-//     expect_data("{");
-//     expect_data("return");
-//     statement = parse_statement();
-//     expect_data("}");
-//     return new_ternary(fn_token, 
-//             identifier, 
-//             argslist, 
-//             new_n_ary(Token(TokenType::Synthetic, "body"), {statement}));
-// }
+BaseNode *Parser::parse_function_declaration() {
+    Token fn_token = expect_data("fn");
+    BaseNode *identifier = add<VariableNode>(
+            expect_type(TokenType::Identifier));
+    BaseNode *params_list = add<BlockNode>(Token::synthetic("<params>"));
+    expect_data("(");
+    expect_data(")");
+    BaseNode *body = parse_braced_block();
+    return add<FunctionNode>(fn_token, {
+        identifier, params_list, body
+    });
+}
 
-// BaseNode *Parser::parse_argslist(bool declaration) {
-//     std::vector<BaseNode *> nodes;
-//     BaseNode *node;
-//     expect_data("(");
-//     if (curr_token.get_data() == ")") {
-//         get_token();
-//     } else {
-//         while (true) {
-//             if (declaration) {
-//                 node = new_leaf(expect_type(TokenType::Identifier));
-//             } else {
-//                 node = parse_expression();
-//             }
-//             nodes.push_back(node);
-//             if (curr_token.get_data() == ",") {
-//                 get_token();
-//             } else {
-//                 expect_data(")");
-//                 break;
-//             }
-//         }
-//     }
-//     return new_n_ary(Token(TokenType::Synthetic, "args"), nodes);
-// }
+BaseNode *Parser::parse_braced_block() {
+    std::vector<BaseNode *> statements;
+    expect_data("{");
+    while (curr_token.get_data() != "}") {
+        statements.push_back(parse_statement());
+        if (curr_token.get_type() == TokenType::EndOfFile) {
+            throw std::runtime_error("EOF before closing brace");
+        }
+    }
+    get_token();
+    return add<BlockNode>(Token(TokenType::Synthetic, "<block>"), statements);
+}
 
 BaseNode *Parser::parse_statement() {
-    BaseNode *node = parse_expression();
+    BaseNode *node;
+    Token token = curr_token;
+    if (token.get_data() == "return") {
+        get_token();
+        node = add<ReturnNode>(token, {parse_expression()});
+    } else {
+        node = parse_expression();
+    }
     expect_data(";");
     return node;
 }
@@ -163,7 +130,7 @@ BaseNode *Parser::parse_sum() {
     Token token = curr_token;
     while (token.get_data() == "+" || token.get_data() == "-") {
         get_token();
-        left = new_binary(token, left, parse_term());
+        left = add<BinaryNode>(token, {left, parse_term()});
         token = curr_token;
     }
     return left;
@@ -175,7 +142,7 @@ BaseNode *Parser::parse_term() {
     while (token.get_data() == "*" || token.get_data() == "/" 
             || token.get_data() == "%") {
         get_token();
-        left = new_binary(token, left, parse_value());
+        left = add<BinaryNode>(token, {left, parse_value()});
         token = curr_token;
     }
     return left;
@@ -187,16 +154,11 @@ BaseNode *Parser::parse_value() {
     if (token.get_type() == TokenType::IntLit 
             || token.get_type() == TokenType::Identifier) {
         get_token();
-        // if (curr_token.get_data() == "(") {
-        //     return new_binary(Token(TokenType::Synthetic, "call"),
-        //             new_leaf(token),
-        //             parse_argslist(false));
-        // }
-        return new_intlit(token);
+        return add<IntLitNode>(token);
     }
     if (token.get_data() == "-" || token.get_data() == "+") {
         get_token();
-        return new_unary(token, parse_value());
+        return add<UnaryNode>(token, {parse_value()});
     }
     if (token.get_data() == "(") {
         get_token();

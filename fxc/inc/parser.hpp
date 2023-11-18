@@ -13,19 +13,16 @@ public:
     ~Parser();
     BaseNode *parse();
 private:
-    BaseNode *new_intlit(Token token);
-    BaseNode* new_variable(Token token);
-    BaseNode *new_unary(Token token, BaseNode *first);
-    BaseNode *new_binary(Token token, BaseNode *first, BaseNode *second);
-    BaseNode *new_block(std::vector<BaseNode *> children);
+    template <typename T>
+    T *add(Token token, std::vector<BaseNode *> const &children = {});
     void adopt(BaseNode *BaseNode);
     Token get_token();
     Token expect_data(std::string const &data);
     Token expect_type(TokenType type);
 
     BaseNode *parse_filebody();
-    // BaseNode *parse_function_declaration();
-    // BaseNode *parse_argslist(bool declaration);
+    BaseNode *parse_function_declaration();
+    BaseNode *parse_braced_block();
     BaseNode *parse_statement();
     BaseNode *parse_expression();
     BaseNode *parse_sum();

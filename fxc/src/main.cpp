@@ -29,27 +29,15 @@ int main(int argc, char *argv[]) {
 
     Parser parser(infile);
     Serializer serializer;
-    
-    serializer.add_instr(OpCode::Push)
-              .add_data(0);
-    serializer.add_instr(OpCode::Push)
-              .add_data().with_label(100);
-    serializer.add_instr(OpCode::Call);
-    serializer.add_instr(OpCode::SysCall, FuncCode::Exit);
-    serializer.add_instr(OpCode::Push).with_label(100)
-              .add_data(1);
-    serializer.add_instr(OpCode::Unary, FuncCode::Neg);
-    serializer.add_instr(OpCode::Ret);
 
-    serializer.assemble(outfile);
-
-    // try {
-    //     BaseNode *node = parser.parse();
-    //     BaseNode::print(node);
-    //     return 1;
-    // } catch (std::exception const &e) {
-    //     std::cerr << e.what() << std::endl;
-    //     return 1;
-    // }
+    try {
+        BaseNode *root = parser.parse();
+        BaseNode::print(root);
+        serializer.serialize(root);
+        serializer.assemble(outfile);
+    } catch (std::exception const &e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
     return 0;
 }
