@@ -75,7 +75,6 @@ uint32_t Serializer::attach_label() {
     return label;
 }
 
-
 uint32_t Serializer::attach_label(uint32_t label) {
     stack[stack.size() - 1].set_label(label);
     return label;
