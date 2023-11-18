@@ -7,6 +7,7 @@ enum class OpCode {
     Unary,
     Binary,
     Push,
+    Pop,
     Call,
     Ret
 };

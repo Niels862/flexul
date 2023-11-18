@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
         serializer.serialize(root);
         serializer.assemble(outfile);
     } catch (std::exception const &e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << "Error: " + std::string(e.what()) << std::endl;
         return 1;
     }
     return 0;

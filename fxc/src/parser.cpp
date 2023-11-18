@@ -115,7 +115,8 @@ BaseNode *Parser::parse_statement() {
         get_token();
         node = add<ReturnNode>(token, {parse_expression()});
     } else {
-        node = parse_expression();
+        node = add<ExpressionStatementNode>(
+                Token::synthetic("<expr-stmt>"), {parse_expression()});
     }
     expect_data(";");
     return node;

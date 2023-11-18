@@ -158,3 +158,12 @@ void ReturnNode::serialize(Serializer &serializer) const {
     get_first()->serialize(serializer);
     serializer.add_instr(OpCode::Ret);
 }
+
+ExpressionStatementNode::ExpressionStatementNode(
+        Token token, std::vector<BaseNode *> children)
+        : BaseNode(1, token, children) {}
+
+void ExpressionStatementNode::serialize(Serializer &serializer) const {
+    get_first()->serialize(serializer);
+    serializer.add_instr(OpCode::Pop);
+}

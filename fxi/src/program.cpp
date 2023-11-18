@@ -37,8 +37,11 @@ uint32_t Program::run() {
             case OpCode::Unary:
                 a = stack[stack.size() - 1];
                 switch (funccode) {
-                    case FuncCode::Nop: break;
-                    case FuncCode::Neg: y = -a; break;
+                    case FuncCode::Nop:
+                        break;
+                    case FuncCode::Neg:
+                        y = -a;
+                        break;
                     default: break;
                 }
                 stack[stack.size() - 1] = y;
@@ -47,12 +50,26 @@ uint32_t Program::run() {
                 a = stack[stack.size() - 2];
                 b = stack[stack.size() - 1];
                 switch (funccode) {
-                    case FuncCode::Nop: break;
-                    case FuncCode::Add: y = a + b; break;
-                    case FuncCode::Sub: y = a - b; break;
-                    case FuncCode::Mul: y = a * b; break;
-                    case FuncCode::Div: y = a / b; break;
-                    case FuncCode::Mod: y = a % b; break;
+                    case FuncCode::Nop: 
+                        break;
+                    case FuncCode::Add:
+                        y = a + b; 
+                        break;
+                    case FuncCode::Sub:
+                        y = a - b;
+                        break;
+                    case FuncCode::Mul:
+                        y = a * b;
+                        break;
+                    case FuncCode::Div:
+                        if (b == 0) {
+                            throw std::runtime_error("Division by zero");
+                        }
+                        y = a / b;
+                        break;
+                    case FuncCode::Mod: 
+                        y = a % b;
+                        break;
                     default: break;
                 }
                 stack[stack.size() - 2] = y;
@@ -61,6 +78,9 @@ uint32_t Program::run() {
             case OpCode::Push:
                 ip++; 
                 stack.push_back(stack[ip]);
+                break;
+            case OpCode::Pop:
+                stack.pop_back();
                 break;
             case OpCode::Call:
                 // Before call: arguments, N arguments and func address pushed

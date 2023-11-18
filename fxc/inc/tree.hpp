@@ -73,4 +73,10 @@ public:
     void serialize(Serializer &serializer) const;
 };
 
+class ExpressionStatementNode : public BaseNode {
+public:
+    ExpressionStatementNode(Token token, std::vector<BaseNode *> children);
+    void serialize(Serializer &serializer) const;
+};
+
 #endif

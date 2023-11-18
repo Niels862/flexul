@@ -1,7 +1,7 @@
 #include "mnemonics.hpp"
 
 std::string const op_names[] = {
-    "nop", "syscall", "unary", "binary", "push", "call",
+    "nop", "syscall", "unary", "binary", "push", "pop", "call",
     "ret"
 };
 

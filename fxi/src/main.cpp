@@ -13,9 +13,14 @@ int main(int argc, char *argv[]) {
                 << std::endl;
         return 1;
     }
-    Program program = Program::load(file);
-    uint32_t exit_code = program.run();
-    std::cout << "Program finished with exit code " 
-            << exit_code << std::endl;
+    try {
+        Program program = Program::load(file);
+        uint32_t exit_code = program.run();
+        std::cout << "Program finished with exit code " 
+                << exit_code << std::endl;
+    } catch (std::exception const &e) {
+        std::cerr << "Error: " + std::string(e.what()) << std::endl;
+        return 1;
+    }
     return 0;
 }
