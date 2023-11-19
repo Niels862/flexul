@@ -177,6 +177,7 @@ CallNode::CallNode(Token token, std::vector<BaseNode *> children)
         : BaseNode(2, token, children) {}
 
 void CallNode::serialize(Serializer &serializer) const {
+    get_second()->serialize(serializer);
     serializer.add_instr(OpCode::Push);
     serializer.add_data(get_second()->get_children().size());
     get_first()->serialize(serializer);
@@ -220,6 +221,16 @@ void FunctionNode::serialize(Serializer &serializer) const {
     }
     serializer.attach_label(id);
     get_third()->serialize(serializer);
+}
+
+ExpressionListNode::ExpressionListNode(
+        Token token, std::vector<BaseNode *> children)
+        : BaseNode(token, children) {}
+
+void ExpressionListNode::serialize(Serializer &serializer) const {
+    for (BaseNode const *child : get_children()) {
+        child->serialize(serializer);
+    }
 }
 
 ReturnNode::ReturnNode(Token token, std::vector<BaseNode *> children)

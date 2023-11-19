@@ -22,6 +22,7 @@ private:
 
     BaseNode *parse_filebody();
     BaseNode *parse_function_declaration();
+    BaseNode *parse_param_list(bool is_declaration);
     BaseNode *parse_braced_block();
     BaseNode *parse_statement();
     BaseNode *parse_expression();

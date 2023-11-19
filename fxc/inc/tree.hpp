@@ -101,6 +101,13 @@ public:
     void serialize(Serializer &serializer) const override;
 };
 
+class ExpressionListNode : public BaseNode {
+public:
+    ExpressionListNode(Token token, std::vector<BaseNode *> children);
+
+    void serialize(Serializer &serializer) const override;
+};
+
 class ReturnNode : public BaseNode {
 public:
     ReturnNode(Token token, std::vector<BaseNode *> children);

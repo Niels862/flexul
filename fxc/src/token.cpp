@@ -1,4 +1,5 @@
 #include "token.hpp"
+#include <stdexcept>
 
 Token::Token() 
         : type(TokenType::Null), data("") {}

@@ -162,7 +162,12 @@ void Program::disassemble_instr(
         std::cerr << op_names[static_cast<size_t>(opcode)] << " " << func_name;
     }
     if (opcode == OpCode::Push) {
-        std::cerr << " " << next << std::endl;
+        if (next >> 31) {
+            std::cerr << " " << static_cast<int32_t>(next) 
+                    << " (" << next << ")" << std::endl;
+        } else {
+            std::cerr << " " << next << std::endl;
+        }
         i++;
     } else {
         std::cerr << std::endl;

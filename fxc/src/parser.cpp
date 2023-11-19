@@ -86,13 +86,36 @@ BaseNode *Parser::parse_function_declaration() {
     Token fn_token = expect_data("fn");
     BaseNode *identifier = add<VariableNode>(
             expect_type(TokenType::Identifier));
-    BaseNode *params_list = add<BlockNode>(Token::synthetic("<params>"));
-    expect_data("(");
-    expect_data(")");
+    BaseNode *param_list = parse_param_list(true);
     BaseNode *body = parse_braced_block();
     return add<FunctionNode>(fn_token, {
-        identifier, params_list, body
+        identifier, param_list, body
     });
+}
+
+BaseNode *Parser::parse_param_list(bool is_declaration) {
+    std::vector<BaseNode *> params;
+    BaseNode *param;
+    expect_data("(");
+    if (curr_token.get_data() == ")") {
+        get_token();
+    } else {
+        while (true) {
+            if (is_declaration) {
+                param = add<VariableNode>(expect_type(TokenType::Identifier));
+            } else {
+                param = parse_expression();
+            }
+            params.push_back(param);
+            if (curr_token.get_data() == ",") {
+                get_token();
+            } else {
+                expect_data(")");
+                break;
+            }
+        }
+    }
+    return add<ExpressionListNode>(Token::synthetic("<params>"), params);
 }
 
 BaseNode *Parser::parse_braced_block() {
@@ -169,10 +192,9 @@ BaseNode *Parser::parse_value() {
         throw std::runtime_error("Expected value, got " + token.to_string());
     }
     if (curr_token.get_data() == "(") {
-        get_token();
-        expect_data(")");
+        BaseNode *param_list = parse_param_list(false);
         expression = add<CallNode>(Token::synthetic("<call>"), {
-            expression, add<BlockNode>(Token::synthetic("<params>"))
+            expression, param_list
         });
     }
     return expression;
