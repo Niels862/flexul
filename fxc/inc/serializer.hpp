@@ -3,6 +3,7 @@
 
 #include "tree.hpp"
 #include "opcodes.hpp"
+#include "symbol.hpp"
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -10,8 +11,6 @@
 #include <fstream>
 
 using LabelMap = std::unordered_map<uint32_t, uint32_t>;
-
-using SymbolMap = std::unordered_map<std::string, uint32_t>;
 
 class BaseNode;
 
@@ -38,6 +37,8 @@ public:
     Serializer();
 
     uint32_t get_symbol_id();
+    void register_symbol(SymbolEntry const &entry);
+    SymbolEntry const &get_symbol_entry(uint32_t symbol_id);
 
     Serializer &add_data(uint32_t data = 0);
     Serializer &add_instr(OpCode opcode, FuncCode funccode = FuncCode::Nop);
@@ -49,12 +50,13 @@ public:
     void serialize(BaseNode *root);
     void assemble(std::ofstream &file) const;
 private:
-    std::vector<StackEntry> stack;
+    std::vector<SymbolEntry> symbol_table;
     // First used to give each symbol a unique id, then to attach labels
     // Symbol ids are also used as labels
     // 0 -> invalid/unset id
     // 1 -> entry point id
     uint32_t counter;
+    std::vector<StackEntry> stack;
 };
 
 #endif

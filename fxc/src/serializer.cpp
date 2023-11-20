@@ -49,13 +49,29 @@ uint32_t StackEntry::assemble(LabelMap const &map) const {
 }
 
 Serializer::Serializer()
-        : stack({StackEntry(OpCode::Nop)}), 
-        counter(2) {}
+        : symbol_table({
+            {0, StorageType::Invalid, 0}, 
+            {1, StorageType::Absolute, 0}
+        }), counter(2), stack({StackEntry(OpCode::Nop)}) {}
 
 uint32_t Serializer::get_symbol_id() {
     uint32_t symbol_id = counter;
     counter++;
     return symbol_id;
+}
+
+void Serializer::register_symbol(SymbolEntry const &entry) {
+    if (entry.id != symbol_table.size()) {
+        throw std::runtime_error(
+                "Registered symbol ID does not match expected value: got "
+                + std::to_string(entry.id) + ", expected "
+                + std::to_string(symbol_table.size()));
+    }
+    symbol_table.push_back(entry);
+}
+
+SymbolEntry const &Serializer::get_symbol_entry(uint32_t symbol_id) {
+    return symbol_table[symbol_id];
 }
 
 Serializer &Serializer::add_data(uint32_t data) {
@@ -86,7 +102,7 @@ void Serializer::references_label(uint32_t label) {
 
 void Serializer::serialize(BaseNode *root) {
     std::vector<std::string> symbol_table; // maps from int_id to identifier
-    std::unordered_map<std::string, uint32_t> global_symbol_map;
+    SymbolMap global_symbol_map;
     uint32_t entry_label;
 
     root->resolve_symbols_first_pass(*this, global_symbol_map);

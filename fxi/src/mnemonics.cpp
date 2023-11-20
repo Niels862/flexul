@@ -1,8 +1,9 @@
 #include "mnemonics.hpp"
 
 std::string const op_names[] = {
-    "NOP", "SYSCALL", "UNARY", "BINARY", "PUSH", "POP", "CALL",
-    "RET"
+    "NOP", "SYSCALL", "UNARY", "BINARY", 
+    "PUSH", "POP", "LOADREL", "LOADABS", 
+    "CALL", "RET"
 };
 
 std::string const unary_func_names[] = {

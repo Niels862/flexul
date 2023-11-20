@@ -28,7 +28,8 @@ void BaseNode::resolve_symbols_second_pass(
     }
 }
 
-uint32_t BaseNode::register_symbol(Serializer &, SymbolMap &) const {
+uint32_t BaseNode::register_symbol(
+        Serializer &, SymbolMap &, StorageType, uint32_t) const {
     return 0;
 }
 
@@ -76,7 +77,12 @@ void BaseNode::print(BaseNode *node, std::string const labelPrefix,
         std::cerr << labelPrefix << "NULL" << std::endl;
         return;
     }
-    std::cerr << labelPrefix << node->token.get_data() << std::endl;
+    std::cerr << labelPrefix << node->token.get_data();
+    if (node->get_id() != 0) {
+        std::cerr << " (" << node->get_id() << ")" << std::endl;
+    } else {
+        std::cerr << std::endl;
+    }
     if (node->children.empty()) {
         return;
     }
@@ -119,15 +125,27 @@ void VariableNode::resolve_symbols_second_pass(
 }
 
 uint32_t VariableNode::register_symbol(
-        Serializer &serializer, SymbolMap &symbol_map) const {
+        Serializer &serializer, SymbolMap &symbol_map, 
+        StorageType storage_type, uint32_t value) const {
     uint32_t symbol_id = serializer.get_symbol_id();
     symbol_map[get_token().get_data()] = symbol_id;
+    serializer.register_symbol({symbol_id, storage_type, value});
     return symbol_id;
 }
 
 void VariableNode::serialize(Serializer &serializer) const {
-    serializer.add_instr(OpCode::Push);
-    serializer.add_data().attach_label(get_id());
+    SymbolEntry entry = serializer.get_symbol_entry(get_id());
+        serializer.add_instr(OpCode::Push);
+    if (entry.storage_type == StorageType::Absolute) {
+        serializer.add_data().attach_label(get_id());
+    } else if (entry.storage_type == StorageType::Relative) {
+        serializer.add_data(entry.value);
+        serializer.add_instr(OpCode::LoadRel);
+    } else {
+        throw std::runtime_error(
+                "Invalid storage type: " 
+                + std::to_string(static_cast<int>(entry.storage_type)));
+    }
 }
 
 UnaryNode::UnaryNode(Token token, std::vector<BaseNode *> children)
@@ -205,13 +223,23 @@ FunctionNode::FunctionNode(Token token, std::vector<BaseNode *> children)
 
 void FunctionNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
-    uint32_t func_id = get_first()->register_symbol(serializer, symbol_map);
+    uint32_t func_id = get_first()->register_symbol(
+            serializer, symbol_map, StorageType::Absolute, 0);
     set_id(func_id);
 }
 
 void FunctionNode::resolve_symbols_second_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
-    get_third()->resolve_symbols_second_pass(serializer, symbol_map);
+    SymbolMap function_scope_map = symbol_map;
+    uint32_t position = -3 - get_second()->get_children().size();
+    for (BaseNode *child : get_second()->get_children()) {
+        child->set_id(child->register_symbol(
+                serializer, function_scope_map, 
+                StorageType::Relative, position));
+        position++;
+    }
+    std::cerr << std::endl;
+    get_third()->resolve_symbols_second_pass(serializer, function_scope_map);
 }
 
 void FunctionNode::serialize(Serializer &serializer) const {

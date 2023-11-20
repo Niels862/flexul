@@ -7,5 +7,9 @@ fn main() {
 }
 
 fn g(a, b) {
-    return 21;
+    return h() + a + b;
+}
+
+fn h() {
+    return 2 * 5;
 }

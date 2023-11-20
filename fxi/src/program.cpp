@@ -89,6 +89,14 @@ uint32_t Program::run() {
             case OpCode::Pop:
                 stack.pop_back();
                 break;
+            case OpCode::LoadRel:
+                a = stack[stack.size() - 1];
+                stack[stack.size() - 1] = stack[bp + a];
+                break;
+            case OpCode::LoadAbs:
+                a = stack[stack.size() - 1];
+                stack[stack.size() - 1] = stack[a];
+                break;
             case OpCode::Call:
                 // Before call: arguments, N arguments and func address pushed
                 addr = stack[stack.size() - 1];

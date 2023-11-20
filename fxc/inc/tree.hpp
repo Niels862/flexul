@@ -3,10 +3,9 @@
 
 #include "token.hpp"
 #include "serializer.hpp"
+#include "symbol.hpp"
 #include <vector>
 #include <unordered_map>
-
-using SymbolMap = std::unordered_map<std::string, uint32_t>;
 
 class Serializer;
 
@@ -21,7 +20,8 @@ public:
     virtual void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &symbol_map);
     virtual uint32_t register_symbol(
-            Serializer &serializer, SymbolMap &symbol_map) const;
+            Serializer &serializer, SymbolMap &symbol_map, 
+            StorageType storage_type, uint32_t value) const;
     virtual void serialize(Serializer &serializer) const = 0;
     
     Token get_token() const;
@@ -56,7 +56,8 @@ public:
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
     uint32_t register_symbol(
-            Serializer &serializer, SymbolMap &symbol_map) const override;
+            Serializer &serializer, SymbolMap &symbol_map, 
+            StorageType storage_type, uint32_t value) const override;
     void serialize(Serializer &serializer) const override;
 };
 

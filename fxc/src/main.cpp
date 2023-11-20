@@ -32,8 +32,8 @@ int main(int argc, char *argv[]) {
 
     try {
         BaseNode *root = parser.parse();
-        BaseNode::print(root);
         serializer.serialize(root);
+        BaseNode::print(root);
         serializer.assemble(outfile);
     } catch (std::exception const &e) {
         std::cerr << "Error: " + std::string(e.what()) << std::endl;
