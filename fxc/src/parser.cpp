@@ -154,9 +154,9 @@ BaseNode *Parser::parse_ternary() {
     Token token = curr_token;
     if (token.get_data() == "?") {
         get_token();
-        BaseNode *expr_true = parse_assignment();
+        BaseNode *expr_true = parse_ternary();
         expect_data(":");
-        BaseNode *expr_false = parse_assignment();
+        BaseNode *expr_false = parse_ternary();
         return add<TernaryNode>(token, {expr, expr_true, expr_false});
     }
     return expr;
