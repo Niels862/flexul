@@ -7,6 +7,7 @@ fn main() {
 }
 
 fn g(a, b) {
+    a = b = 5;
     return h() + a + b;
 }
 

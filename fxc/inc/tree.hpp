@@ -23,7 +23,8 @@ public:
             Serializer &serializer, SymbolMap &symbol_map, 
             StorageType storage_type, uint32_t value) const;
     virtual void serialize(Serializer &serializer) const = 0;
-    
+    virtual void serialize_load_address(Serializer &serializer) const;
+
     Token get_token() const;
     const std::vector<BaseNode *> &get_children() const;
     BaseNode *get_first() const;
@@ -59,6 +60,7 @@ public:
             Serializer &serializer, SymbolMap &symbol_map, 
             StorageType storage_type, uint32_t value) const override;
     void serialize(Serializer &serializer) const override;
+    void serialize_load_address(Serializer &serializer) const;
 };
 
 class UnaryNode : public BaseNode {

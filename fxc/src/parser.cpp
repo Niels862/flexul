@@ -146,7 +146,17 @@ BaseNode *Parser::parse_statement() {
 }
 
 BaseNode *Parser::parse_expression() {
-    return parse_sum();
+    return parse_assignment();
+}
+
+BaseNode *Parser::parse_assignment() {
+    BaseNode *left = parse_sum();
+    Token token = curr_token;
+    if (token.get_data() == "=") {
+        get_token();
+        return add<BinaryNode>(token, {left, parse_assignment()});
+    }
+    return left;
 }
 
 BaseNode *Parser::parse_sum() {

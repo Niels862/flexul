@@ -2,7 +2,7 @@
 
 std::string const op_names[] = {
     "NOP", "SYSCALL", "UNARY", "BINARY", 
-    "PUSH", "POP", "LOADREL", "LOADABS", 
+    "PUSH", "POP", "LOADREL", "LOADABS", "LOADADDRREL",
     "CALL", "RET"
 };
 
@@ -11,7 +11,7 @@ std::string const unary_func_names[] = {
 };
 
 std::string const binary_func_names[] = {
-    "NOP", "ADD", "SUB", "MUL", "DIV", "MOD"
+    "NOP", "ADD", "SUB", "MUL", "DIV", "MOD", "ASSIGN"
 };
 
 std::string const syscall_func_names[] = {

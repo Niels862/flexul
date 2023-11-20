@@ -26,6 +26,7 @@ private:
     BaseNode *parse_braced_block();
     BaseNode *parse_statement();
     BaseNode *parse_expression();
+    BaseNode *parse_assignment();
     BaseNode *parse_sum();
     BaseNode *parse_term();
     BaseNode *parse_value();

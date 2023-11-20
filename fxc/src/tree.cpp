@@ -33,6 +33,8 @@ uint32_t BaseNode::register_symbol(
     return 0;
 }
 
+void BaseNode::serialize_load_address(Serializer &) const {}
+
 Token BaseNode::get_token() const {
     return token;
 }
@@ -135,12 +137,27 @@ uint32_t VariableNode::register_symbol(
 
 void VariableNode::serialize(Serializer &serializer) const {
     SymbolEntry entry = serializer.get_symbol_entry(get_id());
-        serializer.add_instr(OpCode::Push);
+    serializer.add_instr(OpCode::Push);
     if (entry.storage_type == StorageType::Absolute) {
         serializer.add_data().attach_label(get_id());
     } else if (entry.storage_type == StorageType::Relative) {
         serializer.add_data(entry.value);
         serializer.add_instr(OpCode::LoadRel);
+    } else {
+        throw std::runtime_error(
+                "Invalid storage type: " 
+                + std::to_string(static_cast<int>(entry.storage_type)));
+    }
+}
+
+void VariableNode::serialize_load_address(Serializer &serializer) const {
+    SymbolEntry entry = serializer.get_symbol_entry(get_id());
+    serializer.add_instr(OpCode::Push);
+    if (entry.storage_type == StorageType::Absolute) { // TODO: think about this
+        serializer.add_data().attach_label(get_id());
+    } else if (entry.storage_type == StorageType::Relative) {
+        serializer.add_data(entry.value);
+        serializer.add_instr(OpCode::LoadAddrRel);
     } else {
         throw std::runtime_error(
                 "Invalid storage type: " 
@@ -171,6 +188,14 @@ BinaryNode::BinaryNode(Token token, std::vector<BaseNode *> children)
 void BinaryNode::serialize(Serializer &serializer) const {
     FuncCode funccode;
     Token token = get_token();
+
+    if (token.get_data() == "=") {
+        get_first()->serialize_load_address(serializer);
+        get_second()->serialize(serializer);
+        serializer.add_instr(OpCode::Binary, FuncCode::Assign);
+        return;
+    }
+
     if (token.get_data() == "+") {
         funccode = FuncCode::Add;
     } else if (token.get_data() == "-") {
@@ -238,7 +263,6 @@ void FunctionNode::resolve_symbols_second_pass(
                 StorageType::Relative, position));
         position++;
     }
-    std::cerr << std::endl;
     get_third()->resolve_symbols_second_pass(serializer, function_scope_map);
 }
 

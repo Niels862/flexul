@@ -76,6 +76,9 @@ uint32_t Program::run() {
                     case FuncCode::Mod: 
                         y = a % b;
                         break;
+                    case FuncCode::Assign:
+                        stack[a] = b;
+                        y = b;
                     default: 
                         break;
                 }
@@ -96,6 +99,10 @@ uint32_t Program::run() {
             case OpCode::LoadAbs:
                 a = stack[stack.size() - 1];
                 stack[stack.size() - 1] = stack[a];
+                break;
+            case OpCode::LoadAddrRel:
+                a = stack[stack.size() - 1];
+                stack[stack.size() - 1] = bp + a;
                 break;
             case OpCode::Call:
                 // Before call: arguments, N arguments and func address pushed

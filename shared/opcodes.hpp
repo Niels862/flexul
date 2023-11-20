@@ -10,6 +10,7 @@ enum class OpCode {
     Pop,
     LoadRel,
     LoadAbs,
+    LoadAddrRel,
     Call,
     Ret
 };
@@ -21,6 +22,7 @@ enum class FuncCode {
     Mul,
     Div,
     Mod,
+    Assign,
 
     Neg = 1, // unary
 
