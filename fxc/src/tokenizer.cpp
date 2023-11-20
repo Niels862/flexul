@@ -88,7 +88,8 @@ Token Tokenizer::get_separator() {
 bool is_op_char(char c) {
     return c == '+' || c == '-' || c == '*' || c == '/' || c == '%'
             || c == '&' || c == '|' || c == '^' || c == '=' || c == '!'
-            || c == '>' || c == '<' || c == '.' || c == '~';
+            || c == '>' || c == '<' || c == '.' || c == '~' || c == '?'
+            || c == ':';
 }
 
 bool is_sep_char(char c) {

@@ -146,13 +146,29 @@ BaseNode *Parser::parse_statement() {
 }
 
 BaseNode *Parser::parse_expression() {
-    return parse_assignment();
+    return parse_ternary();
+}
+
+BaseNode *Parser::parse_ternary() {
+    BaseNode *expr = parse_assignment();
+    Token token = curr_token;
+    if (token.get_data() == "?") {
+        get_token();
+        BaseNode *expr_true = parse_assignment();
+        expect_data(":");
+        BaseNode *expr_false = parse_assignment();
+        return add<TernaryNode>(token, {expr, expr_true, expr_false});
+    }
+    return expr;
 }
 
 BaseNode *Parser::parse_assignment() {
     BaseNode *left = parse_sum();
     Token token = curr_token;
     if (token.get_data() == "=") {
+        if (!left->is_lvalue()) {
+            throw std::runtime_error("Expected lvalue");
+        }
         get_token();
         return add<BinaryNode>(token, {left, parse_assignment()});
     }

@@ -3,7 +3,7 @@
 std::string const op_names[] = {
     "NOP", "SYSCALL", "UNARY", "BINARY", 
     "PUSH", "POP", "LOADREL", "LOADABS", "LOADADDRREL",
-    "CALL", "RET"
+    "CALL", "RET", "JUMP", "BRTRUE", "BRFALSE"
 };
 
 std::string const unary_func_names[] = {

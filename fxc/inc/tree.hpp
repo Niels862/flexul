@@ -15,6 +15,7 @@ public:
     BaseNode(Token token, std::vector<BaseNode *> children);
     virtual ~BaseNode();
 
+    virtual bool is_lvalue() const;
     virtual void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map);
     virtual void resolve_symbols_second_pass(
@@ -54,13 +55,14 @@ class VariableNode : public BaseNode {
 public:
     VariableNode(Token token, std::vector<BaseNode *> children);
 
+    bool is_lvalue() const override;
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
     uint32_t register_symbol(
             Serializer &serializer, SymbolMap &symbol_map, 
             StorageType storage_type, uint32_t value) const override;
     void serialize(Serializer &serializer) const override;
-    void serialize_load_address(Serializer &serializer) const;
+    void serialize_load_address(Serializer &serializer) const override;
 };
 
 class UnaryNode : public BaseNode {
@@ -73,6 +75,13 @@ public:
 class BinaryNode : public BaseNode {
 public:
     BinaryNode(Token token, std::vector<BaseNode *> children);
+
+    void serialize(Serializer &serializer) const override;
+};
+
+class TernaryNode : public BaseNode {
+public:
+    TernaryNode(Token token, std::vector<BaseNode *> children);
 
     void serialize(Serializer &serializer) const override;
 };

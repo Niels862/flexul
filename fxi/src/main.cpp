@@ -18,7 +18,8 @@ int main(int argc, char *argv[]) {
         program.disassemble();
         uint32_t exit_code = program.run();
         std::cout << "Program finished with exit code " 
-                << exit_code << std::endl;
+                << exit_code << " (" 
+                << static_cast<int32_t>(exit_code) << ")" << std::endl;
         program.analytics();
     } catch (std::exception const &e) {
         std::cerr << "Error: " + std::string(e.what()) << std::endl;

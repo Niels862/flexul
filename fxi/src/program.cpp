@@ -123,6 +123,22 @@ uint32_t Program::run() {
                 bp = ret_bp;
                 ip = addr;
                 break;
+            case OpCode::Jump:
+                addr = stack[stack.size() - 1];
+                stack.pop_back();
+                ip = addr - 1;
+                break;
+            case OpCode::BrTrue:
+            case OpCode::BrFalse:
+                a = stack[stack.size() - 2];
+                addr = stack[stack.size() - 1];
+                if ((a && opcode == OpCode::BrTrue)
+                        || (!a && opcode == OpCode::BrFalse)) {
+                    ip = addr - 1;
+                }
+                stack.pop_back();
+                stack.pop_back();
+                break;
             default: 
                 break;
         }
@@ -130,11 +146,13 @@ uint32_t Program::run() {
         ip++;
     }
     execution_time = std::clock() - start;
+    std::cerr << "Instruction fetch overread at " << ip << std::endl;
     return -1;
 }
 
 void Program::analytics() const {
-    double execution_time_secs = execution_time / CLOCKS_PER_SEC;
+    double execution_time_secs = 
+            static_cast<double>(execution_time) / CLOCKS_PER_SEC;
     std::cout << "Instructions completed:  " 
             << completed_instrs << std::endl;
     std::cout << "Execution time:          " 
@@ -142,7 +160,8 @@ void Program::analytics() const {
     std::cout << "Seconds per instruction: " 
             << (execution_time_secs / completed_instrs) << std::endl;
     std::cout << "Instructions per second: " 
-            << (completed_instrs / execution_time_secs) << std::endl;
+            << static_cast<uint64_t>(completed_instrs / execution_time_secs) 
+            << std::endl;
 }
 
 void Program::dump_stack() const {

@@ -12,7 +12,10 @@ enum class OpCode {
     LoadAbs,
     LoadAddrRel,
     Call,
-    Ret
+    Ret,
+    Jump,
+    BrTrue,
+    BrFalse
 };
 
 enum class FuncCode {

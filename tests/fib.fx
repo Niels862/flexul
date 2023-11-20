@@ -1,10 +1,7 @@
 fn fib(n) {
-    if (n == 0 || n == 1) {
-        return n;
-    }
-    return f(n - 2) + f(n - 1);
+    return n ? (n - 1 ? fib(n - 2) + fib(n - 1) : 1) : 0;
 }
 
 fn main() {
-    return fib(6);
+    return fib(34);
 }

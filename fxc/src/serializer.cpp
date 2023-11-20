@@ -84,10 +84,15 @@ Serializer &Serializer::add_instr(OpCode opcode, FuncCode funccode) {
     return *this;
 }
 
-uint32_t Serializer::attach_label() {
+uint32_t Serializer::get_label() {
     uint32_t label = counter;
-    stack[stack.size() - 1].set_label(label);
     counter++;
+    return label;
+}
+
+uint32_t Serializer::attach_label() {
+    uint32_t label = get_label();
+    stack[stack.size() - 1].set_label(label);
     return label;
 }
 

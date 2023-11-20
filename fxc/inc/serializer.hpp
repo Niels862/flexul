@@ -42,9 +42,8 @@ public:
 
     Serializer &add_data(uint32_t data = 0);
     Serializer &add_instr(OpCode opcode, FuncCode funccode = FuncCode::Nop);
+    uint32_t get_label();
     uint32_t attach_label();
-    // Should only be called with symbol id's so no collision with generated 
-    // labels
     uint32_t attach_label(uint32_t label);
     void references_label(uint32_t label);
     void serialize(BaseNode *root);

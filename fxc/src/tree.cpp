@@ -19,6 +19,10 @@ BaseNode::~BaseNode() {
     }
 }
 
+bool BaseNode::is_lvalue() const {
+    return false;
+}
+
 void BaseNode::resolve_symbols_first_pass(Serializer &, SymbolMap &) {}
 
 void BaseNode::resolve_symbols_second_pass(
@@ -115,6 +119,10 @@ void IntLitNode::serialize(Serializer &serializer) const {
 
 VariableNode::VariableNode(Token token, std::vector<BaseNode *> children)
         : BaseNode(0, token, children) {}
+
+bool VariableNode::is_lvalue() const {
+    return true;
+}
 
 void VariableNode::resolve_symbols_second_pass(
         Serializer &, SymbolMap &symbol_map) {
@@ -214,6 +222,28 @@ void BinaryNode::serialize(Serializer &serializer) const {
     get_first()->serialize(serializer);
     get_second()->serialize(serializer);
     serializer.add_instr(OpCode::Binary, funccode);
+}
+
+TernaryNode::TernaryNode(Token token, std::vector<BaseNode *> children)
+        : BaseNode(3, token, children) {}
+
+void TernaryNode::serialize(Serializer &serializer) const {
+    uint32_t label_false = serializer.get_label();
+    uint32_t label_end = serializer.get_label();
+    get_first()->serialize(serializer);
+    serializer.add_instr(OpCode::Push);
+    serializer.add_data().attach_label(label_false);
+    serializer.add_instr(OpCode::BrFalse);
+    get_second()->serialize(serializer);
+    serializer.add_instr(OpCode::Push);
+    serializer.add_data().attach_label(label_end);
+    serializer.add_instr(OpCode::Jump);
+    serializer.attach_label(label_false);
+    get_third()->serialize(serializer);
+    // TODO: Fix serializer so that nop is not necessary
+    serializer.add_instr(OpCode::Nop);
+    serializer.attach_label(label_end);
+    std::cerr << label_false << "," << label_end << std::endl;
 }
 
 CallNode::CallNode(Token token, std::vector<BaseNode *> children)
