@@ -90,6 +90,10 @@ void Serializer::add_instr(OpCode opcode, FuncCode funccode,
             data, true, references_label));
 }
 
+void Serializer::add_data_node(uint32_t label, BaseNode *node) {
+    data_section.push_back({label, node});
+}
+
 uint32_t Serializer::add_label() {
     return add_label(get_label());
 }
@@ -111,6 +115,7 @@ void Serializer::serialize(BaseNode *root) {
     std::vector<std::string> symbol_table; // maps from int_id to identifier
     SymbolMap global_symbol_map;
     uint32_t entry_label;
+    uint32_t i;
 
     root->resolve_symbols_first_pass(*this, global_symbol_map);
     root->resolve_symbols_second_pass(*this, global_symbol_map);
@@ -127,6 +132,12 @@ void Serializer::serialize(BaseNode *root) {
     add_instr(OpCode::Call);
     add_instr(OpCode::SysCall, FuncCode::Exit);
     root->serialize(*this);
+
+    // Data section may still grow during serialization because of lambdas
+    for (i = 0; i < data_section.size(); i++) {
+        add_label(data_section[i].label);
+        data_section[i].node->serialize(*this);
+    }
 }
 
 void Serializer::assemble(std::ofstream &file) const {

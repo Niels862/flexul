@@ -301,6 +301,16 @@ void FunctionNode::serialize(Serializer &serializer) const {
     get_third()->serialize(serializer);
 }
 
+LambdaNode::LambdaNode(
+        Token token, std::vector<BaseNode *> children)
+        : BaseNode(2, token, children) {}
+
+void LambdaNode::serialize(Serializer &serializer) const {
+    uint32_t id = serializer.get_label();
+    serializer.add_data_node(id, get_second());
+    serializer.add_instr(OpCode::Push, id, true);
+}
+
 ExpressionListNode::ExpressionListNode(
         Token token, std::vector<BaseNode *> children)
         : BaseNode(token, children) {}

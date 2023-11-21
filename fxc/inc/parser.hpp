@@ -27,6 +27,7 @@ private:
     BaseNode *parse_statement();
     BaseNode *parse_if_else();
     BaseNode *parse_expression();
+    BaseNode *parse_lambda();
     BaseNode *parse_ternary();
     BaseNode *parse_assignment();
     BaseNode *parse_sum();

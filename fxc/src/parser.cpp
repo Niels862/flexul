@@ -169,7 +169,23 @@ BaseNode *Parser::parse_if_else() {
 }
 
 BaseNode *Parser::parse_expression() {
+    if (curr_token.get_data() == "lambda") {
+        return parse_lambda();
+    }
     return parse_ternary();
+}
+
+BaseNode *Parser::parse_lambda() {
+
+    BaseNode *params = add<ExpressionListNode>(
+            Token::synthetic("<params>"), {});
+    Token token = expect_data("lambda");
+    expect_data(":");
+    BaseNode *body = parse_expression();
+    return add<LambdaNode>(token, {
+        params, 
+        add<ReturnNode>(Token::synthetic("<lambda-return>"), {body})
+    });
 }
 
 BaseNode *Parser::parse_ternary() {
@@ -240,7 +256,7 @@ BaseNode *Parser::parse_value() {
     } else {
         throw std::runtime_error("Expected value, got " + token.to_string());
     }
-    if (curr_token.get_data() == "(") {
+    while (curr_token.get_data() == "(") {
         BaseNode *param_list = parse_param_list(false);
         expression = add<CallNode>(Token::synthetic("<call>"), {
             expression, param_list

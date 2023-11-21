@@ -10,13 +10,18 @@
 #include <cstdint>
 #include <fstream>
 
+class BaseNode;
+
 using LabelMap = std::unordered_map<uint32_t, uint32_t>;
+
+struct DataEntry {
+    uint32_t label;
+    BaseNode *node;
+};
 
 enum class EntryType {
     Instruction, Data, Label
 };
-
-class BaseNode;
 
 class StackEntry {
 public:
@@ -47,6 +52,7 @@ public:
     void add_instr(OpCode opcode, uint32_t data, bool references_label = false);
     void add_instr(OpCode opcode, FuncCode funccode, 
             uint32_t data, bool references_label = false);
+    void add_data_node(uint32_t label, BaseNode *node);
     uint32_t add_label();
     uint32_t add_label(uint32_t label);
     uint32_t get_label();
@@ -55,6 +61,7 @@ public:
     void assemble(std::ofstream &file) const;
 private:
     std::vector<SymbolEntry> symbol_table;
+    std::vector<DataEntry> data_section;
     // First used to give each symbol a unique id, then to attach labels
     // Symbol ids are also used as labels
     // 0 -> invalid/unset id

@@ -120,6 +120,13 @@ public:
     void serialize(Serializer &serializer) const override;
 };
 
+class LambdaNode : public BaseNode {
+public:
+    LambdaNode(Token token, std::vector<BaseNode *> children);
+
+    void serialize(Serializer &serializer) const override;
+};
+
 class ExpressionListNode : public BaseNode {
 public:
     ExpressionListNode(Token token, std::vector<BaseNode *> children);
