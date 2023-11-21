@@ -42,6 +42,13 @@ private:
     uint32_t symbol_id;
 };
 
+class EmptyNode : public BaseNode {
+public:
+    EmptyNode(Token token, std::vector<BaseNode *> children);
+
+    void serialize(Serializer &serializer) const override;
+};
+
 class IntLitNode : public BaseNode {
 public:
     IntLitNode(Token token, std::vector<BaseNode *> children);

@@ -102,6 +102,11 @@ void BaseNode::print(BaseNode *node, std::string const labelPrefix,
             branchPrefix + "    ");
 }
 
+EmptyNode::EmptyNode(Token token, std::vector<BaseNode *> children)
+        : BaseNode(0, token, children) {}
+
+void EmptyNode::serialize(Serializer &) const {}
+
 IntLitNode::IntLitNode(Token token, std::vector<BaseNode *> children)
         : BaseNode(0, token, children), value(0) {
     try {

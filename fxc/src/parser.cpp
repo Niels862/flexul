@@ -138,6 +138,9 @@ BaseNode *Parser::parse_statement() {
         node = parse_if_else();
     } else if (token.get_data() == "{") {
         node = parse_braced_block();
+    } else if (token.get_data() == ";") {
+        node = add<EmptyNode>(Token::synthetic("<nostmt>"), {});
+        get_token();
     } else {
         if (token.get_data() == "return") {
             get_token();
