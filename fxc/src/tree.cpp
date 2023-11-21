@@ -113,8 +113,7 @@ IntLitNode::IntLitNode(Token token, std::vector<BaseNode *> children)
 }
 
 void IntLitNode::serialize(Serializer &serializer) const {
-    serializer.add_instr(OpCode::Push);
-    serializer.add_data(value);
+    serializer.add_instr(OpCode::Push, value);
 }
 
 VariableNode::VariableNode(Token token, std::vector<BaseNode *> children)
@@ -145,11 +144,10 @@ uint32_t VariableNode::register_symbol(
 
 void VariableNode::serialize(Serializer &serializer) const {
     SymbolEntry entry = serializer.get_symbol_entry(get_id());
-    serializer.add_instr(OpCode::Push);
     if (entry.storage_type == StorageType::Absolute) {
-        serializer.add_data().attach_label(get_id());
+        serializer.add_instr(OpCode::Push, get_id(), true);
     } else if (entry.storage_type == StorageType::Relative) {
-        serializer.add_data(entry.value);
+        serializer.add_instr(OpCode::Push, entry.value);
         serializer.add_instr(OpCode::LoadRel);
     } else {
         throw std::runtime_error(
@@ -160,11 +158,10 @@ void VariableNode::serialize(Serializer &serializer) const {
 
 void VariableNode::serialize_load_address(Serializer &serializer) const {
     SymbolEntry entry = serializer.get_symbol_entry(get_id());
-    serializer.add_instr(OpCode::Push);
     if (entry.storage_type == StorageType::Absolute) { // TODO: think about this
-        serializer.add_data().attach_label(get_id());
+        serializer.add_instr(OpCode::Push, get_id(), true);
     } else if (entry.storage_type == StorageType::Relative) {
-        serializer.add_data(entry.value);
+        serializer.add_instr(OpCode::Push, entry.value, true);
         serializer.add_instr(OpCode::LoadAddrRel);
     } else {
         throw std::runtime_error(
@@ -231,18 +228,15 @@ void TernaryNode::serialize(Serializer &serializer) const {
     uint32_t label_false = serializer.get_label();
     uint32_t label_end = serializer.get_label();
     get_first()->serialize(serializer);
-    serializer.add_instr(OpCode::Push);
-    serializer.add_data().attach_label(label_false);
+    serializer.add_instr(OpCode::Push, label_false, true);
     serializer.add_instr(OpCode::BrFalse);
     get_second()->serialize(serializer);
-    serializer.add_instr(OpCode::Push);
-    serializer.add_data().attach_label(label_end);
+    serializer.add_instr(OpCode::Push, label_end, true);
     serializer.add_instr(OpCode::Jump);
-    serializer.attach_label(label_false);
+    serializer.add_label(label_false);
     get_third()->serialize(serializer);
     // TODO: Fix serializer so that nop is not necessary
-    serializer.add_instr(OpCode::Nop);
-    serializer.attach_label(label_end);
+    serializer.add_label(label_end);
     std::cerr << label_false << "," << label_end << std::endl;
 }
 
@@ -251,8 +245,7 @@ CallNode::CallNode(Token token, std::vector<BaseNode *> children)
 
 void CallNode::serialize(Serializer &serializer) const {
     get_second()->serialize(serializer);
-    serializer.add_instr(OpCode::Push);
-    serializer.add_data(get_second()->get_children().size());
+    serializer.add_instr(OpCode::Push, get_second()->get_children().size());
     get_first()->serialize(serializer);
     serializer.add_instr(OpCode::Call);
 }
@@ -301,7 +294,7 @@ void FunctionNode::serialize(Serializer &serializer) const {
     if (id == 0) {
         throw std::runtime_error("Unresolved name");
     }
-    serializer.attach_label(id);
+    serializer.add_label(id);
     get_third()->serialize(serializer);
 }
 

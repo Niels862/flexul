@@ -3,5 +3,5 @@ fn fib(n) {
 }
 
 fn main() {
-    return fib(34);
+    return fib(12);
 }

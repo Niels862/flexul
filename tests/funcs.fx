@@ -1,11 +1,16 @@
-fn add3(a, b, c) {
-    return add(a, add(b, c));
-}
-
-fn add(a, b) {
-    return a + b;
+fn f() {
+    return g(1, 2) + g(3, 4);
 }
 
 fn main() {
-    return add3(1, 2, 3);
+    return f();
+}
+
+fn g(a, b) {
+    a = b = 5;
+    return h() + a + b;
+}
+
+fn h() {
+    return 2 * 5;
 }

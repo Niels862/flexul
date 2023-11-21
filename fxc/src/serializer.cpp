@@ -2,57 +2,54 @@
 #include <iostream>
 #include <stdexcept>
 
-StackEntry::StackEntry()
-        : opcode(OpCode::Nop), funccode(FuncCode::Nop), data_entry(true),
-        label_entry(false), label(0), data(0) {}
-
-StackEntry::StackEntry(uint32_t data)
-        : opcode(OpCode::Nop), funccode(FuncCode::Nop), data_entry(true),
-        label_entry(false), label(0), data(data) {}
-
-StackEntry::StackEntry(OpCode opcode, FuncCode funccode)
-        : opcode(opcode), funccode(funccode), data_entry(false),
-        label_entry(false), label(0), data(0) {}
-
-void StackEntry::set_label(uint32_t label) {
-    if (label_entry) {
-        throw std::runtime_error("Cannot reassign label");
+StackEntry::StackEntry(EntryType type, OpCode opcode, FuncCode funccode, 
+        uint32_t data, bool has_immediate, bool references_label)
+        : type(type), opcode(opcode), funccode(funccode), 
+        data(data), has_immediate(has_immediate), 
+        references_label(references_label), size(0) {
+    if (type == EntryType::Instruction) {
+        size = 1 + has_immediate;
+    } else if (type == EntryType::Data) {
+        throw std::runtime_error("data not implemented");
     }
-    this->label = label;
-    label_entry = true;
 }
 
-void StackEntry::register_label(LabelMap &map, uint32_t idx) const {
-    if (!data_entry && label_entry) {
-        if (map.find(label) != map.end()) {
+void StackEntry::register_label(LabelMap &map, uint32_t &i) const {
+    if (type == EntryType::Label) {
+        if (map.find(data) != map.end()) {
             throw std::runtime_error(
-                    "Redefinition of label " + std::to_string(label));
+                    "Redefinition of label " + std::to_string(data));
         }
-        map[label] = idx + 1; // label points to next entry
+        map[data] = i;
     }
+    i += size;
 }
 
-uint32_t StackEntry::assemble(LabelMap const &map) const {
-    if (data_entry) {
-        if (label_entry) {
-            auto iter = map.find(label);
-            if (iter == map.end()) {
-                throw std::runtime_error(
-                        "Unresolved label: " + std::to_string(label));
-            }
-            return iter->second;
+void StackEntry::assemble(std::vector<uint32_t> &stack, 
+        LabelMap const &map) const {
+    uint32_t immediate = data;
+    if (references_label) {
+        auto iter = map.find(immediate);
+        if (iter == map.end()) {
+            throw std::runtime_error(
+                    "Unresolved label: " + std::to_string(immediate));
         }
-        return data;
+        immediate = iter->second;
     }
-    return static_cast<uint32_t>(opcode) 
-            | (static_cast<uint32_t>(funccode) << 8);
+    if (type == EntryType::Instruction) {
+        stack.push_back(static_cast<uint32_t>(opcode) 
+                | (static_cast<uint32_t>(funccode) << 8));
+        if (has_immediate) {
+            stack.push_back(immediate);
+        }
+    }
 }
 
 Serializer::Serializer()
         : symbol_table({
             {0, StorageType::Invalid, 0}, 
             {1, StorageType::Absolute, 0}
-        }), counter(2), stack({StackEntry(OpCode::Nop)}) {}
+        }), counter(2), stack() {}
 
 uint32_t Serializer::get_symbol_id() {
     uint32_t symbol_id = counter;
@@ -74,35 +71,40 @@ SymbolEntry const &Serializer::get_symbol_entry(uint32_t symbol_id) {
     return symbol_table[symbol_id];
 }
 
-Serializer &Serializer::add_data(uint32_t data) {
-    stack.push_back(StackEntry(data));
-    return *this;
+void Serializer::add_instr(OpCode opcode, FuncCode funccode) {
+    stack.push_back(StackEntry(
+            EntryType::Instruction, opcode, funccode, 0, false, false));
 }
 
-Serializer &Serializer::add_instr(OpCode opcode, FuncCode funccode) {
-    stack.push_back(StackEntry(opcode, funccode));
-    return *this;
+void Serializer::add_instr(OpCode opcode, uint32_t data, 
+        bool references_label) {
+    stack.push_back(StackEntry(
+            EntryType::Instruction, opcode, FuncCode::Nop, 
+            data, true, references_label));
+}
+
+void Serializer::add_instr(OpCode opcode, FuncCode funccode, 
+        uint32_t data, bool references_label) {
+    stack.push_back(StackEntry(
+            EntryType::Instruction, opcode, funccode, 
+            data, true, references_label));
+}
+
+uint32_t Serializer::add_label() {
+    return add_label(get_label());
+}
+
+uint32_t Serializer::add_label(uint32_t label) {
+    stack.push_back(StackEntry(
+            EntryType::Label, OpCode::Nop, FuncCode::Nop,
+            label, false, false));
+    return label;
 }
 
 uint32_t Serializer::get_label() {
     uint32_t label = counter;
     counter++;
     return label;
-}
-
-uint32_t Serializer::attach_label() {
-    uint32_t label = get_label();
-    stack[stack.size() - 1].set_label(label);
-    return label;
-}
-
-uint32_t Serializer::attach_label(uint32_t label) {
-    stack[stack.size() - 1].set_label(label);
-    return label;
-}
-
-void Serializer::references_label(uint32_t label) {
-    stack[stack.size() - 1].set_label(label);
 }
 
 void Serializer::serialize(BaseNode *root) {
@@ -120,22 +122,24 @@ void Serializer::serialize(BaseNode *root) {
     }
     entry_label = iter->second;
 
-    add_instr(OpCode::Push).add_data(0);
-    add_instr(OpCode::Push).add_data().references_label(entry_label);
+    add_instr(OpCode::Push, 0);
+    add_instr(OpCode::Push, entry_label, true);
     add_instr(OpCode::Call);
     add_instr(OpCode::SysCall, FuncCode::Exit);
     root->serialize(*this);
 }
 
 void Serializer::assemble(std::ofstream &file) const {
-    uint32_t value;
+    std::vector<uint32_t> bytecode;
     LabelMap map;
-    uint32_t i;
-    for (i = 0; i < stack.size(); i++) {
-        stack[i].register_label(map, i);
+    uint32_t i = 0;
+    for (StackEntry const &entry : stack) {
+        entry.register_label(map, i);
     }
     for (StackEntry const &entry : stack) {
-        value = entry.assemble(map);
-        file.write(reinterpret_cast<const char*>(&value), 4);
+        entry.assemble(bytecode, map);
+    }
+    for (uint32_t const bytecode_entry : bytecode) {
+        file.write(reinterpret_cast<const char*>(&bytecode_entry), 4);
     }
 }
