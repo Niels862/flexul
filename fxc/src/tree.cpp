@@ -221,10 +221,10 @@ void BinaryNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Binary, funccode);
 }
 
-TernaryNode::TernaryNode(Token token, std::vector<BaseNode *> children)
+IfElseNode::IfElseNode(Token token, std::vector<BaseNode *> children)
         : BaseNode(3, token, children) {}
 
-void TernaryNode::serialize(Serializer &serializer) const {
+void IfElseNode::serialize(Serializer &serializer) const {
     uint32_t label_false = serializer.get_label();
     uint32_t label_end = serializer.get_label();
     get_first()->serialize(serializer);
@@ -235,9 +235,7 @@ void TernaryNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Jump);
     serializer.add_label(label_false);
     get_third()->serialize(serializer);
-    // TODO: Fix serializer so that nop is not necessary
     serializer.add_label(label_end);
-    std::cerr << label_false << "," << label_end << std::endl;
 }
 
 CallNode::CallNode(Token token, std::vector<BaseNode *> children)
@@ -306,6 +304,18 @@ void ExpressionListNode::serialize(Serializer &serializer) const {
     for (BaseNode const *child : get_children()) {
         child->serialize(serializer);
     }
+}
+
+IfNode::IfNode(
+        Token token, std::vector<BaseNode *> children)
+        : BaseNode(2, token, children) {}
+
+void IfNode::serialize(Serializer &serializer) const {
+    uint32_t label_end = serializer.get_label();
+    get_first()->serialize(serializer);
+    serializer.add_instr(OpCode::Push, label_end, true);
+    serializer.add_instr(OpCode::BrFalse);
+    get_second()->serialize(serializer);
 }
 
 ReturnNode::ReturnNode(Token token, std::vector<BaseNode *> children)

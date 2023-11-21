@@ -79,9 +79,9 @@ public:
     void serialize(Serializer &serializer) const override;
 };
 
-class TernaryNode : public BaseNode {
+class IfElseNode : public BaseNode {
 public:
-    TernaryNode(Token token, std::vector<BaseNode *> children);
+    IfElseNode(Token token, std::vector<BaseNode *> children);
 
     void serialize(Serializer &serializer) const override;
 };
@@ -116,6 +116,13 @@ public:
 class ExpressionListNode : public BaseNode {
 public:
     ExpressionListNode(Token token, std::vector<BaseNode *> children);
+
+    void serialize(Serializer &serializer) const override;
+};
+
+class IfNode : public BaseNode {
+public:
+    IfNode(Token token, std::vector<BaseNode *> children);
 
     void serialize(Serializer &serializer) const override;
 };

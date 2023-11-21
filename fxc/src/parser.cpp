@@ -134,15 +134,35 @@ BaseNode *Parser::parse_braced_block() {
 BaseNode *Parser::parse_statement() {
     BaseNode *node;
     Token token = curr_token;
-    if (token.get_data() == "return") {
-        get_token();
-        node = add<ReturnNode>(token, {parse_expression()});
+    if (token.get_data() == "if") {
+        node = parse_if_else();
+    } else if (token.get_data() == "{") {
+        node = parse_braced_block();
     } else {
-        node = add<ExpressionStatementNode>(
-                Token::synthetic("<expr-stmt>"), {parse_expression()});
+        if (token.get_data() == "return") {
+            get_token();
+            node = add<ReturnNode>(token, {parse_expression()});
+        } else {
+            node = add<ExpressionStatementNode>(
+                    Token::synthetic("<expr-stmt>"), {parse_expression()});
+        }
+        expect_data(";");
     }
-    expect_data(";");
     return node;
+}
+
+BaseNode *Parser::parse_if_else() {
+    Token token = expect_data("if"); // TODO: keywords
+    expect_data("(");
+    BaseNode *cond = parse_expression();
+    expect_data(")");
+    BaseNode *body_true = parse_statement();
+    if (curr_token.get_data() == "else") {
+        get_token();
+        BaseNode *body_false = parse_statement();
+        return add<IfElseNode>(token, {cond, body_true, body_false});
+    }
+    return add<IfNode>(token, {cond, body_true});
 }
 
 BaseNode *Parser::parse_expression() {
@@ -150,16 +170,16 @@ BaseNode *Parser::parse_expression() {
 }
 
 BaseNode *Parser::parse_ternary() {
-    BaseNode *expr = parse_assignment();
+    BaseNode *cond = parse_assignment();
     Token token = curr_token;
     if (token.get_data() == "?") {
         get_token();
         BaseNode *expr_true = parse_ternary();
         expect_data(":");
         BaseNode *expr_false = parse_ternary();
-        return add<TernaryNode>(token, {expr, expr_true, expr_false});
+        return add<IfElseNode>(token, {cond, expr_true, expr_false});
     }
-    return expr;
+    return cond;
 }
 
 BaseNode *Parser::parse_assignment() {

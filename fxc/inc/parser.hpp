@@ -25,6 +25,7 @@ private:
     BaseNode *parse_param_list(bool is_declaration);
     BaseNode *parse_braced_block();
     BaseNode *parse_statement();
+    BaseNode *parse_if_else();
     BaseNode *parse_expression();
     BaseNode *parse_ternary();
     BaseNode *parse_assignment();
