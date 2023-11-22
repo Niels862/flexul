@@ -198,11 +198,68 @@ BinaryNode::BinaryNode(Token token, std::vector<BaseNode *> children)
 void BinaryNode::serialize(Serializer &serializer) const {
     FuncCode funccode;
     Token token = get_token();
+    uint32_t label_true, label_false, label_end;
 
     if (token.get_data() == "=") {
         get_first()->serialize_load_address(serializer);
         get_second()->serialize(serializer);
         serializer.add_instr(OpCode::Binary, FuncCode::Assign);
+        return;
+    }
+
+    if (token.get_data() == ">" || token.get_data() == ">=") {
+        if (token.get_data() == ">=") {
+            funccode = FuncCode::LessEquals;
+        } else {
+            funccode = FuncCode::LessThan;
+        }
+        get_second()->serialize(serializer);
+        get_first()->serialize(serializer);
+        serializer.add_instr(OpCode::Binary, funccode);
+        return;
+    }
+
+    if (token.get_data() == "||") {
+        label_true = serializer.get_label();
+        label_end = serializer.get_label();
+
+        get_first()->serialize(serializer);
+        serializer.add_instr(OpCode::Push, label_true, true);
+        serializer.add_instr(OpCode::BrTrue);
+
+        get_second()->serialize(serializer);
+        serializer.add_instr(OpCode::Push, label_true, true);
+        serializer.add_instr(OpCode::BrTrue);
+        serializer.add_instr(OpCode::Push, 0);
+        serializer.add_instr(OpCode::Push, label_end, true);
+        serializer.add_instr(OpCode::Jump);
+
+        serializer.add_label(label_true);
+        serializer.add_instr(OpCode::Push, 1);
+
+        serializer.add_label(label_end);
+        return;
+    }
+
+    if (token.get_data() == "&&") {
+        label_false = serializer.get_label();
+        label_end = serializer.get_label();
+
+        get_first()->serialize(serializer);
+        serializer.add_instr(OpCode::Push, label_false, true);
+        serializer.add_instr(OpCode::BrFalse);
+
+        get_second()->serialize(serializer);
+        serializer.add_instr(OpCode::Push, label_false, true);
+        serializer.add_instr(OpCode::BrFalse);
+        serializer.add_instr(OpCode::Push, 1);
+        serializer.add_instr(OpCode::Push, label_end, true);
+        serializer.add_instr(OpCode::Jump);
+
+        serializer.add_label(label_false);
+        serializer.add_instr(OpCode::Push, 0);
+
+        serializer.add_label(label_end);
         return;
     }
 
@@ -216,6 +273,14 @@ void BinaryNode::serialize(Serializer &serializer) const {
         funccode = FuncCode::Div;
     } else if (token.get_data() == "%") {
         funccode = FuncCode::Mod;
+    } else if (token.get_data() == "==") {
+        funccode = FuncCode::Equals;
+    } else if (token.get_data() == "!=") {
+        funccode = FuncCode::NotEquals;
+    } else if (token.get_data() == "<") {
+        funccode = FuncCode::LessThan;
+    } else if (token.get_data() == "<=") {
+        funccode = FuncCode::LessEquals;
     } else {
         throw std::runtime_error(
                 "Unrecognized operator for binary expression: "
@@ -232,14 +297,18 @@ IfElseNode::IfElseNode(Token token, std::vector<BaseNode *> children)
 void IfElseNode::serialize(Serializer &serializer) const {
     uint32_t label_false = serializer.get_label();
     uint32_t label_end = serializer.get_label();
+    
     get_first()->serialize(serializer);
     serializer.add_instr(OpCode::Push, label_false, true);
     serializer.add_instr(OpCode::BrFalse);
+
     get_second()->serialize(serializer);
     serializer.add_instr(OpCode::Push, label_end, true);
     serializer.add_instr(OpCode::Jump);
+
     serializer.add_label(label_false);
     get_third()->serialize(serializer);
+
     serializer.add_label(label_end);
 }
 

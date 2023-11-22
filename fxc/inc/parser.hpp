@@ -30,6 +30,10 @@ private:
     BaseNode *parse_lambda();
     BaseNode *parse_ternary();
     BaseNode *parse_assignment();
+    BaseNode *parse_or();
+    BaseNode *parse_and();
+    BaseNode *parse_equality_1();
+    BaseNode *parse_equality_2();
     BaseNode *parse_sum();
     BaseNode *parse_term();
     BaseNode *parse_value();

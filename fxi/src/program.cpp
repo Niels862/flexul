@@ -36,11 +36,13 @@ uint32_t Program::run() {
                         execution_time = std::clock() - start;
                         return stack[stack.size() - 1];
                     default: 
-                        break;
+                        throw std::runtime_error(
+                                "Unrecognized funccode");
                 }
                 break;
             case OpCode::Unary:
                 a = stack[stack.size() - 1];
+                y = a;
                 switch (funccode) {
                     case FuncCode::Nop:
                         break;
@@ -48,13 +50,15 @@ uint32_t Program::run() {
                         y = -a;
                         break;
                     default: 
-                        break;
+                        throw std::runtime_error(
+                                "Unrecognized funccode");
                 }
                 stack[stack.size() - 1] = y;
                 break;
             case OpCode::Binary: 
                 a = stack[stack.size() - 2];
                 b = stack[stack.size() - 1];
+                y = a;
                 switch (funccode) {
                     case FuncCode::Nop: 
                         break;
@@ -76,11 +80,25 @@ uint32_t Program::run() {
                     case FuncCode::Mod: 
                         y = a % b;
                         break;
+                    case FuncCode::Equals:
+                        y = a == b;
+                        break;
+                    case FuncCode::NotEquals:
+                        y = a != b;
+                        break;
+                    case FuncCode::LessThan:
+                        y = a < b;
+                        break;
+                    case FuncCode::LessEquals:
+                        y = a <= b;
+                        break;
                     case FuncCode::Assign:
                         stack[a] = b;
                         y = b;
-                    default: 
                         break;
+                    default: 
+                        throw std::runtime_error(
+                                "Unrecognized funccode");
                 }
                 stack[stack.size() - 2] = y;
                 stack.pop_back();

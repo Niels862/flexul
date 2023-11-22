@@ -25,6 +25,10 @@ enum class FuncCode {
     Mul,
     Div,
     Mod,
+    Equals,
+    NotEquals,
+    LessThan,
+    LessEquals,
     Assign,
 
     Neg = 1, // unary

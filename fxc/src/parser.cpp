@@ -202,14 +202,59 @@ BaseNode *Parser::parse_ternary() {
 }
 
 BaseNode *Parser::parse_assignment() {
-    BaseNode *left = parse_sum();
+    BaseNode *left = parse_or();
     Token token = curr_token;
     if (token.get_data() == "=") {
         if (!left->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
         }
         get_token();
-        return add<BinaryNode>(token, {left, parse_assignment()});
+        return add<BinaryNode>(token, {left, parse_or()});
+    }
+    return left;
+}
+
+BaseNode *Parser::parse_or() {
+    BaseNode *left = parse_and();
+    Token token = curr_token;
+    while (token.get_data() == "||") {
+        get_token();
+        left = add<BinaryNode>(token, {left, parse_and()});
+        token = curr_token;
+    }
+    return left;
+}
+
+BaseNode *Parser::parse_and() {
+    BaseNode *left = parse_equality_1();
+    Token token = curr_token;
+    while (token.get_data() == "&&") {
+        get_token();
+        left = add<BinaryNode>(token, {left, parse_equality_1()});
+        token = curr_token;
+    }
+    return left;
+}
+
+BaseNode *Parser::parse_equality_1() {
+    BaseNode *left = parse_equality_2();
+    Token token = curr_token;
+    while (token.get_data() == "==" || token.get_data() == "!=") {
+        get_token();
+        left = add<BinaryNode>(token, {left, parse_equality_2()});
+        token = curr_token;
+    }
+    return left;
+}
+
+BaseNode *Parser::parse_equality_2() {
+    BaseNode *left = parse_sum();
+    Token token = curr_token;
+    while (token.get_data() == "<" || token.get_data() == ">"
+            || token.get_data() == "<=" || token.get_data() == ">=") {
+        get_token();
+        left = add<BinaryNode>(token, {left, parse_sum()});
+        token = curr_token;
     }
     return left;
 }

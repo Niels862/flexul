@@ -1,3 +1,7 @@
+fn f(x) {
+    return x + 1;
+}
+
 fn main() {
-    return 0;
+    return 4 && 0;
 }
