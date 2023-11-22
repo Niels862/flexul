@@ -136,6 +136,8 @@ BaseNode *Parser::parse_statement() {
     Token token = curr_token;
     if (token.get_data() == "if") {
         node = parse_if_else();
+    } else if (token.get_data() == "for") {
+        node = parse_for();
     } else if (token.get_data() == "{") {
         node = parse_braced_block();
     } else if (token.get_data() == ";") {
@@ -166,6 +168,24 @@ BaseNode *Parser::parse_if_else() {
         return add<IfElseNode>(token, {cond, body_true, body_false});
     }
     return add<IfNode>(token, {cond, body_true});
+}
+
+BaseNode *Parser::parse_for() {
+    Token token = expect_data("for");
+    expect_data("(");
+    BaseNode *init = parse_expression();
+    expect_data(";");
+    BaseNode *cond = parse_expression();
+    expect_data(";");
+    BaseNode *post = parse_expression();
+    expect_data(")");
+    BaseNode *body = parse_statement();
+    return add<ForLoopNode>(token, {
+        add<ExpressionStatementNode>(Token::synthetic("<init>"), {init}),
+        cond,
+        add<ExpressionStatementNode>(Token::synthetic("<post>"), {post}),
+        body
+    });
 }
 
 BaseNode *Parser::parse_expression() {

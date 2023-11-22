@@ -40,6 +40,8 @@ std::string Token::type_string(TokenType type) {
             return "identifier";
         case TokenType::IntLit:
             return "number";
+        case TokenType::Keyword:
+            return "keyword";
         case TokenType::Operator:
             return "operator";
         case TokenType::Separator:

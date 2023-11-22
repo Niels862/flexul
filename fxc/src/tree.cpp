@@ -59,6 +59,10 @@ BaseNode *BaseNode::get_third() const {
     return get_nth(2, "third");
 }
 
+BaseNode *BaseNode::get_fourth() const {
+    return get_nth(3, "fourth");
+}
+
 void BaseNode::set_id(uint32_t id) {
     symbol_id = id;
 }
@@ -166,8 +170,7 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
     if (entry.storage_type == StorageType::Absolute) { // TODO: think about this
         serializer.add_instr(OpCode::Push, get_id(), true);
     } else if (entry.storage_type == StorageType::Relative) {
-        serializer.add_instr(OpCode::Push, entry.value, true);
-        serializer.add_instr(OpCode::LoadAddrRel);
+        serializer.add_instr(OpCode::LoadAddrRel, entry.value);
     } else {
         throw std::runtime_error(
                 "Invalid storage type: " 
@@ -315,7 +318,7 @@ void CallNode::serialize(Serializer &serializer) const {
 }
 
 BlockNode::BlockNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(token, children) {}
+        : BaseNode(token, children), scope_map() {}
 
 void BlockNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
@@ -393,6 +396,25 @@ void IfNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::BrFalse, label_end, true);
     get_second()->serialize(serializer);
     serializer.add_label(label_end);
+}
+
+ForLoopNode::ForLoopNode(Token token, std::vector<BaseNode *> children)
+        : BaseNode(4, token, children) {}
+
+void ForLoopNode::serialize(Serializer &serializer) const {
+    uint32_t loop_body_label = serializer.get_label();
+    uint32_t cond_label = serializer.get_label();
+
+    get_first()->serialize(serializer); // init: statement
+    serializer.add_instr(OpCode::Jump, cond_label, true);
+    
+    serializer.add_label(loop_body_label); // body and post: statements
+    get_fourth()->serialize(serializer);
+    get_third()->serialize(serializer);
+
+    serializer.add_label(cond_label);
+    get_second()->serialize(serializer); // cond: expression
+    serializer.add_instr(OpCode::BrTrue, loop_body_label, true);
 }
 
 ReturnNode::ReturnNode(Token token, std::vector<BaseNode *> children)

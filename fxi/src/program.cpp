@@ -113,7 +113,6 @@ uint32_t Program::run() {
                 stack.push_back(imm);
                 break;
             case OpCode::Pop:
-                stack.pop_back();
                 break;
             case OpCode::LoadRel:
                 a = imm;

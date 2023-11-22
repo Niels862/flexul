@@ -31,6 +31,7 @@ public:
     BaseNode *get_first() const;
     BaseNode *get_second() const;
     BaseNode *get_third() const;
+    BaseNode *get_fourth() const;
     void set_id(uint32_t id);
     uint32_t get_id() const;
     static void print(BaseNode *node, std::string const labelPrefix = "", 
@@ -107,6 +108,8 @@ public:
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
     void serialize(Serializer &serializer) const override;
+private:
+    SymbolMap scope_map;
 };
 
 class FunctionNode : public BaseNode {
@@ -137,6 +140,13 @@ public:
 class IfNode : public BaseNode {
 public:
     IfNode(Token token, std::vector<BaseNode *> children);
+
+    void serialize(Serializer &serializer) const override;
+};
+
+class ForLoopNode : public BaseNode {
+public:
+    ForLoopNode(Token token, std::vector<BaseNode *> children);
 
     void serialize(Serializer &serializer) const override;
 };

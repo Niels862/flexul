@@ -30,14 +30,15 @@ int main(int argc, char *argv[]) {
     Parser parser(infile);
     Serializer serializer;
 
-    try {
+    //try {
         BaseNode *root = parser.parse();
         BaseNode::print(root);
         serializer.serialize(root);
         serializer.assemble(outfile);
-    } catch (std::exception const &e) {
-        std::cerr << "Error: " + std::string(e.what()) << std::endl;
-        return 1;
-    }
+    // } catch (std::exception const &e) {
+    //     throw;
+    //     std::cerr << "Error: " + std::string(e.what()) << std::endl;
+    //     return 1;
+    // }
     return 0;
 }
