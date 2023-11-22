@@ -20,14 +20,22 @@ struct DataEntry {
 };
 
 enum class EntryType {
-    Instruction, Data, Label
+    Invalid, Instruction, Data, Label
 };
 
 class StackEntry {
 public:
+    StackEntry();
     StackEntry(EntryType type, OpCode opcode, FuncCode funccode, uint32_t data, 
             bool has_immediate, bool references_label);
+    static StackEntry instr(OpCode opcode, FuncCode funccode = FuncCode::Nop);
+    static StackEntry instr(OpCode opcode, uint32_t data, 
+            bool references_label = false);
+    static StackEntry instr(OpCode opcode, FuncCode funccode, 
+            uint32_t data, bool references_label = false);
+    static StackEntry label(uint32_t label);
 
+    bool combine(StackEntry const &right, StackEntry &combined) const;
     void register_label(LabelMap &map, uint32_t &i) const;
     void assemble(std::vector<uint32_t> &stack, LabelMap const &map) const;
 private:
@@ -60,6 +68,7 @@ public:
     void serialize(BaseNode *root);
     void assemble(std::ofstream &file) const;
 private:
+    void add_entry(StackEntry const &entry);
     std::vector<SymbolEntry> symbol_table;
     std::vector<DataEntry> data_section;
     // First used to give each symbol a unique id, then to attach labels

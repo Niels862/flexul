@@ -94,12 +94,12 @@ void BaseNode::print(BaseNode *node, std::string const labelPrefix,
     }
     for (i = 0; i < node->children.size() - 1; i++) {
         BaseNode::print(node->children[i], 
-                branchPrefix + "\u251C\u2500\u2500\u2500", 
-                branchPrefix + "\u2502   ");
+                branchPrefix + "\u251C\u2500", 
+                branchPrefix + "\u2502 ");
     }
     BaseNode::print(node->children[i], 
-            branchPrefix + "\u2570\u2500\u2500\u2500", 
-            branchPrefix + "    ");
+            branchPrefix + "\u2570\u2500", 
+            branchPrefix + "  ");
 }
 
 EmptyNode::EmptyNode(Token token, std::vector<BaseNode *> children)
@@ -224,15 +224,12 @@ void BinaryNode::serialize(Serializer &serializer) const {
         label_end = serializer.get_label();
 
         get_first()->serialize(serializer);
-        serializer.add_instr(OpCode::Push, label_true, true);
-        serializer.add_instr(OpCode::BrTrue);
+        serializer.add_instr(OpCode::BrTrue, label_true, true);
 
         get_second()->serialize(serializer);
-        serializer.add_instr(OpCode::Push, label_true, true);
-        serializer.add_instr(OpCode::BrTrue);
+        serializer.add_instr(OpCode::BrTrue, label_true, true);
         serializer.add_instr(OpCode::Push, 0);
-        serializer.add_instr(OpCode::Push, label_end, true);
-        serializer.add_instr(OpCode::Jump);
+        serializer.add_instr(OpCode::Jump, label_end, true);
 
         serializer.add_label(label_true);
         serializer.add_instr(OpCode::Push, 1);
@@ -246,15 +243,12 @@ void BinaryNode::serialize(Serializer &serializer) const {
         label_end = serializer.get_label();
 
         get_first()->serialize(serializer);
-        serializer.add_instr(OpCode::Push, label_false, true);
-        serializer.add_instr(OpCode::BrFalse);
+        serializer.add_instr(OpCode::BrFalse, label_false, true);
 
         get_second()->serialize(serializer);
-        serializer.add_instr(OpCode::Push, label_false, true);
-        serializer.add_instr(OpCode::BrFalse);
+        serializer.add_instr(OpCode::BrFalse, label_false, true);
         serializer.add_instr(OpCode::Push, 1);
-        serializer.add_instr(OpCode::Push, label_end, true);
-        serializer.add_instr(OpCode::Jump);
+        serializer.add_instr(OpCode::Jump, label_end, true);
 
         serializer.add_label(label_false);
         serializer.add_instr(OpCode::Push, 0);
@@ -299,12 +293,10 @@ void IfElseNode::serialize(Serializer &serializer) const {
     uint32_t label_end = serializer.get_label();
     
     get_first()->serialize(serializer);
-    serializer.add_instr(OpCode::Push, label_false, true);
-    serializer.add_instr(OpCode::BrFalse);
+    serializer.add_instr(OpCode::BrFalse, label_false, true);
 
     get_second()->serialize(serializer);
-    serializer.add_instr(OpCode::Push, label_end, true);
-    serializer.add_instr(OpCode::Jump);
+    serializer.add_instr(OpCode::Jump, label_end, true);
 
     serializer.add_label(label_false);
     get_third()->serialize(serializer);
@@ -368,6 +360,7 @@ void FunctionNode::serialize(Serializer &serializer) const {
     }
     serializer.add_label(id);
     get_third()->serialize(serializer);
+    serializer.add_instr(OpCode::Ret, 0);
 }
 
 LambdaNode::LambdaNode(
@@ -397,9 +390,9 @@ IfNode::IfNode(
 void IfNode::serialize(Serializer &serializer) const {
     uint32_t label_end = serializer.get_label();
     get_first()->serialize(serializer);
-    serializer.add_instr(OpCode::Push, label_end, true);
-    serializer.add_instr(OpCode::BrFalse);
+    serializer.add_instr(OpCode::BrFalse, label_end, true);
     get_second()->serialize(serializer);
+    serializer.add_label(label_end);
 }
 
 ReturnNode::ReturnNode(Token token, std::vector<BaseNode *> children)

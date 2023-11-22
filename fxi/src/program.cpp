@@ -18,7 +18,7 @@ Program Program::load(std::ifstream &file) {
 }
 
 uint32_t Program::run() {
-    uint32_t instr, addr, ret_val, n_args, ret_bp;
+    uint32_t instr, addr, ret_val, n_args, ret_bp, imm;
     int32_t a, b, y;
     OpCode opcode;
     FuncCode funccode;
@@ -26,22 +26,29 @@ uint32_t Program::run() {
     completed_instrs = 0;
     while (ip < stack.size()) {
         instr = stack[ip];
-        opcode = static_cast<OpCode>(instr & 0xFF);
+        opcode = static_cast<OpCode>(instr & 0x7F);
         funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
+        if ((instr >> 7) & 1) {
+            imm = stack[ip + 1];
+            ip++;
+        } else if (opcode != OpCode::Nop) {
+            imm = stack[stack.size() - 1];
+            stack.pop_back();
+        }
         switch (opcode) {
             case OpCode::Nop: break;
             case OpCode::SysCall:
                 switch (funccode) {
                     case FuncCode::Exit:
                         execution_time = std::clock() - start;
-                        return stack[stack.size() - 1];
+                        return imm;
                     default: 
                         throw std::runtime_error(
                                 "Unrecognized funccode");
                 }
                 break;
             case OpCode::Unary:
-                a = stack[stack.size() - 1];
+                a = imm;
                 y = a;
                 switch (funccode) {
                     case FuncCode::Nop:
@@ -53,11 +60,11 @@ uint32_t Program::run() {
                         throw std::runtime_error(
                                 "Unrecognized funccode");
                 }
-                stack[stack.size() - 1] = y;
+                stack.push_back(y);
                 break;
             case OpCode::Binary: 
-                a = stack[stack.size() - 2];
-                b = stack[stack.size() - 1];
+                a = stack[stack.size() - 1];
+                b = imm;
                 y = a;
                 switch (funccode) {
                     case FuncCode::Nop: 
@@ -100,32 +107,29 @@ uint32_t Program::run() {
                         throw std::runtime_error(
                                 "Unrecognized funccode");
                 }
-                stack[stack.size() - 2] = y;
-                stack.pop_back();
+                stack[stack.size() - 1] = y;
                 break;
             case OpCode::Push:
-                ip++; 
-                stack.push_back(stack[ip]);
+                stack.push_back(imm);
                 break;
             case OpCode::Pop:
                 stack.pop_back();
                 break;
             case OpCode::LoadRel:
-                a = stack[stack.size() - 1];
-                stack[stack.size() - 1] = stack[bp + a];
+                a = imm;
+                stack.push_back(stack[bp + a]);
                 break;
             case OpCode::LoadAbs:
-                a = stack[stack.size() - 1];
-                stack[stack.size() - 1] = stack[a];
+                a = imm;
+                stack.push_back(stack[a]);
                 break;
             case OpCode::LoadAddrRel:
-                a = stack[stack.size() - 1];
-                stack[stack.size() - 1] = bp + a;
+                a = imm;
+                stack.push_back(bp + a);
                 break;
             case OpCode::Call:
                 // Before call: arguments, N arguments and func address pushed
-                addr = stack[stack.size() - 1];
-                stack.pop_back();
+                addr = imm;
                 stack.push_back(bp);
                 stack.push_back(ip);
                 bp = stack.size();
@@ -135,26 +139,24 @@ uint32_t Program::run() {
                 n_args = stack[bp - 3];
                 ret_bp = stack[bp - 2];
                 addr = stack[bp - 1];
-                ret_val = stack[stack.size() - 1];
+                ret_val = imm;
                 stack.resize(bp - 3 - n_args);
                 stack.push_back(ret_val);
                 bp = ret_bp;
                 ip = addr;
                 break;
             case OpCode::Jump:
-                addr = stack[stack.size() - 1];
-                stack.pop_back();
+                addr = imm;
                 ip = addr - 1;
                 break;
             case OpCode::BrTrue:
             case OpCode::BrFalse:
-                a = stack[stack.size() - 2];
-                addr = stack[stack.size() - 1];
+                a = stack[stack.size() - 1];
+                addr = imm;
                 if ((a && opcode == OpCode::BrTrue)
                         || (!a && opcode == OpCode::BrFalse)) {
                     ip = addr - 1;
                 }
-                stack.pop_back();
                 stack.pop_back();
                 break;
             default: 
@@ -198,7 +200,7 @@ void Program::disassemble() const {
 
 void Program::disassemble_instr(
         uint32_t instr, uint32_t next, uint32_t &i) const {
-    OpCode opcode = static_cast<OpCode>(instr & 0xFF);
+    OpCode opcode = static_cast<OpCode>(instr & 0x7F);
     FuncCode funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
     std::string func_name;
     if (opcode == OpCode::Unary) {
@@ -213,7 +215,7 @@ void Program::disassemble_instr(
     } else {
         std::cerr << op_names[static_cast<size_t>(opcode)] << " " << func_name;
     }
-    if (opcode == OpCode::Push) {
+    if ((instr >> 7) & 1) {
         if (next >> 31) {
             std::cerr << " " << static_cast<int32_t>(next) 
                     << " (" << next << ")" << std::endl;
