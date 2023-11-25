@@ -13,7 +13,9 @@
 
 class BaseNode;
 
-using LabelMap = std::unordered_map<uint32_t, uint32_t>;
+using Label = uint32_t;
+
+using LabelMap = std::unordered_map<Label, uint32_t>;
 
 struct DataEntry {
     uint32_t label;
@@ -34,7 +36,7 @@ public:
             bool references_label = false);
     static StackEntry instr(OpCode opcode, FuncCode funccode, 
             uint32_t data, bool references_label = false);
-    static StackEntry label(uint32_t label);
+    static StackEntry label(Label label);
 
     bool combine(StackEntry const &right, StackEntry &combined) const;
     void register_label(LabelMap &map, uint32_t &i) const;
@@ -61,11 +63,11 @@ public:
     void add_instr(OpCode opcode, uint32_t data, bool references_label = false);
     void add_instr(OpCode opcode, FuncCode funccode, 
             uint32_t data, bool references_label = false);
-    void add_data_node(uint32_t label, BaseNode *node);
+    void add_data_node(Label label, BaseNode *node);
     uint32_t add_label();
-    uint32_t add_label(uint32_t label);
+    uint32_t add_label(Label label);
     uint32_t get_label();
-    void references_label(uint32_t label);
+    void references_label(Label label);
     void serialize(BaseNode *root);
     void assemble(std::ofstream &file) const;
 private:
@@ -78,7 +80,7 @@ private:
     // 1 -> entry point id
     uint32_t counter;
     std::vector<StackEntry> stack;
-    std::stack<uint32_t> break_labels;
+    std::stack<Label> break_labels;
 };
 
 #endif

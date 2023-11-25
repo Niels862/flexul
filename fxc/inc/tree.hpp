@@ -24,7 +24,7 @@ public:
     virtual void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope);
-    virtual uint32_t register_symbol(
+    virtual SymbolId register_symbol(
             Serializer &serializer, SymbolMap &scope, 
             StorageType storage_type, uint32_t value) const;
     virtual void serialize(Serializer &serializer) const = 0;
@@ -36,15 +36,15 @@ public:
     BaseNode *get_second() const;
     BaseNode *get_third() const;
     BaseNode *get_fourth() const;
-    void set_id(uint32_t id);
-    uint32_t get_id() const;
+    void set_id(SymbolId id);
+    SymbolId get_id() const;
     static void print(BaseNode *node, std::string const labelPrefix = "", 
             std::string const branchPrefix = "");
 private:
     BaseNode *get_nth(uint32_t n, std::string const &ordinal) const;
     Token token;
     std::vector<BaseNode *> children;
-    uint32_t symbol_id;
+    SymbolId symbol_id;
 };
 
 class EmptyNode : public BaseNode {
@@ -106,12 +106,24 @@ public:
     void serialize(Serializer &serializer) const override;
 };
 
+// Block without attached scope, scope managed by outside node:
+// primitve collection of statements like function body or file body
 class BlockNode : public BaseNode {
 public:
     BlockNode(Token token, std::vector<BaseNode *> children);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
+    void serialize(Serializer &serializer) const override;
+private:
+    SymbolMap scope_map;
+};
+
+// Block which introduces a new scope: statement blocks
+class ScopedBlockNode : public BaseNode {
+public:
+    ScopedBlockNode(Token token, std::vector<BaseNode *> children);
+
     void serialize(Serializer &serializer) const override;
 private:
     SymbolMap scope_map;

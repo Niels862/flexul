@@ -38,7 +38,7 @@ StackEntry StackEntry::instr(OpCode opcode, FuncCode funccode,
             data, true, references_label);
 }
 
-StackEntry StackEntry::label(uint32_t label) {
+StackEntry StackEntry::label(Label label) {
     return StackEntry(
             EntryType::Label, OpCode::Nop, FuncCode::Nop, 
             label, false, false);
@@ -126,7 +126,7 @@ Serializer::Serializer()
         }), counter(2), stack() {}
 
 uint32_t Serializer::get_symbol_id() {
-    uint32_t symbol_id = counter;
+    SymbolId symbol_id = counter;
     counter++;
     return symbol_id;
 }
@@ -170,13 +170,13 @@ uint32_t Serializer::add_label() {
     return add_label(get_label());
 }
 
-uint32_t Serializer::add_label(uint32_t label) {
+uint32_t Serializer::add_label(Label label) {
     add_entry(StackEntry::label(label));
     return label;
 }
 
 uint32_t Serializer::get_label() {
-    uint32_t label = counter;
+    Label label = counter;
     counter++;
     return label;
 }
@@ -186,15 +186,10 @@ void Serializer::serialize(BaseNode *root) {
     SymbolMap global_scope;
     SymbolMap enclosing_scope;
     SymbolMap current_scope;
-    uint32_t entry_label;
+    Label entry_label;
     uint32_t i;
 
     root->resolve_symbols_first_pass(*this, global_scope);
-    
-    for (auto const &kv : global_scope) {
-        std::cerr << kv.first << ": " << kv.second << std::endl;
-    }
-    
     root->resolve_symbols_second_pass(*this, global_scope, 
             enclosing_scope, current_scope);
     

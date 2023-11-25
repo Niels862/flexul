@@ -79,7 +79,7 @@ BaseNode *Parser::parse_filebody() {
     while (curr_token.get_type() != TokenType::EndOfFile) {
         nodes.push_back(parse_function_declaration());
     }
-    return add<BlockNode>(Token(TokenType::Synthetic, "<filebody>"), nodes);
+    return add<BlockNode>(Token::synthetic("<filebody>"), nodes);
 }
 
 BaseNode *Parser::parse_function_declaration() {
@@ -87,7 +87,7 @@ BaseNode *Parser::parse_function_declaration() {
     BaseNode *identifier = add<VariableNode>(
             expect_type(TokenType::Identifier));
     BaseNode *param_list = parse_param_list(true);
-    BaseNode *body = parse_braced_block();
+    BaseNode *body = parse_braced_block(false);
     return add<FunctionNode>(fn_token, {
         identifier, param_list, body
     });
@@ -118,7 +118,7 @@ BaseNode *Parser::parse_param_list(bool is_declaration) {
     return add<ExpressionListNode>(Token::synthetic("<params>"), params);
 }
 
-BaseNode *Parser::parse_braced_block() {
+BaseNode *Parser::parse_braced_block(bool is_scope) {
     std::vector<BaseNode *> statements;
     expect_data("{");
     while (curr_token.get_data() != "}") {
@@ -128,7 +128,11 @@ BaseNode *Parser::parse_braced_block() {
         }
     }
     get_token();
-    return add<BlockNode>(Token(TokenType::Synthetic, "<block>"), statements);
+    if (is_scope) {
+        return add<ScopedBlockNode>(
+                Token::synthetic("<scoped-block>"), statements);
+    }
+    return add<BlockNode>(Token::synthetic("<block>"), statements);
 }
 
 BaseNode *Parser::parse_statement() {
@@ -141,7 +145,7 @@ BaseNode *Parser::parse_statement() {
     } else if (token.get_data() == "while") {
         node = parse_while();
     } else if (token.get_data() == "{") {
-        node = parse_braced_block();
+        node = parse_braced_block(true);
     } else if (token.get_data() == ";") {
         node = add<EmptyNode>(Token::synthetic("<nostmt>"), {});
         get_token();
