@@ -138,6 +138,8 @@ BaseNode *Parser::parse_statement() {
         node = parse_if_else();
     } else if (token.get_data() == "for") {
         node = parse_for();
+    } else if (token.get_data() == "while") {
+        node = parse_while();
     } else if (token.get_data() == "{") {
         node = parse_braced_block();
     } else if (token.get_data() == ";") {
@@ -188,6 +190,20 @@ BaseNode *Parser::parse_for() {
     });
 }
 
+BaseNode *Parser::parse_while() {
+    Token token = expect_data("while");
+    expect_data("(");
+    BaseNode *cond = parse_expression();
+    expect_data(")");
+    BaseNode *body = parse_statement();
+    return add<ForLoopNode>(token, {
+        add<EmptyNode>(Token::synthetic("<nostmt>"), {}),
+        cond,
+        add<EmptyNode>(Token::synthetic("<nostmt>"), {}),
+        body
+    });
+}
+
 BaseNode *Parser::parse_expression() {
     if (curr_token.get_data() == "lambda") {
         return parse_lambda();
@@ -229,7 +245,7 @@ BaseNode *Parser::parse_assignment() {
             throw std::runtime_error("Expected lvalue");
         }
         get_token();
-        return add<BinaryNode>(token, {left, parse_or()});
+        return add<BinaryNode>(token, {left, parse_assignment()});
     }
     return left;
 }

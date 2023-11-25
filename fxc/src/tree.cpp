@@ -26,9 +26,12 @@ bool BaseNode::is_lvalue() const {
 void BaseNode::resolve_symbols_first_pass(Serializer &, SymbolMap &) {}
 
 void BaseNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &symbol_map) {
+        Serializer &serializer, SymbolMap &global_scope, 
+        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
     for (BaseNode *child : get_children()) {
-        child->resolve_symbols_second_pass(serializer, symbol_map);
+        child->resolve_symbols_second_pass(
+                serializer, global_scope, 
+                enclosing_scope, current_scope);
     }
 }
 
@@ -133,20 +136,17 @@ bool VariableNode::is_lvalue() const {
 }
 
 void VariableNode::resolve_symbols_second_pass(
-        Serializer &, SymbolMap &symbol_map) {
-    auto iter = symbol_map.find(get_token().get_data());
-    if (iter == symbol_map.end()) {
-        throw std::runtime_error(
-                "Unresolved reference: " + get_token().get_data());
-    }
-    set_id(iter->second);
+        Serializer &, SymbolMap &global_scope, 
+        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
+    set_id(lookup_symbol(get_token().get_data(), global_scope, 
+            enclosing_scope, current_scope));
 }
 
 uint32_t VariableNode::register_symbol(
-        Serializer &serializer, SymbolMap &symbol_map, 
+        Serializer &serializer, SymbolMap &scope, 
         StorageType storage_type, uint32_t value) const {
-    uint32_t symbol_id = serializer.get_symbol_id();
-    symbol_map[get_token().get_data()] = symbol_id;
+    SymbolId symbol_id = serializer.get_symbol_id();
+    declare_symbol(get_token().get_data(), symbol_id, scope);
     serializer.register_symbol({symbol_id, storage_type, value});
     return symbol_id;
 }
@@ -344,16 +344,21 @@ void FunctionNode::resolve_symbols_first_pass(
 }
 
 void FunctionNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &symbol_map) {
-    SymbolMap function_scope_map = symbol_map;
+        Serializer &serializer, SymbolMap &global_scope, 
+        SymbolMap &, SymbolMap &) {
+    // used as enclosing scope which is empty
+    // for function
+    SymbolMap empty_scope;
+    SymbolMap function_scope;
     uint32_t position = -3 - get_second()->get_children().size();
     for (BaseNode *child : get_second()->get_children()) {
         child->set_id(child->register_symbol(
-                serializer, function_scope_map, 
+                serializer, function_scope, 
                 StorageType::Relative, position));
         position++;
     }
-    get_third()->resolve_symbols_second_pass(serializer, function_scope_map);
+    get_third()->resolve_symbols_second_pass(serializer, global_scope, 
+            empty_scope, function_scope);
 }
 
 void FunctionNode::serialize(Serializer &serializer) const {

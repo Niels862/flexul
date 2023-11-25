@@ -1,7 +1,8 @@
 fn sum(x, y, n) {
-    y = 0;
-    for (x = 0; x <= n; x = x + 1) {
+    x = y = 0;
+    while (x <= n) {
         y = y + x;
+        x = x + 1;
     }
     return y;
 }

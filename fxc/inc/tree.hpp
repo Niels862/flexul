@@ -16,12 +16,16 @@ public:
     virtual ~BaseNode();
 
     virtual bool is_lvalue() const;
+    // First pass: collects symbols which can be referenced before declaration:
+    // functions, global variables, definitions
     virtual void resolve_symbols_first_pass(
-            Serializer &serializer, SymbolMap &symbol_map);
+            Serializer &serializer, SymbolMap &current_scope);
+    // Second pass: collects all other symbols and resolves occurences.
     virtual void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &symbol_map);
+            Serializer &serializer, SymbolMap &global_scope, 
+            SymbolMap &enclosing_scope, SymbolMap &current_scope);
     virtual uint32_t register_symbol(
-            Serializer &serializer, SymbolMap &symbol_map, 
+            Serializer &serializer, SymbolMap &scope, 
             StorageType storage_type, uint32_t value) const;
     virtual void serialize(Serializer &serializer) const = 0;
     virtual void serialize_load_address(Serializer &serializer) const;
@@ -65,9 +69,10 @@ public:
 
     bool is_lvalue() const override;
     void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &symbol_map) override;
+            Serializer &serializer, SymbolMap &global_scope, 
+            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     uint32_t register_symbol(
-            Serializer &serializer, SymbolMap &symbol_map, 
+            Serializer &serializer, SymbolMap &scope, 
             StorageType storage_type, uint32_t value) const override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
@@ -119,7 +124,8 @@ public:
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
     void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &symbol_map) override;
+            Serializer &serializer, SymbolMap &global_scope, 
+            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 };
 

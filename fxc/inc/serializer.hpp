@@ -5,6 +5,7 @@
 #include "opcodes.hpp"
 #include "symbol.hpp"
 #include <vector>
+#include <stack>
 #include <string>
 #include <unordered_map>
 #include <cstdint>
@@ -77,6 +78,7 @@ private:
     // 1 -> entry point id
     uint32_t counter;
     std::vector<StackEntry> stack;
+    std::stack<uint32_t> break_labels;
 };
 
 #endif

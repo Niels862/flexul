@@ -183,16 +183,25 @@ uint32_t Serializer::get_label() {
 
 void Serializer::serialize(BaseNode *root) {
     std::vector<std::string> symbol_table; // maps from int_id to identifier
-    SymbolMap global_symbol_map;
+    SymbolMap global_scope;
+    SymbolMap enclosing_scope;
+    SymbolMap current_scope;
     uint32_t entry_label;
     uint32_t i;
 
-    root->resolve_symbols_first_pass(*this, global_symbol_map);
-    root->resolve_symbols_second_pass(*this, global_symbol_map);
+    root->resolve_symbols_first_pass(*this, global_scope);
+    
+    for (auto const &kv : global_scope) {
+        std::cerr << kv.first << ": " << kv.second << std::endl;
+    }
+    
+    root->resolve_symbols_second_pass(*this, global_scope, 
+            enclosing_scope, current_scope);
+    
     // Note that 'main' may not be a function name but could be another
     // global scope definition, this is intended behavior.
-    auto iter = global_symbol_map.find("main"); // TODO: variable entry point
-    if (iter == global_symbol_map.end()) {
+    auto iter = global_scope.find("main"); // TODO: variable entry point
+    if (iter == global_scope.end()) {
         throw std::runtime_error("Entry point 'main' was not defined");
     }
     entry_label = iter->second;
