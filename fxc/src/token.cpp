@@ -56,3 +56,11 @@ std::string Token::type_string(TokenType type) {
             return "errortype";
     }
 }
+
+bool Token::operator ==(Token const &other) {
+    return type == other.type && data == other.data;
+}
+
+bool Token::operator !=(Token const &other) {
+    return type != other.type || data != other.data;
+}

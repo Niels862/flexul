@@ -19,19 +19,21 @@ private:
     Token get_token();
     Token expect_data(std::string const &data);
     Token expect_type(TokenType type);
+    Token expect_token(Token const &other);
 
     BaseNode *parse_filebody();
     BaseNode *parse_function_declaration();
-    BaseNode *parse_param_list(bool is_declaration);
+    BaseNode *parse_param_list(bool is_declaration, 
+            Token const &end_token);
     BaseNode *parse_braced_block(bool is_scope);
     BaseNode *parse_statement();
     BaseNode *parse_if_else();
     BaseNode *parse_for();
     BaseNode *parse_while();
     BaseNode *parse_expression();
+    BaseNode *parse_assignment();
     BaseNode *parse_lambda();
     BaseNode *parse_ternary();
-    BaseNode *parse_assignment();
     BaseNode *parse_or();
     BaseNode *parse_and();
     BaseNode *parse_equality_1();

@@ -57,7 +57,7 @@ Token Parser::expect_data(std::string const &data) {
     if (token.get_data() != data) {
         throw std::runtime_error(
                 "Expected '" + data + "', got '" 
-                + token.get_data() + "'");
+                + token.to_string() + "'");
     }
     get_token();
     return token;
@@ -68,6 +68,17 @@ Token Parser::expect_type(TokenType type) {
     if (token.get_type() != type) {
         throw std::runtime_error(
                 "Expected token of type " + Token::type_string(type) 
+                + ", got " + token.to_string());
+    }
+    get_token();
+    return token;
+}
+
+Token Parser::expect_token(Token const &other) {
+    Token token = curr_token;
+    if (token != other) {
+        throw std::runtime_error(
+                "Expected " + other.to_string()
                 + ", got " + token.to_string());
     }
     get_token();
@@ -86,18 +97,20 @@ BaseNode *Parser::parse_function_declaration() {
     Token fn_token = expect_data("fn");
     BaseNode *identifier = add<VariableNode>(
             expect_type(TokenType::Identifier));
-    BaseNode *param_list = parse_param_list(true);
+    expect_data("(");
+    BaseNode *param_list = parse_param_list(true, 
+            Token(TokenType::Separator, ")"));
     BaseNode *body = parse_braced_block(false);
     return add<FunctionNode>(fn_token, {
         identifier, param_list, body
     });
 }
 
-BaseNode *Parser::parse_param_list(bool is_declaration) {
+BaseNode *Parser::parse_param_list(bool is_declaration, 
+        Token const &end_token) {
     std::vector<BaseNode *> params;
     BaseNode *param;
-    expect_data("(");
-    if (curr_token.get_data() == ")") {
+    if (curr_token == end_token) {
         get_token();
     } else {
         while (true) {
@@ -110,7 +123,7 @@ BaseNode *Parser::parse_param_list(bool is_declaration) {
             if (curr_token.get_data() == ",") {
                 get_token();
             } else {
-                expect_data(")");
+                expect_token(end_token);
                 break;
             }
         }
@@ -212,15 +225,26 @@ BaseNode *Parser::parse_expression() {
     if (curr_token.get_data() == "lambda") {
         return parse_lambda();
     }
-    return parse_ternary();
+    return parse_assignment();
+}
+
+BaseNode *Parser::parse_assignment() {
+    BaseNode *left = parse_ternary();
+    Token token = curr_token;
+    if (token.get_data() == "=") {
+        if (!left->is_lvalue()) {
+            throw std::runtime_error("Expected lvalue");
+        }
+        get_token();
+        return add<BinaryNode>(token, {left, parse_expression()});
+    }
+    return left;
 }
 
 BaseNode *Parser::parse_lambda() {
 
-    BaseNode *params = add<ExpressionListNode>(
-            Token::synthetic("<params>"), {});
     Token token = expect_data("lambda");
-    expect_data(":");
+    BaseNode *params = parse_param_list(true, Token(TokenType::Operator, ":"));
     BaseNode *body = parse_expression();
     return add<LambdaNode>(token, {
         params, 
@@ -229,7 +253,7 @@ BaseNode *Parser::parse_lambda() {
 }
 
 BaseNode *Parser::parse_ternary() {
-    BaseNode *cond = parse_assignment();
+    BaseNode *cond = parse_or();
     Token token = curr_token;
     if (token.get_data() == "?") {
         get_token();
@@ -239,19 +263,6 @@ BaseNode *Parser::parse_ternary() {
         return add<IfElseNode>(token, {cond, expr_true, expr_false});
     }
     return cond;
-}
-
-BaseNode *Parser::parse_assignment() {
-    BaseNode *left = parse_or();
-    Token token = curr_token;
-    if (token.get_data() == "=") {
-        if (!left->is_lvalue()) {
-            throw std::runtime_error("Expected lvalue");
-        }
-        get_token();
-        return add<BinaryNode>(token, {left, parse_assignment()});
-    }
-    return left;
 }
 
 BaseNode *Parser::parse_or() {
@@ -342,7 +353,9 @@ BaseNode *Parser::parse_value() {
         throw std::runtime_error("Expected value, got " + token.to_string());
     }
     while (curr_token.get_data() == "(") {
-        BaseNode *param_list = parse_param_list(false);
+        expect_data("(");
+        BaseNode *param_list = parse_param_list(false, 
+                Token(TokenType::Separator, ")"));
         expression = add<CallNode>(Token::synthetic("<call>"), {
             expression, param_list
         });
