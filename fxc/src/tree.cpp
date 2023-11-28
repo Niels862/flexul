@@ -170,6 +170,7 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
     SymbolEntry entry = serializer.get_symbol_entry(get_id());
     if (entry.storage_type == StorageType::Absolute) { // TODO: think about this
         serializer.add_instr(OpCode::Push, get_id(), true);
+        throw std::runtime_error("Cannot load address of address");
     } else if (entry.storage_type == StorageType::Relative) {
         serializer.add_instr(OpCode::LoadAddrRel, entry.value);
     } else {
@@ -182,18 +183,33 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
 UnaryNode::UnaryNode(Token token, std::vector<BaseNode *> children)
         : BaseNode(1, token, children) {}
 
+bool UnaryNode::is_lvalue() const {
+    return get_token().get_data() == "*";
+}
+
 void UnaryNode::serialize(Serializer &serializer) const {
-    FuncCode funccode;
     Token token = get_token();
+    if (token.get_data() == "&") {
+        get_first()->serialize_load_address(serializer);
+        return;
+    }
+    get_first()->serialize(serializer);
     if (token.get_data() == "-") {
-        funccode = FuncCode::Neg;
-    } else {
+        serializer.add_instr(OpCode::Unary, FuncCode::Neg);
+    } else if (token.get_data() == "*") {
+        serializer.add_instr(OpCode::LoadAbs);
+    } else if (token.get_data() != "*") {
         throw std::runtime_error(
                 "Unrecognized operator for unary expression: " 
                 + token.get_data());
     }
+}
+
+void UnaryNode::serialize_load_address(Serializer &serializer) const {
+    if (get_token().get_data() != "*") {
+        throw std::runtime_error("Cannot load address of non lvalue");
+    }
     get_first()->serialize(serializer);
-    serializer.add_instr(OpCode::Unary, funccode);
 }
 
 BinaryNode::BinaryNode(Token token, std::vector<BaseNode *> children)

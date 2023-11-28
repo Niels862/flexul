@@ -82,7 +82,9 @@ class UnaryNode : public BaseNode {
 public:
     UnaryNode(Token token, std::vector<BaseNode *> children);
 
+    bool is_lvalue() const override;
     void serialize(Serializer &serializer) const override;
+    void serialize_load_address(Serializer &serializer) const override;
 };
 
 class BinaryNode : public BaseNode {

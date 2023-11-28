@@ -25,6 +25,7 @@ private:
     BaseNode *parse_function_declaration();
     BaseNode *parse_param_list(bool is_declaration, 
             Token const &end_token);
+    BaseNode *parse_declaration();
     BaseNode *parse_braced_block(bool is_scope);
     BaseNode *parse_statement();
     BaseNode *parse_if_else();

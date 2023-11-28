@@ -115,7 +115,7 @@ BaseNode *Parser::parse_param_list(bool is_declaration,
     } else {
         while (true) {
             if (is_declaration) {
-                param = add<VariableNode>(expect_type(TokenType::Identifier));
+                param = parse_declaration();
             } else {
                 param = parse_expression();
             }
@@ -129,6 +129,10 @@ BaseNode *Parser::parse_param_list(bool is_declaration,
         }
     }
     return add<ExpressionListNode>(Token::synthetic("<params>"), params);
+}
+
+BaseNode *Parser::parse_declaration() {
+    return add<VariableNode>(expect_type(TokenType::Identifier));
 }
 
 BaseNode *Parser::parse_braced_block(bool is_scope) {
@@ -336,9 +340,14 @@ BaseNode *Parser::parse_term() {
 BaseNode *Parser::parse_value() {
     Token token = curr_token;
     BaseNode *expression;
-    if (token.get_data() == "-" || token.get_data() == "+") {
+    if (token.get_data() == "-" || token.get_data() == "+" 
+            || token.get_data() == "*" || token.get_data() == "&") {
         get_token();
-        expression = add<UnaryNode>(token, {parse_value()});
+        BaseNode *value = parse_value();
+        if (token.get_data() == "&" && !value->is_lvalue()) {
+            throw std::runtime_error("Expected lvalue");
+        } 
+        expression = add<UnaryNode>(token, {value});
     } else if (token.get_type() == TokenType::IntLit) {
         get_token();
         expression = add<IntLitNode>(token);

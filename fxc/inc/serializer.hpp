@@ -67,7 +67,6 @@ public:
     uint32_t add_label();
     uint32_t add_label(Label label);
     uint32_t get_label();
-    void references_label(Label label);
     void serialize(BaseNode *root);
     void assemble(std::ofstream &file) const;
 private:
