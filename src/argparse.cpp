@@ -82,6 +82,10 @@ std::string ArgParser::get(std::string const &name) const {
     return iter->second.get_value();
 }
 
+bool ArgParser::get_bool(std::string const &name) const {
+    return get(name) == "T";
+}
+
 std::string ArgParser::get_defined_name(std::string const &name) const {
     SynonymMap::const_iterator synonym_iter = synonyms.find(name);
     if (synonym_iter == synonyms.end()) {

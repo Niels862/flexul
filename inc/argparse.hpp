@@ -38,6 +38,7 @@ public:
     void add_synonym(std::string const &synonym, 
             std::string const &defined_name);
     std::string get(std::string const &name) const;
+    bool get_bool(std::string const &name) const;
 private:
     std::string get_defined_name(std::string const &name) const;
     void set_parsed_value(std::string const &name, int &i, 
