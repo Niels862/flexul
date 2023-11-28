@@ -9,7 +9,7 @@
 class Program {
 public:
     Program();
-    static Program load(std::ifstream &file);
+    static Program load(std::vector<uint32_t>);
     uint32_t run();
     void analytics() const;
     void dump_stack() const;

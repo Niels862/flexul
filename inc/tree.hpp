@@ -38,6 +38,7 @@ public:
     BaseNode *get_fourth() const;
     void set_id(SymbolId id);
     SymbolId get_id() const;
+    
     static void print(BaseNode *node, std::string const labelPrefix = "", 
             std::string const branchPrefix = "");
 private:

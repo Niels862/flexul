@@ -68,7 +68,7 @@ public:
     uint32_t add_label(Label label);
     uint32_t get_label();
     void serialize(BaseNode *root);
-    void assemble(std::ofstream &file) const;
+    std::vector<uint32_t> assemble() const;
 private:
     void add_entry(StackEntry const &entry);
     std::vector<SymbolEntry> symbol_table;

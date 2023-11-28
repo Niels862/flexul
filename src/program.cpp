@@ -7,13 +7,9 @@
 Program::Program() 
         : ip(0), bp(0), completed_instrs(0), execution_time(0) {}
 
-Program Program::load(std::ifstream &file) {
+Program Program::load(std::vector<uint32_t> bytecode) {
     Program program;
-    uint32_t value = 0;
-    while (file.read(reinterpret_cast<char *>(&value), 4)) {
-        program.stack.push_back(value);
-        value = 0;
-    }
+    program.stack = bytecode;
     return program;
 }
 

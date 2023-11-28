@@ -214,7 +214,7 @@ void Serializer::serialize(BaseNode *root) {
     }
 }
 
-void Serializer::assemble(std::ofstream &file) const {
+std::vector<uint32_t> Serializer::assemble() const {
     std::vector<uint32_t> bytecode;
     LabelMap map;
     uint32_t i = 0;
@@ -224,9 +224,7 @@ void Serializer::assemble(std::ofstream &file) const {
     for (StackEntry const &entry : stack) {
         entry.assemble(bytecode, map);
     }
-    for (uint32_t const bytecode_entry : bytecode) {
-        file.write(reinterpret_cast<const char*>(&bytecode_entry), 4);
-    }
+    return bytecode;
 }
 
 void Serializer::add_entry(StackEntry const &entry) {
