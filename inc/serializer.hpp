@@ -38,6 +38,7 @@ public:
             uint32_t data, bool references_label = false);
     static StackEntry label(Label label);
 
+    bool has_no_effect() const;
     bool combine(StackEntry const &right, StackEntry &combined) const;
     void register_label(LabelMap &map, uint32_t &i) const;
     void assemble(std::vector<uint32_t> &stack, LabelMap const &map) const;

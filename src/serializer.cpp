@@ -45,16 +45,26 @@ StackEntry StackEntry::label(Label label) {
             label, false, false);
 }
 
+bool StackEntry::has_no_effect() const {
+    if (opcode == OpCode::Nop) {
+        return true;
+    }
+    if (opcode == OpCode::AddSp && has_immediate && data == 0) {
+        return true;
+    }
+    return false;
+}
+
 bool StackEntry::combine(StackEntry const &right, StackEntry &combined) const {
     if (type != EntryType::Instruction 
             || right.type != EntryType::Instruction) {
         return false;
     }
-    if (opcode == OpCode::Nop) {
+    if (has_no_effect()) {
         combined = right;
         return true;
     }
-    if (right.opcode == OpCode::Nop) {
+    if (right.has_no_effect()) {
         combined = *this;
         return true;
     }
