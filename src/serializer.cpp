@@ -1,4 +1,5 @@
 #include "serializer.hpp"
+#include "utils.hpp"
 #include <iostream>
 #include <stdexcept>
 
@@ -121,14 +122,14 @@ void StackEntry::assemble(std::vector<uint32_t> &stack,
 
 Serializer::Serializer()
         : symbol_table({
-            {0, StorageType::Invalid, 0}, 
-            {1, StorageType::Absolute, 0}
+            {"<null>", 0, StorageType::Invalid, 0, 0}, 
+            {"<entry>", 1, StorageType::Absolute, 0, 0}
         }), counter(2), stack() {}
 
-uint32_t Serializer::get_symbol_id() {
-    SymbolId symbol_id = counter;
+SymbolId Serializer::get_symbol_id() {
+    SymbolId id = counter;
     counter++;
-    return symbol_id;
+    return id;
 }
 
 void Serializer::register_symbol(SymbolEntry const &entry) {
@@ -141,8 +142,39 @@ void Serializer::register_symbol(SymbolEntry const &entry) {
     symbol_table.push_back(entry);
 }
 
-SymbolEntry const &Serializer::get_symbol_entry(uint32_t symbol_id) {
-    return symbol_table[symbol_id];
+SymbolEntry const &Serializer::get_symbol_entry(SymbolId id) {
+    symbol_table[id].usages++;
+    return symbol_table[id];
+}
+
+void Serializer::open_container() {
+    containers.push(std::vector<SymbolId>());
+}
+
+void Serializer::add_to_container(SymbolId id) {
+    containers.top().push_back(id);
+}
+
+uint32_t Serializer::resolve_container() {
+    uint32_t position = 0;
+    for (SymbolId const &id : containers.top()) {
+        symbol_table[id].value = position;
+        position++;
+    }
+    containers.pop();
+    return position;
+}
+
+void Serializer::dump_symbol_table() const {
+    uint32_t i;
+    for (i = 0; i < symbol_table.size(); i++) {
+        SymbolEntry entry = symbol_table[i];
+        std::cerr << std::setw(6) << i << ": " 
+                << entry.symbol << " of type " 
+                << static_cast<int>(entry.storage_type)
+                << " at " << static_cast<int32_t>(entry.value) 
+                << " (" << entry.usages << " usages)" << std::endl;
+    }
 }
 
 void Serializer::add_instr(OpCode opcode, FuncCode funccode) {
@@ -162,8 +194,8 @@ void Serializer::add_instr(OpCode opcode, FuncCode funccode,
             StackEntry::instr(opcode, funccode, data, references_label));
 }
 
-void Serializer::add_data_node(uint32_t label, BaseNode *node) {
-    data_section.push_back({label, node});
+void Serializer::add_job(uint32_t label, BaseNode *node) {
+    code_jobs.push_back({label, node});
 }
 
 uint32_t Serializer::add_label() {
@@ -192,7 +224,7 @@ void Serializer::serialize(BaseNode *root) {
     root->resolve_symbols_first_pass(*this, global_scope);
     root->resolve_symbols_second_pass(*this, global_scope, 
             enclosing_scope, current_scope);
-    
+
     // Note that 'main' may not be a function name but could be another
     // global scope definition, this is intended behavior.
     auto iter = global_scope.find("main"); // TODO: variable entry point
@@ -207,10 +239,9 @@ void Serializer::serialize(BaseNode *root) {
     add_instr(OpCode::SysCall, FuncCode::Exit);
     root->serialize(*this);
 
-    // Data section may still grow during serialization because of lambdas
-    for (i = 0; i < data_section.size(); i++) {
-        add_label(data_section[i].label);
-        data_section[i].node->serialize(*this);
+    for (i = 0; i < code_jobs.size(); i++) {
+        add_label(code_jobs[i].label);
+        code_jobs[i].node->serialize(*this);
     }
 }
 

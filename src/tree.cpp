@@ -87,7 +87,7 @@ void BaseNode::print(BaseNode *node, std::string const labelPrefix,
         std::string const branchPrefix) {
     size_t i;
     if (node == nullptr) {
-        std::cerr << labelPrefix << "NULL" << std::endl;
+        std::cerr << labelPrefix << "(null)" << std::endl;
         return;
     }
     std::cerr << labelPrefix << node->token.get_data();
@@ -148,7 +148,13 @@ uint32_t VariableNode::register_symbol(
         StorageType storage_type, uint32_t value) const {
     SymbolId symbol_id = serializer.get_symbol_id();
     declare_symbol(get_token().get_data(), symbol_id, scope);
-    serializer.register_symbol({symbol_id, storage_type, value});
+    serializer.register_symbol({
+        get_token().get_data(), 
+        symbol_id, 
+        storage_type, 
+        value,
+        0
+    });
     return symbol_id;
 }
 
@@ -383,8 +389,10 @@ void FunctionNode::resolve_symbols_second_pass(
                 StorageType::Relative, position));
         position++;
     }
+    serializer.open_container();
     get_third()->resolve_symbols_second_pass(serializer, global_scope, 
             empty_scope, function_scope);
+    frame_size = serializer.resolve_container();
 }
 
 void FunctionNode::serialize(Serializer &serializer) const {
@@ -393,6 +401,7 @@ void FunctionNode::serialize(Serializer &serializer) const {
         throw std::runtime_error("Unresolved name");
     }
     serializer.add_label(id);
+    serializer.add_instr(OpCode::AddSp, frame_size);
     get_third()->serialize(serializer);
     serializer.add_instr(OpCode::Ret, 0);
 }
@@ -401,9 +410,25 @@ LambdaNode::LambdaNode(
         Token token, std::vector<BaseNode *> children)
         : BaseNode(2, token, children) {}
 
+void LambdaNode::resolve_symbols_second_pass(
+        Serializer &serializer, SymbolMap &global_scope, 
+        SymbolMap &, SymbolMap &) {
+    SymbolMap empty_scope;
+    SymbolMap lambda_scope;
+    uint32_t position = -3 - get_first()->get_children().size();
+    for (BaseNode *child : get_first()->get_children()) {
+        child->set_id(child->register_symbol(
+                serializer, lambda_scope, 
+                StorageType::Relative, position));
+        position++;
+    }
+    get_second()->resolve_symbols_second_pass(serializer, global_scope, 
+            empty_scope, lambda_scope);
+}
+
 void LambdaNode::serialize(Serializer &serializer) const {
     SymbolId id = serializer.get_label();
-    serializer.add_data_node(id, get_second());
+    serializer.add_job(id, get_second());
     serializer.add_instr(OpCode::Push, id, true);
 }
 
@@ -454,6 +479,31 @@ ReturnNode::ReturnNode(Token token, std::vector<BaseNode *> children)
 void ReturnNode::serialize(Serializer &serializer) const {
     get_first()->serialize(serializer);
     serializer.add_instr(OpCode::Ret);
+}
+
+DeclarationNode::DeclarationNode(Token token, std::vector<BaseNode *> children)
+        : BaseNode(2, token, children) {}
+
+void DeclarationNode::resolve_symbols_second_pass(
+        Serializer &serializer, SymbolMap &global_scope, 
+        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
+    if (get_second() != nullptr) {
+        get_second()->resolve_symbols_second_pass(serializer, global_scope, 
+                enclosing_scope, current_scope);
+    }
+    serializer.add_to_container(get_first()->register_symbol(
+            serializer, current_scope, StorageType::Relative, 0));
+    get_first()->resolve_symbols_second_pass(serializer, global_scope, 
+            enclosing_scope, current_scope);
+}
+
+void DeclarationNode::serialize(Serializer &serializer) const {
+    if (get_second() != nullptr) {
+        get_first()->serialize_load_address(serializer);
+        get_second()->serialize(serializer);
+        serializer.add_instr(OpCode::Binary, FuncCode::Assign);
+        serializer.add_instr(OpCode::Pop);
+    }
 }
 
 ExpressionStatementNode::ExpressionStatementNode(

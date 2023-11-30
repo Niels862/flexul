@@ -1,7 +1,8 @@
-fn func(f) {
-    return f()();
+fn func(f, x) {
+    var z = 6;
+    return f(x, z);
 }
 
 fn main() {
-    return func(lambda: lambda: 2 + 3);
+    return func(lambda a, b: a + b, 2);
 }

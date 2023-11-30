@@ -17,9 +17,11 @@ enum class StorageType {
 using SymbolId = uint32_t;
 
 struct SymbolEntry {
+    std::string symbol;
     SymbolId id;
     StorageType storage_type;
     uint32_t value;
+    uint64_t usages;
 };
 
 using SymbolMap = std::unordered_map<std::string, SymbolId>;

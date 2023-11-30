@@ -110,6 +110,9 @@ uint32_t Program::run() {
                 break;
             case OpCode::Pop:
                 break;
+            case OpCode::AddSp:
+                stack.resize(stack.size() + static_cast<int32_t>(imm));
+                break;
             case OpCode::LoadRel:
                 a = imm;
                 stack.push_back(stack[bp + a]);

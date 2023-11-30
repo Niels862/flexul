@@ -12,4 +12,13 @@ void print_map(T const &map, size_t width = 16) {
     }
 }
 
+template <typename T>
+void print_iterable(T const &iterable) {
+    std::cerr << "{" << std::endl;
+    for (auto const &value : iterable) {
+        std::cerr << "    " << value << std::endl;
+    }
+    std::cerr << "}" << std::endl;
+}
+
 #endif

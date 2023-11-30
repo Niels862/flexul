@@ -3,8 +3,8 @@ fn div(a, b) {
     return b / a;
 }
 
-fn swap(px, py, t) {
-    t = *px;
+fn swap(px, py) {
+    var t = *px;
     *px = *py;
     *py = t;
 }

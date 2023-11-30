@@ -1,5 +1,6 @@
-fn sum(x, y, n) {
-    x = y = 0;
+fn sum(n) {
+    var x = 0;
+    var y = 0;
     while (x <= n) {
         y = y + x;
         x = x + 1;
@@ -8,5 +9,5 @@ fn sum(x, y, n) {
 }
 
 fn main() {
-    return sum(0, 0, 100);
+    return sum(100);
 }

@@ -8,6 +8,7 @@ enum class OpCode {
     Binary,
     Push,
     Pop,
+    AddSp,
     LoadRel,
     LoadAbs,
     LoadAddrRel,

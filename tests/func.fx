@@ -1,4 +1,4 @@
-fn f(x) {
+fn func(f, x) {
     return x + (lambda: 1)();
 }
 

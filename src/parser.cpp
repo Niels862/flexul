@@ -41,6 +41,9 @@ T *Parser::add(Token token, std::vector<BaseNode *> const &children) {
 }
 
 void Parser::adopt(BaseNode *node) {
+    if (node == nullptr) {
+        return;
+    }
     if (trees.find(node) == trees.end()) {
         throw std::runtime_error("Violation: child is not a (sub)tree");
     }
@@ -115,7 +118,7 @@ BaseNode *Parser::parse_param_list(bool is_declaration,
     } else {
         while (true) {
             if (is_declaration) {
-                param = parse_declaration();
+                param = add<VariableNode>(expect_type(TokenType::Identifier));
             } else {
                 param = parse_expression();
             }
@@ -129,10 +132,6 @@ BaseNode *Parser::parse_param_list(bool is_declaration,
         }
     }
     return add<ExpressionListNode>(Token::synthetic("<params>"), params);
-}
-
-BaseNode *Parser::parse_declaration() {
-    return add<VariableNode>(expect_type(TokenType::Identifier));
 }
 
 BaseNode *Parser::parse_braced_block(bool is_scope) {
@@ -170,6 +169,8 @@ BaseNode *Parser::parse_statement() {
         if (token.get_data() == "return") {
             get_token();
             node = add<ReturnNode>(token, {parse_expression()});
+        } else if (token.get_data() == "var") {
+            node = parse_declaration();
         } else {
             node = add<ExpressionStatementNode>(
                     Token::synthetic("<expr-stmt>"), {parse_expression()});
@@ -223,6 +224,17 @@ BaseNode *Parser::parse_while() {
         add<EmptyNode>(Token::synthetic("<nostmt>"), {}),
         body
     });
+}
+
+BaseNode *Parser::parse_declaration() {
+    Token token = expect_data("var");
+    BaseNode *expression = add<VariableNode>(
+            expect_type(TokenType::Identifier), {});
+    if (curr_token.get_data() == "=") {
+        get_token();
+        return add<DeclarationNode>(token, {expression, parse_expression()});
+    }
+    return add<DeclarationNode>(token, {expression, nullptr});
 }
 
 BaseNode *Parser::parse_expression() {

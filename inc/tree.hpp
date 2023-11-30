@@ -38,7 +38,7 @@ public:
     BaseNode *get_fourth() const;
     void set_id(SymbolId id);
     SymbolId get_id() const;
-    
+
     static void print(BaseNode *node, std::string const labelPrefix = "", 
             std::string const branchPrefix = "");
 private:
@@ -142,12 +142,17 @@ public:
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
+private:
+    uint32_t frame_size;
 };
 
 class LambdaNode : public BaseNode {
 public:
     LambdaNode(Token token, std::vector<BaseNode *> children);
 
+    void resolve_symbols_second_pass(
+            Serializer &serializer, SymbolMap &global_scope, 
+            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 };
 
@@ -176,6 +181,16 @@ class ReturnNode : public BaseNode {
 public:
     ReturnNode(Token token, std::vector<BaseNode *> children);
 
+    void serialize(Serializer &serializer) const override;
+};
+
+class DeclarationNode : public BaseNode {
+public:
+    DeclarationNode(Token token, std::vector<BaseNode *> children);
+
+    void resolve_symbols_second_pass(
+            Serializer &serializer, SymbolMap &global_scope, 
+            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 };
 

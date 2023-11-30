@@ -2,7 +2,7 @@
 
 std::string const op_names[] = {
     "NOP", "SYSCALL", "UNARY", "BINARY", 
-    "PUSH", "POP", "LOADREL", "LOADABS", "LOADADDRREL",
+    "PUSH", "POP", "ADDSP", "LOADREL", "LOADABS", "LOADADDRREL",
     "CALL", "RET", "JUMP", "BRTRUE", "BRFALSE"
 };
 
