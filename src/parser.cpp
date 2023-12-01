@@ -258,7 +258,6 @@ BaseNode *Parser::parse_assignment() {
 }
 
 BaseNode *Parser::parse_lambda() {
-
     Token token = expect_data("lambda");
     BaseNode *params = parse_param_list(true, Token(TokenType::Operator, ":"));
     BaseNode *body = parse_expression();

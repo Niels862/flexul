@@ -1,13 +1,12 @@
-fn sum(n) {
-    var x = 0;
-    var y = 0;
-    while (x <= n) {
-        y = y + x;
-        x = x + 1;
+fn acc(start, end, f) {
+    var a = 0;
+    var x;
+    for (x = start; x <= end; x = x + 1) {
+        a = f(a, x);
     }
-    return y;
+    return a;
 }
 
 fn main() {
-    return sum(100);
+    return acc(1, 10000, lambda a, x: a + x);
 }

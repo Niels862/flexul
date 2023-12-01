@@ -359,6 +359,20 @@ void BlockNode::serialize(Serializer &serializer) const {
 ScopedBlockNode::ScopedBlockNode(Token token, std::vector<BaseNode *> children)
         : BaseNode(token, children), scope_map() {}
 
+void ScopedBlockNode::resolve_symbols_second_pass(
+        Serializer &serializer, SymbolMap &global_scope, 
+        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
+    SymbolMap block_scope;
+    SymbolMap block_enclosing_scope = enclosing_scope;
+    for (auto const &key_value : current_scope) {
+        block_enclosing_scope[key_value.first] = key_value.second;
+    }
+    for (BaseNode *child : get_children()) {
+        child->resolve_symbols_second_pass(serializer, global_scope, 
+                block_enclosing_scope, block_scope);
+    }
+}
+
 void ScopedBlockNode::serialize(Serializer &serializer) const {
     for (BaseNode const *child : get_children()) {
         child->serialize(serializer);

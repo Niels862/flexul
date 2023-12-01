@@ -127,6 +127,9 @@ class ScopedBlockNode : public BaseNode {
 public:
     ScopedBlockNode(Token token, std::vector<BaseNode *> children);
 
+    void resolve_symbols_second_pass(
+            Serializer &serializer, SymbolMap &global_scope, 
+            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 private:
     SymbolMap scope_map;
