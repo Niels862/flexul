@@ -1,15 +1,6 @@
 #include "tree.hpp"
 #include <iostream>
 
-BaseNode::BaseNode(uint32_t arity, Token token, std::vector<BaseNode *> children)
-        : token(token), children(children), symbol_id(0) {
-    if (arity != children.size()) {
-        throw std::runtime_error(
-                "Syntax tree arity mismatch: expected " + std::to_string(arity) 
-                + ", got " + std::to_string(children.size()));
-    }
-}
-
 BaseNode::BaseNode(Token token, std::vector<BaseNode *> children)
         : token(token), children(children), symbol_id(0) {}
 
@@ -41,6 +32,10 @@ uint32_t BaseNode::register_symbol(
 }
 
 void BaseNode::serialize_load_address(Serializer &) const {}
+
+std::string BaseNode::get_label() const {
+    return token.get_data();
+}
 
 Token BaseNode::get_token() const {
     return token;
@@ -90,7 +85,7 @@ void BaseNode::print(BaseNode *node, std::string const labelPrefix,
         std::cerr << labelPrefix << "(null)" << std::endl;
         return;
     }
-    std::cerr << labelPrefix << node->token.get_data();
+    std::cerr << labelPrefix << node->get_label();
     if (node->get_id() != 0) {
         std::cerr << " (" << node->get_id() << ")" << std::endl;
     } else {
@@ -109,13 +104,13 @@ void BaseNode::print(BaseNode *node, std::string const labelPrefix,
             branchPrefix + "  ");
 }
 
-EmptyNode::EmptyNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(0, token, children) {}
+EmptyNode::EmptyNode()
+        : BaseNode(Token::synthetic("<empty>"), {}) {}
 
 void EmptyNode::serialize(Serializer &) const {}
 
-IntLitNode::IntLitNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(0, token, children), value(0) {
+IntLitNode::IntLitNode(Token token)
+        : BaseNode(token, {}), value(0) {
     try {
         value = std::stoi(token.get_data());
     } catch (std::exception const &e) {
@@ -128,8 +123,8 @@ void IntLitNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Push, value);
 }
 
-VariableNode::VariableNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(0, token, children) {}
+VariableNode::VariableNode(Token token)
+        : BaseNode(token, {}) {}
 
 bool VariableNode::is_lvalue() const {
     return true;
@@ -186,8 +181,8 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
     }
 }
 
-UnaryNode::UnaryNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(1, token, children) {}
+UnaryNode::UnaryNode(Token token, BaseNode *child)
+        : BaseNode(token, {child}) {}
 
 bool UnaryNode::is_lvalue() const {
     return get_token().get_data() == "*";
@@ -218,8 +213,8 @@ void UnaryNode::serialize_load_address(Serializer &serializer) const {
     get_first()->serialize(serializer);
 }
 
-BinaryNode::BinaryNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(2, token, children) {}
+BinaryNode::BinaryNode(Token token, BaseNode *left, BaseNode *right)
+        : BaseNode(token, {left, right}) {}
 
 void BinaryNode::serialize(Serializer &serializer) const {
     FuncCode funccode;
@@ -311,8 +306,9 @@ void BinaryNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Binary, funccode);
 }
 
-IfElseNode::IfElseNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(3, token, children) {}
+IfElseNode::IfElseNode(Token token, BaseNode *cond, BaseNode *case_true, 
+        BaseNode *case_false)
+        : BaseNode(token, {cond, case_true, case_false}) {}
 
 void IfElseNode::serialize(Serializer &serializer) const {
     Label label_false = serializer.get_label();
@@ -330,8 +326,8 @@ void IfElseNode::serialize(Serializer &serializer) const {
     serializer.add_label(label_end);
 }
 
-CallNode::CallNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(2, token, children) {}
+CallNode::CallNode(BaseNode *func, BaseNode *args)
+        : BaseNode(Token::synthetic("<call>"), {func, args}) {}
 
 void CallNode::serialize(Serializer &serializer) const {
     get_second()->serialize(serializer);
@@ -340,8 +336,8 @@ void CallNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Call);
 }
 
-BlockNode::BlockNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(token, children), scope_map() {}
+BlockNode::BlockNode(std::vector<BaseNode *> children)
+        : BaseNode(Token::synthetic("<block>"), children), scope_map() {}
 
 void BlockNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
@@ -356,8 +352,8 @@ void BlockNode::serialize(Serializer &serializer) const {
     }
 }
 
-ScopedBlockNode::ScopedBlockNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(token, children), scope_map() {}
+ScopedBlockNode::ScopedBlockNode(std::vector<BaseNode *> children)
+        : BaseNode(Token::synthetic("<scoped-block>"), children), scope_map() {}
 
 void ScopedBlockNode::resolve_symbols_second_pass(
         Serializer &serializer, SymbolMap &global_scope, 
@@ -379,13 +375,17 @@ void ScopedBlockNode::serialize(Serializer &serializer) const {
     }
 }
 
-FunctionNode::FunctionNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(3, token, children) {}
+FunctionNode::FunctionNode(Token token, Token ident, BaseNode *args, 
+        BaseNode *body)
+        : BaseNode(token, {args, body}), ident(ident) {}
 
 void FunctionNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
-    SymbolId func_id = get_first()->register_symbol(
-            serializer, symbol_map, StorageType::Absolute, 0);
+    SymbolId func_id = serializer.get_symbol_id();
+    serializer.register_symbol({
+        ident.get_data(), func_id, StorageType::Absolute, 0, 0
+    });
+    declare_symbol(ident.get_data(), func_id, symbol_map);
     set_id(func_id);
 }
 
@@ -396,15 +396,15 @@ void FunctionNode::resolve_symbols_second_pass(
     // for function
     SymbolMap empty_scope;
     SymbolMap function_scope;
-    uint32_t position = -3 - get_second()->get_children().size();
-    for (BaseNode *child : get_second()->get_children()) {
+    uint32_t position = -3 - get_first()->get_children().size();
+    for (BaseNode *child : get_first()->get_children()) {
         child->set_id(child->register_symbol(
                 serializer, function_scope, 
                 StorageType::Relative, position));
         position++;
     }
     serializer.open_container();
-    get_third()->resolve_symbols_second_pass(serializer, global_scope, 
+    get_second()->resolve_symbols_second_pass(serializer, global_scope, 
             empty_scope, function_scope);
     frame_size = serializer.resolve_container();
 }
@@ -416,13 +416,12 @@ void FunctionNode::serialize(Serializer &serializer) const {
     }
     serializer.add_label(id);
     serializer.add_instr(OpCode::AddSp, frame_size);
-    get_third()->serialize(serializer);
+    get_second()->serialize(serializer);
     serializer.add_instr(OpCode::Ret, 0);
 }
 
-LambdaNode::LambdaNode(
-        Token token, std::vector<BaseNode *> children)
-        : BaseNode(2, token, children) {}
+LambdaNode::LambdaNode(Token token, BaseNode *args, BaseNode *expr)
+        : BaseNode(token, {args, expr}) {}
 
 void LambdaNode::resolve_symbols_second_pass(
         Serializer &serializer, SymbolMap &global_scope, 
@@ -456,9 +455,8 @@ void ExpressionListNode::serialize(Serializer &serializer) const {
     }
 }
 
-IfNode::IfNode(
-        Token token, std::vector<BaseNode *> children)
-        : BaseNode(2, token, children) {}
+IfNode::IfNode(Token token, BaseNode *cond, BaseNode *case_true)
+        : BaseNode(token, {cond, case_true}) {}
 
 void IfNode::serialize(Serializer &serializer) const {
     Label label_end = serializer.get_label();
@@ -468,8 +466,9 @@ void IfNode::serialize(Serializer &serializer) const {
     serializer.add_label(label_end);
 }
 
-ForLoopNode::ForLoopNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(4, token, children) {}
+ForLoopNode::ForLoopNode(Token token, BaseNode *init, BaseNode *cond, 
+        BaseNode *post, BaseNode *body)
+        : BaseNode(token, {init, cond, post, body}) {}
 
 void ForLoopNode::serialize(Serializer &serializer) const {
     Label loop_body_label = serializer.get_label();
@@ -487,8 +486,8 @@ void ForLoopNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::BrTrue, loop_body_label, true);
 }
 
-ReturnNode::ReturnNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(1, token, children) {}
+ReturnNode::ReturnNode(Token token, BaseNode *child)
+        : BaseNode(token, {child}) {}
 
 void ReturnNode::serialize(Serializer &serializer) const {
     get_first()->serialize(serializer);
@@ -496,7 +495,7 @@ void ReturnNode::serialize(Serializer &serializer) const {
 }
 
 DeclarationNode::DeclarationNode(Token token, std::vector<BaseNode *> children)
-        : BaseNode(2, token, children) {}
+        : BaseNode(token, children) {}
 
 void DeclarationNode::resolve_symbols_second_pass(
         Serializer &serializer, SymbolMap &global_scope, 
@@ -520,9 +519,8 @@ void DeclarationNode::serialize(Serializer &serializer) const {
     }
 }
 
-ExpressionStatementNode::ExpressionStatementNode(
-        Token token, std::vector<BaseNode *> children)
-        : BaseNode(1, token, children) {}
+ExpressionStatementNode::ExpressionStatementNode(BaseNode *child)
+        : BaseNode(Token::synthetic("<expr-stmt>"), {child}) {}
 
 void ExpressionStatementNode::serialize(Serializer &serializer) const {
     get_first()->serialize(serializer);

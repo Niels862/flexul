@@ -11,7 +11,6 @@ class Serializer;
 
 class BaseNode {
 public:
-    BaseNode(uint32_t arity, Token token, std::vector<BaseNode *> children);
     BaseNode(Token token, std::vector<BaseNode *> children);
     virtual ~BaseNode();
 
@@ -30,6 +29,7 @@ public:
     virtual void serialize(Serializer &serializer) const = 0;
     virtual void serialize_load_address(Serializer &serializer) const;
 
+    virtual std::string get_label() const;
     Token get_token() const;
     const std::vector<BaseNode *> &get_children() const;
     BaseNode *get_first() const;
@@ -50,14 +50,14 @@ private:
 
 class EmptyNode : public BaseNode {
 public:
-    EmptyNode(Token token, std::vector<BaseNode *> children);
+    EmptyNode();
 
     void serialize(Serializer &serializer) const override;
 };
 
 class IntLitNode : public BaseNode {
 public:
-    IntLitNode(Token token, std::vector<BaseNode *> children);
+    IntLitNode(Token token);
 
     void serialize(Serializer &serializer) const override;
 private:
@@ -66,7 +66,7 @@ private:
 
 class VariableNode : public BaseNode {
 public:
-    VariableNode(Token token, std::vector<BaseNode *> children);
+    VariableNode(Token token);
 
     bool is_lvalue() const override;
     void resolve_symbols_second_pass(
@@ -81,7 +81,7 @@ public:
 
 class UnaryNode : public BaseNode {
 public:
-    UnaryNode(Token token, std::vector<BaseNode *> children);
+    UnaryNode(Token token, BaseNode *child);
 
     bool is_lvalue() const override;
     void serialize(Serializer &serializer) const override;
@@ -90,21 +90,22 @@ public:
 
 class BinaryNode : public BaseNode {
 public:
-    BinaryNode(Token token, std::vector<BaseNode *> children);
+    BinaryNode(Token token, BaseNode *left, BaseNode *right);
 
     void serialize(Serializer &serializer) const override;
 };
 
 class IfElseNode : public BaseNode {
 public:
-    IfElseNode(Token token, std::vector<BaseNode *> children);
+    IfElseNode(Token token, BaseNode *cond, BaseNode *case_true, 
+            BaseNode *case_false);
 
     void serialize(Serializer &serializer) const override;
 };
 
 class CallNode : public BaseNode {
 public:
-    CallNode(Token token, std::vector<BaseNode *> children);
+    CallNode(BaseNode *func, BaseNode *args);
 
     void serialize(Serializer &serializer) const override;
 };
@@ -113,7 +114,7 @@ public:
 // primitve collection of statements like function body or file body
 class BlockNode : public BaseNode {
 public:
-    BlockNode(Token token, std::vector<BaseNode *> children);
+    BlockNode(std::vector<BaseNode *> children);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
@@ -125,7 +126,7 @@ private:
 // Block which introduces a new scope: statement blocks
 class ScopedBlockNode : public BaseNode {
 public:
-    ScopedBlockNode(Token token, std::vector<BaseNode *> children);
+    ScopedBlockNode(std::vector<BaseNode *> children);
 
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
@@ -137,7 +138,7 @@ private:
 
 class FunctionNode : public BaseNode {
 public:
-    FunctionNode(Token token, std::vector<BaseNode *> children);
+    FunctionNode(Token token, Token ident, BaseNode *args, BaseNode *body);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
@@ -146,12 +147,13 @@ public:
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 private:
+    Token ident;
     uint32_t frame_size;
 };
 
 class LambdaNode : public BaseNode {
 public:
-    LambdaNode(Token token, std::vector<BaseNode *> children);
+    LambdaNode(Token token, BaseNode *args, BaseNode *body);
 
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
@@ -168,21 +170,22 @@ public:
 
 class IfNode : public BaseNode {
 public:
-    IfNode(Token token, std::vector<BaseNode *> children);
+    IfNode(Token token, BaseNode *cond, BaseNode *case_true);
 
     void serialize(Serializer &serializer) const override;
 };
 
 class ForLoopNode : public BaseNode {
 public:
-    ForLoopNode(Token token, std::vector<BaseNode *> children);
+    ForLoopNode(Token token, BaseNode *init, BaseNode *cond, BaseNode *post, 
+            BaseNode *body);
 
     void serialize(Serializer &serializer) const override;
 };
 
 class ReturnNode : public BaseNode {
 public:
-    ReturnNode(Token token, std::vector<BaseNode *> children);
+    ReturnNode(Token token, BaseNode *child);
 
     void serialize(Serializer &serializer) const override;
 };
@@ -199,7 +202,7 @@ public:
 
 class ExpressionStatementNode : public BaseNode {
 public:
-    ExpressionStatementNode(Token token, std::vector<BaseNode *> children);
+    ExpressionStatementNode(BaseNode *child);
     
     void serialize(Serializer &serializer) const override;
 };
