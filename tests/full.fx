@@ -23,6 +23,7 @@ fn loop(x) {
     return y;
 }
 
+# main vvv
 fn main() {
     return loop(5);
 }

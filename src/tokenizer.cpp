@@ -43,6 +43,15 @@ void Tokenizer::cleanup() {
     char c;
     while (!eof()) {
         c = text[i];
+        if (c == '#') {
+            while (!eof()) {
+                c = text[i];
+                if (c == '\n') {
+                    break;
+                }
+                i++;
+            }
+        }
         if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
             return;
         }
