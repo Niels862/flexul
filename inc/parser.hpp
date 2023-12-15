@@ -14,7 +14,7 @@ public:
     BaseNode *parse();
 private:
     template <typename T>
-    T *add(Token token, std::vector<BaseNode *> const &children = {});
+    T add(T node);
     void adopt(BaseNode *BaseNode);
     Token get_token();
     Token expect_data(std::string const &data);

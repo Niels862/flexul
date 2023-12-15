@@ -31,9 +31,8 @@ BaseNode *Parser::parse() {
 }
 
 template <typename T>
-T *Parser::add(Token token, std::vector<BaseNode *> const &children) {
-    T *node = new T(token, children);
-    for (BaseNode *child : children) {
+T Parser::add(T node) {
+    for (BaseNode *child : node->get_children()) {
         adopt(child);
     }
     trees.insert(node);
@@ -93,20 +92,20 @@ BaseNode *Parser::parse_filebody() {
     while (curr_token.get_type() != TokenType::EndOfFile) {
         nodes.push_back(parse_function_declaration());
     }
-    return add<BlockNode>(Token::synthetic("<filebody>"), nodes);
+    return add(new BlockNode(Token::synthetic("<filebody>"), nodes));
 }
 
 BaseNode *Parser::parse_function_declaration() {
     Token fn_token = expect_data("fn");
-    BaseNode *identifier = add<VariableNode>(
-            expect_type(TokenType::Identifier));
+    BaseNode *identifier = add(new VariableNode(
+            expect_type(TokenType::Identifier), {}));
     expect_data("(");
     BaseNode *param_list = parse_param_list(true, 
             Token(TokenType::Separator, ")"));
     BaseNode *body = parse_braced_block(false);
-    return add<FunctionNode>(fn_token, {
+    return add(new FunctionNode(fn_token, {
         identifier, param_list, body
-    });
+    }));
 }
 
 BaseNode *Parser::parse_param_list(bool is_declaration, 
@@ -118,7 +117,8 @@ BaseNode *Parser::parse_param_list(bool is_declaration,
     } else {
         while (true) {
             if (is_declaration) {
-                param = add<VariableNode>(expect_type(TokenType::Identifier));
+                param = add(new VariableNode(
+                        expect_type(TokenType::Identifier), {}));
             } else {
                 param = parse_expression();
             }
@@ -131,7 +131,7 @@ BaseNode *Parser::parse_param_list(bool is_declaration,
             }
         }
     }
-    return add<ExpressionListNode>(Token::synthetic("<params>"), params);
+    return add(new ExpressionListNode(Token::synthetic("<params>"), params));
 }
 
 BaseNode *Parser::parse_braced_block(bool is_scope) {
@@ -145,10 +145,10 @@ BaseNode *Parser::parse_braced_block(bool is_scope) {
     }
     get_token();
     if (is_scope) {
-        return add<ScopedBlockNode>(
-                Token::synthetic("<scoped-block>"), statements);
+        return add(new ScopedBlockNode(
+                Token::synthetic("<scoped-block>"), statements));
     }
-    return add<BlockNode>(Token::synthetic("<block>"), statements);
+    return add(new BlockNode(Token::synthetic("<block>"), statements));
 }
 
 BaseNode *Parser::parse_statement() {
@@ -163,17 +163,17 @@ BaseNode *Parser::parse_statement() {
     } else if (token.get_data() == "{") {
         node = parse_braced_block(true);
     } else if (token.get_data() == ";") {
-        node = add<EmptyNode>(Token::synthetic("<nostmt>"), {});
+        node = add(new EmptyNode(Token::synthetic("<nostmt>"), {}));
         get_token();
     } else {
         if (token.get_data() == "return") {
             get_token();
-            node = add<ReturnNode>(token, {parse_expression()});
+            node = add(new ReturnNode(token, {parse_expression()}));
         } else if (token.get_data() == "var") {
             node = parse_declaration();
         } else {
-            node = add<ExpressionStatementNode>(
-                    Token::synthetic("<expr-stmt>"), {parse_expression()});
+            node = add(new ExpressionStatementNode(
+                    Token::synthetic("<expr-stmt>"), {parse_expression()}));
         }
         expect_data(";");
     }
@@ -189,9 +189,9 @@ BaseNode *Parser::parse_if_else() {
     if (curr_token.get_data() == "else") {
         get_token();
         BaseNode *body_false = parse_statement();
-        return add<IfElseNode>(token, {cond, body_true, body_false});
+        return add(new IfElseNode(token, {cond, body_true, body_false}));
     }
-    return add<IfNode>(token, {cond, body_true});
+    return add(new IfNode(token, {cond, body_true}));
 }
 
 BaseNode *Parser::parse_for() {
@@ -204,12 +204,12 @@ BaseNode *Parser::parse_for() {
     BaseNode *post = parse_expression();
     expect_data(")");
     BaseNode *body = parse_statement();
-    return add<ForLoopNode>(token, {
-        add<ExpressionStatementNode>(Token::synthetic("<init>"), {init}),
+    return add(new ForLoopNode(token, {
+        add(new ExpressionStatementNode(Token::synthetic("<init>"), {init})),
         cond,
-        add<ExpressionStatementNode>(Token::synthetic("<post>"), {post}),
+        add(new ExpressionStatementNode(Token::synthetic("<post>"), {post})),
         body
-    });
+    }));
 }
 
 BaseNode *Parser::parse_while() {
@@ -218,23 +218,27 @@ BaseNode *Parser::parse_while() {
     BaseNode *cond = parse_expression();
     expect_data(")");
     BaseNode *body = parse_statement();
-    return add<ForLoopNode>(token, {
-        add<EmptyNode>(Token::synthetic("<nostmt>"), {}),
+    return add(new ForLoopNode(token, {
+        add(new EmptyNode(Token::synthetic("<nostmt>"), {})),
         cond,
-        add<EmptyNode>(Token::synthetic("<nostmt>"), {}),
+        add(new EmptyNode(Token::synthetic("<nostmt>"), {})),
         body
-    });
+    }));
 }
 
 BaseNode *Parser::parse_declaration() {
     Token token = expect_data("var");
-    BaseNode *expression = add<VariableNode>(
-            expect_type(TokenType::Identifier), {});
+    BaseNode *expression = add(new VariableNode(
+            expect_type(TokenType::Identifier), {}));
     if (curr_token.get_data() == "=") {
         get_token();
-        return add<DeclarationNode>(token, {expression, parse_expression()});
+        return add(new DeclarationNode(token, {
+            expression, parse_expression()
+        }));
     }
-    return add<DeclarationNode>(token, {expression, nullptr});
+    return add(new DeclarationNode(token, {
+        expression, nullptr
+    }));
 }
 
 BaseNode *Parser::parse_expression() {
@@ -252,7 +256,7 @@ BaseNode *Parser::parse_assignment() {
             throw std::runtime_error("Expected lvalue");
         }
         get_token();
-        return add<BinaryNode>(token, {left, parse_expression()});
+        return add(new BinaryNode(token, {left, parse_expression()}));
     }
     return left;
 }
@@ -261,10 +265,10 @@ BaseNode *Parser::parse_lambda() {
     Token token = expect_data("lambda");
     BaseNode *params = parse_param_list(true, Token(TokenType::Operator, ":"));
     BaseNode *body = parse_expression();
-    return add<LambdaNode>(token, {
+    return add(new LambdaNode(token, {
         params, 
-        add<ReturnNode>(Token::synthetic("<lambda-return>"), {body})
-    });
+        add(new ReturnNode(Token::synthetic("<lambda-return>"), {body}))
+    }));
 }
 
 BaseNode *Parser::parse_ternary() {
@@ -275,7 +279,7 @@ BaseNode *Parser::parse_ternary() {
         BaseNode *expr_true = parse_ternary();
         expect_data(":");
         BaseNode *expr_false = parse_ternary();
-        return add<IfElseNode>(token, {cond, expr_true, expr_false});
+        return add(new IfElseNode(token, {cond, expr_true, expr_false}));
     }
     return cond;
 }
@@ -285,7 +289,7 @@ BaseNode *Parser::parse_or() {
     Token token = curr_token;
     while (token.get_data() == "||") {
         get_token();
-        left = add<BinaryNode>(token, {left, parse_and()});
+        left = add(new BinaryNode(token, {left, parse_and()}));
         token = curr_token;
     }
     return left;
@@ -296,7 +300,7 @@ BaseNode *Parser::parse_and() {
     Token token = curr_token;
     while (token.get_data() == "&&") {
         get_token();
-        left = add<BinaryNode>(token, {left, parse_equality_1()});
+        left = add(new BinaryNode(token, {left, parse_equality_1()}));
         token = curr_token;
     }
     return left;
@@ -307,7 +311,7 @@ BaseNode *Parser::parse_equality_1() {
     Token token = curr_token;
     while (token.get_data() == "==" || token.get_data() == "!=") {
         get_token();
-        left = add<BinaryNode>(token, {left, parse_equality_2()});
+        left = add(new BinaryNode(token, {left, parse_equality_2()}));
         token = curr_token;
     }
     return left;
@@ -319,7 +323,7 @@ BaseNode *Parser::parse_equality_2() {
     while (token.get_data() == "<" || token.get_data() == ">"
             || token.get_data() == "<=" || token.get_data() == ">=") {
         get_token();
-        left = add<BinaryNode>(token, {left, parse_sum()});
+        left = add(new BinaryNode(token, {left, parse_sum()}));
         token = curr_token;
     }
     return left;
@@ -330,7 +334,7 @@ BaseNode *Parser::parse_sum() {
     Token token = curr_token;
     while (token.get_data() == "+" || token.get_data() == "-") {
         get_token();
-        left = add<BinaryNode>(token, {left, parse_term()});
+        left = add(new BinaryNode(token, {left, parse_term()}));
         token = curr_token;
     }
     return left;
@@ -342,7 +346,7 @@ BaseNode *Parser::parse_term() {
     while (token.get_data() == "*" || token.get_data() == "/" 
             || token.get_data() == "%") {
         get_token();
-        left = add<BinaryNode>(token, {left, parse_value()});
+        left = add(new BinaryNode(token, {left, parse_value()}));
         token = curr_token;
     }
     return left;
@@ -358,13 +362,13 @@ BaseNode *Parser::parse_value() {
         if (token.get_data() == "&" && !value->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
         } 
-        expression = add<UnaryNode>(token, {value});
+        expression = add(new UnaryNode(token, {value}));
     } else if (token.get_type() == TokenType::IntLit) {
         get_token();
-        expression = add<IntLitNode>(token);
+        expression = add(new IntLitNode(token, {}));
     } else if (token.get_type() == TokenType::Identifier) {
         get_token();
-        expression = add<VariableNode>(token);
+        expression = add(new VariableNode(token, {}));
     } else if (token.get_data() == "(") {
         get_token();
         expression = parse_expression();
@@ -376,9 +380,9 @@ BaseNode *Parser::parse_value() {
         expect_data("(");
         BaseNode *param_list = parse_param_list(false, 
                 Token(TokenType::Separator, ")"));
-        expression = add<CallNode>(Token::synthetic("<call>"), {
+        expression = add(new CallNode(Token::synthetic("<call>"), {
             expression, param_list
-        });
+        }));
     }
     return expression;
 }
