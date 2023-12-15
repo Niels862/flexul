@@ -57,12 +57,16 @@ std::string Token::type_string(TokenType type) {
     }
 }
 
-bool Token::operator ==(Token const &other) {
+bool Token::operator ==(Token const &other) const {
     return type == other.type && data == other.data;
 }
 
-bool Token::operator !=(Token const &other) {
+bool Token::operator !=(Token const &other) const {
     return type != other.type || data != other.data;
+}
+
+Token::operator bool() const {
+    return type != TokenType::Null;
 }
 
 std::string tokenlist_to_string(std::vector<Token> const &tokens, 

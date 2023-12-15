@@ -69,9 +69,6 @@ public:
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
-    uint32_t register_symbol(
-            Serializer &serializer, SymbolMap &scope, 
-            StorageType storage_type, uint32_t value) const override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 };
@@ -203,6 +200,8 @@ public:
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
+
+    std::string get_label() const;
 private:
     Token ident;
 };
@@ -212,6 +211,21 @@ public:
     ExpressionStatementNode(BaseNode *child);
     
     void serialize(Serializer &serializer) const override;
+};
+
+class AliasNode : public BaseNode {
+public:
+    AliasNode(Token token, Token alias, Token source);
+
+    void resolve_symbols_second_pass(
+            Serializer &serializer, SymbolMap &global_scope, 
+            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
+    void serialize(Serializer &serializer) const override;
+
+    std::string get_label() const;
+private:
+    Token alias;
+    Token source;
 };
 
 #endif

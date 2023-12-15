@@ -20,6 +20,8 @@ private:
     Token expect_data(std::string const &data);
     Token expect_type(TokenType type);
     Token expect_token(Token const &other);
+    Token accept_data(std::string const &data);
+    Token accept_type(TokenType type);
 
     BaseNode *parse_filebody();
     BaseNode *parse_function_declaration();
@@ -31,6 +33,7 @@ private:
     BaseNode *parse_for();
     BaseNode *parse_while();
     BaseNode *parse_declaration();
+    BaseNode *parse_alias();
     BaseNode *parse_expression();
     BaseNode *parse_assignment();
     BaseNode *parse_lambda();

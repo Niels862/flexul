@@ -1,9 +1,7 @@
 #include "parser.hpp"
 #include <iostream>
 
-Parser::Parser() {
-    
-}
+Parser::Parser() {}
 
 Parser::Parser(std::ifstream &file) {
     std::string text;
@@ -82,6 +80,24 @@ Token Parser::expect_token(Token const &other) {
         throw std::runtime_error(
                 "Expected " + other.to_string()
                 + ", got " + token.to_string());
+    }
+    get_token();
+    return token;
+}
+
+Token Parser::accept_data(std::string const &data) {
+    Token token = curr_token;
+    if (token.get_data() != data) {
+        return Token(TokenType::Null);
+    }
+    get_token();
+    return token;
+}
+
+Token Parser::accept_type(TokenType type) {
+    Token token = curr_token;
+    if (token.get_type() != type) {
+        return Token(TokenType::Null);
     }
     get_token();
     return token;
@@ -176,6 +192,8 @@ BaseNode *Parser::parse_statement() {
             node = add(new ReturnNode(token, {parse_expression()}));
         } else if (token.get_data() == "var") {
             node = parse_declaration();
+        } else if (token.get_data() == "alias") {
+            node = parse_alias();
         } else {
             node = add(new ExpressionStatementNode(parse_expression()));
         }
@@ -222,13 +240,41 @@ BaseNode *Parser::parse_while() {
 }
 
 BaseNode *Parser::parse_declaration() {
+    std::vector<BaseNode *> nodes;
     Token token = expect_data("var");
-    Token ident = expect_type(TokenType::Identifier);
-    if (curr_token.get_data() == "=") {
-        get_token();
-        return add(new DeclarationNode(token, ident, parse_expression()));
+
+    do {
+        Token ident = expect_type(TokenType::Identifier);
+        if (accept_data("=")) {
+            nodes.push_back(add(new DeclarationNode(
+                    token, ident, parse_expression())));
+        } else {
+            nodes.push_back(add(new DeclarationNode(
+                    token, ident, nullptr)));
+        }
+    } while (accept_data(","));
+
+    if (nodes.size() == 1) {
+        return nodes[0];
     }
-    return add(new DeclarationNode(token, ident, nullptr));
+    return add(new BlockNode(nodes));
+}
+
+BaseNode *Parser::parse_alias() {
+    std::vector<BaseNode *> nodes;
+    Token token = expect_data("alias");
+
+    do {
+        Token alias = expect_type(TokenType::Identifier);
+        expect_data("for");
+        Token source = expect_type(TokenType::Identifier);
+        nodes.push_back(add(new AliasNode(token, alias, source)));
+    } while (accept_data(","));
+
+    if (nodes.size() == 1) {
+        return nodes[0];
+    }
+    return add(new BlockNode(nodes));
 }
 
 BaseNode *Parser::parse_expression() {

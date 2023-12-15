@@ -2,6 +2,7 @@
 #include "utils.hpp"
 #include <iostream>
 #include <stdexcept>
+#include <unordered_set>
 
 StackEntry::StackEntry()
         : type(EntryType::Instruction), opcode(OpCode::Nop), 
@@ -153,8 +154,21 @@ void Serializer::register_symbol(SymbolEntry const &entry) {
 }
 
 SymbolEntry const &Serializer::get_symbol_entry(SymbolId id) {
-    symbol_table[id].usages++;
-    return symbol_table[id];
+    SymbolId i = id;
+    std::unordered_set<SymbolId> aliases;
+    SymbolEntry entry = symbol_table[id];
+
+    while (entry.storage_type == StorageType::Alias) {
+        if (aliases.find(entry.value) != aliases.end()) {
+            throw std::runtime_error(
+                    "Circular alias definition: " + symbol_table[id].symbol);
+        }
+        i = entry.value;
+        entry = symbol_table[i];
+    }
+
+    symbol_table[i].usages++;
+    return symbol_table[i];
 }
 
 SymbolId Serializer::declare_symbol(std::string const &symbol, 
@@ -194,7 +208,7 @@ void Serializer::dump_symbol_table() const {
         std::cerr << std::setw(6) << i << ": " 
                 << entry.symbol << " of type " 
                 << static_cast<int>(entry.storage_type)
-                << " at " << static_cast<int32_t>(entry.value) 
+                << " with value " << static_cast<int32_t>(entry.value) 
                 << " (" << entry.usages << " usages)" << std::endl;
     }
 }

@@ -136,7 +136,7 @@ void VariableNode::resolve_symbols_second_pass(
 void VariableNode::serialize(Serializer &serializer) const {
     SymbolEntry entry = serializer.get_symbol_entry(get_id());
     if (entry.storage_type == StorageType::Absolute) {
-        serializer.add_instr(OpCode::Push, get_id(), true);
+        serializer.add_instr(OpCode::Push, entry.id, true);
     } else if (entry.storage_type == StorageType::Relative) {
         serializer.add_instr(OpCode::Push, entry.value);
         serializer.add_instr(OpCode::LoadRel);
@@ -150,7 +150,6 @@ void VariableNode::serialize(Serializer &serializer) const {
 void VariableNode::serialize_load_address(Serializer &serializer) const {
     SymbolEntry entry = serializer.get_symbol_entry(get_id());
     if (entry.storage_type == StorageType::Absolute) { // TODO: think about this
-        serializer.add_instr(OpCode::Push, get_id(), true);
         throw std::runtime_error("Cannot load address of address");
     } else if (entry.storage_type == StorageType::Relative) {
         serializer.add_instr(OpCode::LoadAddrRel, entry.value);
@@ -396,7 +395,8 @@ void FunctionNode::serialize(Serializer &serializer) const {
 }
 
 std::string FunctionNode::get_label() const {
-    return get_token().get_data() + "(" + tokenlist_to_string(params) + ")";
+    return get_token().get_data() + " " + ident.get_data() + "(" 
+            + tokenlist_to_string(params) + ")";
 }
 
 LambdaNode::LambdaNode(Token token, std::vector<Token> params, BaseNode *expr)
@@ -424,7 +424,7 @@ void LambdaNode::serialize(Serializer &serializer) const {
 }
 
 std::string LambdaNode::get_label() const {
-    return get_token().get_data() + ": (" + tokenlist_to_string(params) + ")";
+    return get_token().get_data() + " (" + tokenlist_to_string(params) + ")";
 }
 
 ExpressionListNode::ExpressionListNode(
@@ -501,10 +501,33 @@ void DeclarationNode::serialize(Serializer &serializer) const {
     }
 }
 
+std::string DeclarationNode::get_label() const {
+    return get_token().get_data() + " " + ident.get_data();
+}
+
 ExpressionStatementNode::ExpressionStatementNode(BaseNode *child)
         : BaseNode(Token::synthetic("<expr-stmt>"), {child}) {}
 
 void ExpressionStatementNode::serialize(Serializer &serializer) const {
     get_first()->serialize(serializer);
     serializer.add_instr(OpCode::Pop);
+}
+
+AliasNode::AliasNode(Token token, Token alias, Token source)
+        : BaseNode(token, {}), alias(alias), source(source) {}
+
+void AliasNode::resolve_symbols_second_pass(
+        Serializer &serializer, SymbolMap &global_scope, 
+        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
+    SymbolId source_id = lookup_symbol(source.get_data(), global_scope, 
+            enclosing_scope, current_scope);
+    set_id(serializer.declare_symbol(alias.get_data(), current_scope, 
+            StorageType::Alias, source_id));
+}
+
+void AliasNode::serialize(Serializer &) const {}
+
+std::string AliasNode::get_label() const {
+    return get_token().get_data() + " " + alias.get_data() 
+            + " for " + source.get_data();
 }

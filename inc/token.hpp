@@ -20,8 +20,9 @@ public:
     std::string to_string() const;
     bool is_synthetic(std::string const &cmp_data) const;
     static std::string type_string(TokenType type);
-    bool operator ==(Token const &other);
-    bool operator !=(Token const &other);
+    bool operator ==(Token const &other) const;
+    bool operator !=(Token const &other) const;
+    operator bool() const;
 private:
     TokenType type;
     std::string data;

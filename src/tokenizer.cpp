@@ -4,7 +4,7 @@
 #include <stdexcept>
 
 std::unordered_set<std::string> keywords = {
-    "fn", "return", "if", "while", "for", "lambda", "var"
+    "fn", "return", "if", "while", "for", "lambda", "var", "alias", "rename"
 };
 
 Tokenizer::Tokenizer()

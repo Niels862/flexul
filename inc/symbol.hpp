@@ -11,7 +11,8 @@ enum class StorageType {
     // Resolved using labels at assembling with labels placed at serialization
     Absolute,
     // Resolved during serialization
-    Relative
+    Relative,
+    Alias
 };
 
 using SymbolId = uint32_t;
