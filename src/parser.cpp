@@ -187,8 +187,7 @@ BaseNode *Parser::parse_statement() {
         node = add(new EmptyNode());
         get_token();
     } else {
-        if (token.get_data() == "return") {
-            get_token();
+        if (accept_data("return")) {
             node = add(new ReturnNode(token, {parse_expression()}));
         } else if (token.get_data() == "var") {
             node = parse_declaration();
@@ -208,8 +207,7 @@ BaseNode *Parser::parse_if_else() {
     BaseNode *cond = parse_expression();
     expect_data(")");
     BaseNode *body_true = parse_statement();
-    if (curr_token.get_data() == "else") {
-        get_token();
+    if (accept_data("else")) {
         BaseNode *body_false = parse_statement();
         return add(new IfElseNode(token, cond, body_true, body_false));
     }
@@ -287,11 +285,10 @@ BaseNode *Parser::parse_expression() {
 BaseNode *Parser::parse_assignment() {
     BaseNode *left = parse_ternary();
     Token token = curr_token;
-    if (token.get_data() == "=") {
+    if (accept_data("=")) {
         if (!left->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
         }
-        get_token();
         return add(new BinaryNode(token, left, parse_expression()));
     }
     return left;
@@ -308,8 +305,7 @@ BaseNode *Parser::parse_lambda() {
 BaseNode *Parser::parse_ternary() {
     BaseNode *cond = parse_or();
     Token token = curr_token;
-    if (token.get_data() == "?") {
-        get_token();
+    if (accept_data("?")) {
         BaseNode *expr_true = parse_ternary();
         expect_data(":");
         BaseNode *expr_false = parse_ternary();
@@ -321,8 +317,7 @@ BaseNode *Parser::parse_ternary() {
 BaseNode *Parser::parse_or() {
     BaseNode *left = parse_and();
     Token token = curr_token;
-    while (token.get_data() == "||") {
-        get_token();
+    while (accept_data("||")) {
         left = add(new BinaryNode(token, left, parse_and()));
         token = curr_token;
     }
@@ -332,8 +327,7 @@ BaseNode *Parser::parse_or() {
 BaseNode *Parser::parse_and() {
     BaseNode *left = parse_equality_1();
     Token token = curr_token;
-    while (token.get_data() == "&&") {
-        get_token();
+    while (accept_data("&&")) {
         left = add(new BinaryNode(token, left, parse_equality_1()));
         token = curr_token;
     }
@@ -343,8 +337,7 @@ BaseNode *Parser::parse_and() {
 BaseNode *Parser::parse_equality_1() {
     BaseNode *left = parse_equality_2();
     Token token = curr_token;
-    while (token.get_data() == "==" || token.get_data() == "!=") {
-        get_token();
+    while (accept_data("==") || accept_data("!=")) {
         left = add(new BinaryNode(token, left, parse_equality_2()));
         token = curr_token;
     }
@@ -354,9 +347,8 @@ BaseNode *Parser::parse_equality_1() {
 BaseNode *Parser::parse_equality_2() {
     BaseNode *left = parse_sum();
     Token token = curr_token;
-    while (token.get_data() == "<" || token.get_data() == ">"
-            || token.get_data() == "<=" || token.get_data() == ">=") {
-        get_token();
+    while (accept_data("<") || accept_data(">") || accept_data("<=") 
+            || accept_data(">=")) {
         left = add(new BinaryNode(token, left, parse_sum()));
         token = curr_token;
     }
@@ -366,8 +358,7 @@ BaseNode *Parser::parse_equality_2() {
 BaseNode *Parser::parse_sum() {
     BaseNode *left = parse_term();
     Token token = curr_token;
-    while (token.get_data() == "+" || token.get_data() == "-") {
-        get_token();
+    while (accept_data("+") || accept_data("-")) {
         left = add(new BinaryNode(token, left, parse_term()));
         token = curr_token;
     }
@@ -377,9 +368,7 @@ BaseNode *Parser::parse_sum() {
 BaseNode *Parser::parse_term() {
     BaseNode *left = parse_value();
     Token token = curr_token;
-    while (token.get_data() == "*" || token.get_data() == "/" 
-            || token.get_data() == "%") {
-        get_token();
+    while (accept_data("*") || accept_data("/") || accept_data("%")) {
         left = add(new BinaryNode(token, left, parse_value()));
         token = curr_token;
     }
@@ -389,29 +378,24 @@ BaseNode *Parser::parse_term() {
 BaseNode *Parser::parse_value() {
     Token token = curr_token;
     BaseNode *expression;
-    if (token.get_data() == "-" || token.get_data() == "+" 
-            || token.get_data() == "*" || token.get_data() == "&") {
-        get_token();
+    if (accept_data("+") || accept_data("-") || accept_data("&") 
+            || accept_data("*")) {
         BaseNode *value = parse_value();
         if (token.get_data() == "&" && !value->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
         } 
         expression = add(new UnaryNode(token, value));
-    } else if (token.get_type() == TokenType::IntLit) {
-        get_token();
+    } else if (accept_type(TokenType::IntLit)) {
         expression = add(new IntLitNode(token));
-    } else if (token.get_type() == TokenType::Identifier) {
-        get_token();
+    } else if (accept_type(TokenType::Identifier)) {
         expression = add(new VariableNode(token));
-    } else if (token.get_data() == "(") {
-        get_token();
+    } else if (accept_data("(")) {
         expression = parse_expression();
         expect_data(")");
     } else {
         throw std::runtime_error("Expected value, got " + token.to_string());
     }
-    while (curr_token.get_data() == "(") {
-        expect_data("(");
+    while (accept_data("(")) {
         BaseNode *param_list = parse_param_list(
                 Token(TokenType::Separator, ")"));
         expression = add(new CallNode(expression, param_list));
