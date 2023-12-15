@@ -59,6 +59,8 @@ public:
     SymbolId get_symbol_id();
     void register_symbol(SymbolEntry const &entry);
     SymbolEntry const &get_symbol_entry(SymbolId id);
+    SymbolId declare_symbol(std::string const &symbol, SymbolMap &scope, 
+            StorageType storage_type, uint32_t value = 0);
 
     // Opens new storage container
     void open_container();

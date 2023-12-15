@@ -157,6 +157,18 @@ SymbolEntry const &Serializer::get_symbol_entry(SymbolId id) {
     return symbol_table[id];
 }
 
+SymbolId Serializer::declare_symbol(std::string const &symbol, 
+        SymbolMap &scope, StorageType storage_type, uint32_t value) {
+    SymbolMap::const_iterator iter = scope.find(symbol);
+    if (iter != scope.end()) {
+        throw std::runtime_error("Redeclared symbol: " + symbol);
+    }
+    SymbolId id = get_symbol_id();
+    scope[symbol] = id;
+    register_symbol({symbol, id, storage_type, value, 0});
+    return id;
+}
+
 void Serializer::open_container() {
     containers.push(std::vector<SymbolId>());
 }

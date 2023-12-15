@@ -64,3 +64,16 @@ bool Token::operator ==(Token const &other) {
 bool Token::operator !=(Token const &other) {
     return type != other.type || data != other.data;
 }
+
+std::string tokenlist_to_string(std::vector<Token> const &tokens, 
+        std::string const &sep) {
+    std::string str = "";
+    size_t i;
+    for (i = 0; i < tokens.size(); i++) {
+        if (i) {
+            str += sep;
+        }
+        str += tokens[i].get_data();
+    }
+    return str;
+}

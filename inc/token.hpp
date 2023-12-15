@@ -2,6 +2,7 @@
 #define FLEXUL_TOKEN_HPP
 
 #include <string>
+#include <vector>
 
 enum class TokenType {
     Null, Identifier, IntLit, Keyword, Operator, Separator, 
@@ -25,5 +26,8 @@ private:
     TokenType type;
     std::string data;
 };
+
+std::string tokenlist_to_string(std::vector<Token> const &tokens, 
+        std::string const &sep = ", ");
 
 #endif

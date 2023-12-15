@@ -23,9 +23,6 @@ public:
     virtual void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope);
-    virtual SymbolId register_symbol(
-            Serializer &serializer, SymbolMap &scope, 
-            StorageType storage_type, uint32_t value) const;
     virtual void serialize(Serializer &serializer) const = 0;
     virtual void serialize_load_address(Serializer &serializer) const;
 
@@ -138,7 +135,8 @@ private:
 
 class FunctionNode : public BaseNode {
 public:
-    FunctionNode(Token token, Token ident, BaseNode *args, BaseNode *body);
+    FunctionNode(Token token, Token ident, std::vector<Token> params, 
+            BaseNode *body);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
@@ -146,19 +144,26 @@ public:
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
+
+    std::string get_label() const;
 private:
     Token ident;
+    std::vector<Token> params;
     uint32_t frame_size;
 };
 
 class LambdaNode : public BaseNode {
 public:
-    LambdaNode(Token token, BaseNode *args, BaseNode *body);
+    LambdaNode(Token token, std::vector<Token>, BaseNode *body);
 
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
+
+    std::string get_label() const;
+private:
+    std::vector<Token> params;
 };
 
 class ExpressionListNode : public BaseNode {
@@ -192,12 +197,14 @@ public:
 
 class DeclarationNode : public BaseNode {
 public:
-    DeclarationNode(Token token, std::vector<BaseNode *> children);
+    DeclarationNode(Token token, Token ident, BaseNode *expr);
 
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
+private:
+    Token ident;
 };
 
 class ExpressionStatementNode : public BaseNode {

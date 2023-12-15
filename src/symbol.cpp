@@ -20,11 +20,3 @@ SymbolId lookup_symbol(std::string const &symbol, SymbolMap const &global_scope,
     }
     throw std::runtime_error("Undeclared symbol: " + symbol);
 }
-
-void declare_symbol(std::string const &symbol, SymbolId id, SymbolMap &scope) {
-    SymbolMap::const_iterator iter = scope.find(symbol);
-    if (iter != scope.end()) {
-        throw std::runtime_error("Redeclared symbol: " + symbol);
-    }
-    scope[symbol] = id;
-}

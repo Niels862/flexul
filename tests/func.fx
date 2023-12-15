@@ -1,7 +1,5 @@
-fn func(f, x) {
-    return x + (lambda: 1)();
-}
-
 fn main() {
-    return f(5) && 0;
+    var a = 5;
+    var b = 3;
+    return a + b;
 }
