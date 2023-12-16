@@ -3,7 +3,7 @@ fn getnum() {
     var n = 0;
     while (c != 10) {
         if (c >= '0' && c <= '9') {
-            n = 10 * n + c - 48;
+            n = 10 * n + c - '0';
         }
         c = __getc__();
     }
@@ -22,7 +22,7 @@ fn reverse(x) {
 fn putnum(x) {
     var rev = reverse(x);
     while (rev) {
-        __putc__(48 + rev % 10);
+        __putc__('0' + rev % 10);
         rev = rev / 10;
     }
 }
@@ -30,6 +30,6 @@ fn putnum(x) {
 fn main() {
     var x = getnum();
     putnum(x);
-    __putc__(10);
+    __putc__('\n');
     return 0;
 }
