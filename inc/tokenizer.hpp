@@ -13,8 +13,10 @@ public:
     bool eof();
 private:
     void cleanup();
+    void assert_no_newline() const;
     Token get_identifier();
     Token get_intlit();
+    Token get_charlit();
     Token get_operator();
     Token get_separator();
 

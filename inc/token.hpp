@@ -18,7 +18,9 @@ public:
     static Token null();
     TokenType get_type() const;
     std::string get_data() const;
+    uint32_t get_value() const;
     std::string to_string() const;
+    uint32_t to_int() const;
     bool is_synthetic(std::string const &cmp_data) const;
     static std::string type_string(TokenType type);
     bool operator ==(Token const &other) const;

@@ -104,17 +104,11 @@ EmptyNode::EmptyNode()
 void EmptyNode::serialize(Serializer &) const {}
 
 IntLitNode::IntLitNode(Token token)
-        : BaseNode(token, {}), value(0) {
-    try {
-        value = std::stoi(token.get_data());
-    } catch (std::exception const &e) {
-        throw std::runtime_error(
-                "Could not convert string to int: " + token.get_data());
-    }
+        : BaseNode(token, {}) {
 }
 
 void IntLitNode::serialize(Serializer &serializer) const {
-    serializer.add_instr(OpCode::Push, value);
+    serializer.add_instr(OpCode::Push, get_token().to_int());
 }
 
 VariableNode::VariableNode(Token token)

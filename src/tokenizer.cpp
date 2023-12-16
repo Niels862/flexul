@@ -26,6 +26,9 @@ Token Tokenizer::get_token() {
     if (std::isdigit(c)) {
         return get_intlit();
     }
+    if (c == '\'') {
+        return get_charlit();
+    }
     if (is_op_char(c)) {
         return get_operator();
     }
@@ -59,6 +62,12 @@ void Tokenizer::cleanup() {
     }
 }
 
+void Tokenizer::assert_no_newline() const {
+    if (text[i] == '\n' || text[i] == '\r') {
+        throw std::runtime_error("Unexpected newline");
+    }
+}
+
 Token Tokenizer::get_identifier() {
     size_t start = i;
     std::string identifier;
@@ -77,6 +86,16 @@ Token Tokenizer::get_intlit() {
     do {
         i++;
     } while (std::isdigit(text[i]));
+    return Token(TokenType::IntLit, text.substr(start, i - start));
+}
+
+Token Tokenizer::get_charlit() {
+    size_t start = i;
+    do {
+        i++;
+        assert_no_newline();
+    } while (text[i] != '\'');
+    i++;
     return Token(TokenType::IntLit, text.substr(start, i - start));
 }
 

@@ -57,8 +57,6 @@ public:
     IntLitNode(Token token);
 
     void serialize(Serializer &serializer) const override;
-private:
-    int32_t value;
 };
 
 class VariableNode : public BaseNode {

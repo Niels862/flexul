@@ -34,6 +34,52 @@ std::string Token::to_string() const {
     return type_string + ": '" + data + "'";
 }
 
+uint32_t Token::to_int() const {
+    if (data.size() >= 3 && data[0] == '\'' && data[data.size() - 1] == '\'') {
+        if (data.size() == 3) {
+            return data[1];
+        } else if (data.size() == 4 && data[1] == '\\') {
+            switch (data[2]) {
+                case 'n':
+                    return '\n';
+                case 'r':
+                    return '\r';
+                case 't':
+                    return '\t';
+                case '\'':
+                case '\"':
+                case '\\':
+                    return data[2];
+                case '0':
+                    return 0;
+                default:
+                    break;
+            }
+        } else if (data.size() == 5 && data[1] == '\\' && data[2] == 'x') {
+            if (std::isxdigit(data[3]) && std::isxdigit(data[4])) {
+                uint32_t n = 0;
+                size_t i;
+                for (i = 0; i < 2; i++) {
+                    char c = data[3 + i];
+                    if (std::isdigit(c)) {
+                        n = 16 * n + c - '0';
+                    } else {
+                        n = 16 * n + std::tolower(c) - 'a';
+                    }
+                }
+                return n;
+            }
+        }
+        throw std::runtime_error("Unrecognized char literal: " + data);
+    }
+    try {
+        return std::stoi(data);
+    } catch (std::exception const &e) {
+        throw std::runtime_error(
+                "Could not convert string to int: " + data);
+    }
+}
+
 bool Token::is_synthetic(std::string const &cmp_data) const {
     return type == TokenType::Synthetic && data == cmp_data;
 }
