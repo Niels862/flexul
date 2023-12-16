@@ -22,6 +22,15 @@ struct JobEntry {
     BaseNode *node;
 };
 
+struct IntrinsicEntry {
+    std::string symbol;
+    size_t n_args;
+    OpCode opcode;
+    FuncCode funccode;
+};
+
+extern std::vector<IntrinsicEntry> const intrinsics;
+
 enum class EntryType {
     Invalid, Instruction, Data, Label
 };
@@ -80,6 +89,8 @@ public:
     uint32_t add_label();
     uint32_t add_label(Label label);
     uint32_t get_label();
+
+    void load_predefined(SymbolMap &symbol_map);
 
     void serialize(BaseNode *root);
     std::vector<uint32_t> assemble() const;

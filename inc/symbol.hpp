@@ -12,6 +12,7 @@ enum class StorageType {
     Absolute,
     // Resolved during serialization
     Relative,
+    Intrinsic,
     Alias
 };
 

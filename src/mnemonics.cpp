@@ -16,5 +16,5 @@ std::string const binary_func_names[] = {
 };
 
 std::string const syscall_func_names[] = {
-    "NOP", "EXIT"
+    "NOP", "EXIT", "PUTC", "GETC"
 };

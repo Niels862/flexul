@@ -34,7 +34,9 @@ enum class FuncCode {
 
     Neg = 1, // unary
 
-    Exit = 1 // syscall
+    Exit = 1, // syscall
+    PutC,
+    GetC
 };
 
 #endif

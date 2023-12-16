@@ -14,7 +14,7 @@ Program Program::load(std::vector<uint32_t> bytecode) {
 }
 
 uint32_t Program::run() {
-    uint32_t instr, addr, ret_val, n_args, ret_bp, imm;
+    uint32_t instr, addr, ret_val, n_args, ret_bp, operand;
     int32_t a, b, y;
     OpCode opcode;
     FuncCode funccode;
@@ -25,10 +25,11 @@ uint32_t Program::run() {
         opcode = static_cast<OpCode>(instr & 0x7F);
         funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
         if ((instr >> 7) & 1) {
-            imm = stack[ip + 1];
+            operand = stack[ip + 1];
             ip++;
-        } else if (opcode != OpCode::Nop) {
-            imm = stack[stack.size() - 1];
+        } else if (opcode != OpCode::Nop 
+                && !(opcode == OpCode::SysCall && funccode == FuncCode::GetC)) {
+            operand = stack[stack.size() - 1];
             stack.pop_back();
         }
         switch (opcode) {
@@ -37,14 +38,20 @@ uint32_t Program::run() {
                 switch (funccode) {
                     case FuncCode::Exit:
                         execution_time = std::clock() - start;
-                        return imm;
+                        return operand;
+                    case FuncCode::PutC:
+                        stack.push_back(putc(operand, stdout));
+                        break;
+                    case FuncCode::GetC:
+                        stack.push_back(getc(stdin));
+                        break;
                     default: 
                         throw std::runtime_error(
                                 "Unrecognized funccode");
                 }
                 break;
             case OpCode::Unary:
-                a = imm;
+                a = operand;
                 y = a;
                 switch (funccode) {
                     case FuncCode::Nop:
@@ -60,7 +67,7 @@ uint32_t Program::run() {
                 break;
             case OpCode::Binary: 
                 a = stack[stack.size() - 1];
-                b = imm;
+                b = operand;
                 y = a;
                 switch (funccode) {
                     case FuncCode::Nop: 
@@ -106,28 +113,28 @@ uint32_t Program::run() {
                 stack[stack.size() - 1] = y;
                 break;
             case OpCode::Push:
-                stack.push_back(imm);
+                stack.push_back(operand);
                 break;
             case OpCode::Pop:
                 break;
             case OpCode::AddSp:
-                stack.resize(stack.size() + static_cast<int32_t>(imm));
+                stack.resize(stack.size() + static_cast<int32_t>(operand));
                 break;
             case OpCode::LoadRel:
-                a = imm;
+                a = operand;
                 stack.push_back(stack[bp + a]);
                 break;
             case OpCode::LoadAbs:
-                a = imm;
+                a = operand;
                 stack.push_back(stack[a]);
                 break;
             case OpCode::LoadAddrRel:
-                a = imm;
+                a = operand;
                 stack.push_back(bp + a);
                 break;
             case OpCode::Call:
                 // Before call: arguments, N arguments and func address pushed
-                addr = imm;
+                addr = operand;
                 stack.push_back(bp);
                 stack.push_back(ip);
                 bp = stack.size();
@@ -137,20 +144,20 @@ uint32_t Program::run() {
                 n_args = stack[bp - 3];
                 ret_bp = stack[bp - 2];
                 addr = stack[bp - 1];
-                ret_val = imm;
+                ret_val = operand;
                 stack.resize(bp - 3 - n_args);
                 stack.push_back(ret_val);
                 bp = ret_bp;
                 ip = addr;
                 break;
             case OpCode::Jump:
-                addr = imm;
+                addr = operand;
                 ip = addr - 1;
                 break;
             case OpCode::BrTrue:
             case OpCode::BrFalse:
                 a = stack[stack.size() - 1];
-                addr = imm;
+                addr = operand;
                 if ((a && opcode == OpCode::BrTrue)
                         || (!a && opcode == OpCode::BrFalse)) {
                     ip = addr - 1;

@@ -4,6 +4,12 @@
 #include <stdexcept>
 #include <unordered_set>
 
+std::vector<IntrinsicEntry> const intrinsics = {
+    {"__exit__", 1, OpCode::SysCall, FuncCode::Exit},
+    {"__putc__", 1, OpCode::SysCall, FuncCode::PutC},
+    {"__getc__", 0, OpCode::SysCall, FuncCode::GetC}
+};
+
 StackEntry::StackEntry()
         : type(EntryType::Instruction), opcode(OpCode::Nop), 
         funccode(FuncCode::Nop), data(0), has_immediate(0),
@@ -249,6 +255,14 @@ uint32_t Serializer::get_label() {
     return label;
 }
 
+void Serializer::load_predefined(SymbolMap &symbol_map) {
+    size_t i;
+    for (i = 0; i < intrinsics.size(); i++) {
+        IntrinsicEntry intrinsic = intrinsics[i];
+        declare_symbol(intrinsic.symbol, symbol_map, StorageType::Intrinsic, i);
+    }
+}
+
 void Serializer::serialize(BaseNode *root) {
     std::vector<std::string> symbol_table; // maps from int_id to identifier
     SymbolMap global_scope;
@@ -257,6 +271,7 @@ void Serializer::serialize(BaseNode *root) {
     Label entry_label;
     uint32_t i;
 
+    load_predefined(global_scope);
     root->resolve_symbols_first_pass(*this, global_scope);
     root->resolve_symbols_second_pass(*this, global_scope, 
             enclosing_scope, current_scope);

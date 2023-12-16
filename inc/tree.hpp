@@ -99,9 +99,16 @@ public:
 
 class CallNode : public BaseNode {
 public:
-    CallNode(BaseNode *func, BaseNode *args);
+    CallNode(Token func_name, BaseNode *func, BaseNode *args);
 
+    void resolve_symbols_second_pass(
+            Serializer &serializer, SymbolMap &global_scope, 
+            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
+
+    std::string get_label() const override;
+private:
+    Token func_name;
 };
 
 // Block without attached scope, scope managed by outside node:

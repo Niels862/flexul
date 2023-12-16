@@ -15,6 +15,7 @@ public:
     Token(TokenType type);
     Token(TokenType type, std::string data);
     static Token synthetic(std::string data);
+    static Token null();
     TokenType get_type() const;
     std::string get_data() const;
     std::string to_string() const;

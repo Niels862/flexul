@@ -88,7 +88,7 @@ Token Parser::expect_token(Token const &other) {
 Token Parser::accept_data(std::string const &data) {
     Token token = curr_token;
     if (token.get_data() != data) {
-        return Token(TokenType::Null);
+        return Token::null();
     }
     get_token();
     return token;
@@ -97,7 +97,7 @@ Token Parser::accept_data(std::string const &data) {
 Token Parser::accept_type(TokenType type) {
     Token token = curr_token;
     if (token.get_type() != type) {
-        return Token(TokenType::Null);
+        return Token::null();
     }
     get_token();
     return token;
@@ -383,12 +383,17 @@ BaseNode *Parser::parse_value() {
         BaseNode *value = parse_value();
         if (token.get_data() == "&" && !value->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
-        } 
+        }
         expression = add(new UnaryNode(token, value));
     } else if (accept_type(TokenType::IntLit)) {
         expression = add(new IntLitNode(token));
     } else if (accept_type(TokenType::Identifier)) {
         expression = add(new VariableNode(token));
+        if (accept_data("(")) {
+            BaseNode *param_list = parse_param_list(
+            Token(TokenType::Separator, ")"));
+            expression = add(new CallNode(token, expression, param_list));
+        }
     } else if (accept_data("(")) {
         expression = parse_expression();
         expect_data(")");
@@ -398,7 +403,7 @@ BaseNode *Parser::parse_value() {
     while (accept_data("(")) {
         BaseNode *param_list = parse_param_list(
                 Token(TokenType::Separator, ")"));
-        expression = add(new CallNode(expression, param_list));
+        expression = add(new CallNode(Token::null(), expression, param_list));
     }
     return expression;
 }

@@ -14,6 +14,10 @@ Token Token::synthetic(std::string data) {
     return Token(TokenType::Synthetic, data);
 }
 
+Token Token::null() {
+    return Token(TokenType::Null);
+}
+
 TokenType Token::get_type() const {
     return type;
 }
