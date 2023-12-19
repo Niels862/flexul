@@ -24,6 +24,10 @@ fn reverse(x, zeros) {
 }
 
 fn putnum(x) {
+    if (x == 0) {
+        __putc__('0');
+        return 0;
+    }
     var zeros = 0;
     var rev = reverse(x, &zeros);
     while (rev) {
@@ -38,7 +42,10 @@ fn putnum(x) {
 
 fn main() {
     var x = getnum();
-    putnum(x);
-    __putc__('\n');
+    var i;
+    for (i = 0; i < x; i = i + 1) {
+        putnum(i);
+        __putc__('\n');
+    }
     return 0;
 }
