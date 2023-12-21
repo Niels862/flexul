@@ -298,26 +298,11 @@ void IfElseNode::serialize(Serializer &serializer) const {
     serializer.add_label(label_end);
 }
 
-CallNode::CallNode(Token func_name, BaseNode *func, BaseNode *args)
-        : BaseNode(Token::synthetic("<call>"), {func, args}), 
-        func_name(func_name) {}
-
-void CallNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &global_scope, 
-        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
-    if (func_name) {
-        SymbolId id = lookup_symbol(func_name.get_data(), global_scope, 
-                enclosing_scope, current_scope);
-        set_id(id);
-    }
-    for (BaseNode *child : get_children()) {
-        child->resolve_symbols_second_pass(serializer, global_scope, 
-                enclosing_scope, current_scope);
-    }
-}
+CallNode::CallNode(BaseNode *func, BaseNode *args)
+        : BaseNode(Token::synthetic("<call>"), {func, args}) {}
 
 void CallNode::serialize(Serializer &serializer) const {
-    SymbolEntry entry = serializer.get_symbol_entry(get_id());
+    SymbolEntry entry = serializer.get_symbol_entry(get_first()->get_id());
     if (entry.storage_type == StorageType::Intrinsic) {
         IntrinsicEntry intrinsic = intrinsics[entry.value];
         if (get_second()->get_children().size() != intrinsic.n_args) {
@@ -332,13 +317,6 @@ void CallNode::serialize(Serializer &serializer) const {
         get_first()->serialize(serializer);
         serializer.add_instr(OpCode::Call);
     }
-}
-
-std::string CallNode::get_label() const {
-    if (func_name) {
-        return std::string("<call to ") + func_name.get_data() + ">";
-    }
-    return "<call>";
 }
 
 BlockNode::BlockNode(std::vector<BaseNode *> children)

@@ -389,11 +389,6 @@ BaseNode *Parser::parse_value() {
         expression = add(new IntLitNode(token));
     } else if (accept_type(TokenType::Identifier)) {
         expression = add(new VariableNode(token));
-        if (accept_data("(")) {
-            BaseNode *param_list = parse_param_list(
-            Token(TokenType::Separator, ")"));
-            expression = add(new CallNode(token, expression, param_list));
-        }
     } else if (accept_data("(")) {
         expression = parse_expression();
         expect_data(")");
@@ -403,7 +398,7 @@ BaseNode *Parser::parse_value() {
     while (accept_data("(")) {
         BaseNode *param_list = parse_param_list(
                 Token(TokenType::Separator, ")"));
-        expression = add(new CallNode(Token::null(), expression, param_list));
+        expression = add(new CallNode(expression, param_list));
     }
     return expression;
 }

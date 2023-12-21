@@ -62,13 +62,16 @@ fn print_number(x) {
 
 fn parse_sum(token, ans) {
     var left = parse_term(token, ans);
-    if (*token == '+') {
+    var op = *token;
+    while (op == '+' || op == '-') {
         get_token(token);
-        return left + parse_term(token, ans);
-    }
-    if (*token == '-') {
-        get_token(token);
-        return left - parse_term(token, ans);
+        var right = parse_term(token, ans);
+        if (op == '+') {
+            left = left + right;
+        } else {
+            left = left - right;
+        }
+        op = *token;
     }
     return left;
 }
@@ -127,7 +130,7 @@ fn parse_value(token, ans) {
 fn parse(ans) {
     var token = 0;
     get_token(&token);
-    if (token == '.') {
+    if (token == '.' || token == -1) {
         __exit__(0);
     }
     ans = parse_sum(&token, ans);
