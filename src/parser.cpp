@@ -103,13 +103,20 @@ Token Parser::accept_type(TokenType type) {
     return token;
 }
 
+Token Parser::check_type(TokenType type) const {
+    if (curr_token.get_type() != type) {
+        return Token::null();
+    }
+    return curr_token;
+}
+
 BaseNode *Parser::parse_filebody() {
     std::vector<BaseNode *> nodes;
     BaseNode *node;
-    while (curr_token.get_type() != TokenType::EndOfFile) {
-        if (curr_token.get_data() == "fn") {
+    while (!check_type(TokenType::EndOfFile)) {
+        if (check_type(TokenType::Function)) {
             node = parse_function_declaration();
-        } else if (curr_token.get_data() == "var") {
+        } else if (check_type(TokenType::Var)) {
             node = parse_var_declaration();
             expect_data(";");
         } else {
@@ -121,7 +128,7 @@ BaseNode *Parser::parse_filebody() {
 }
 
 BaseNode *Parser::parse_function_declaration() {
-    Token fn_token = expect_data("fn");
+    Token fn_token = expect_type(TokenType::Function);
     Token ident = expect_type(TokenType::Identifier);
     expect_data("(");
     std::vector<Token> param_list = parse_param_declaration(
@@ -157,9 +164,7 @@ std::vector<Token> Parser::parse_param_declaration(Token const &end_token) {
     } else {
         while (true) {
             params.push_back(expect_type(TokenType::Identifier));
-            if (curr_token.get_data() == ",") {
-                get_token();
-            } else {
+            if (!accept_data(",")) {
                 expect_token(end_token);
                 break;
             }
@@ -184,11 +189,11 @@ BaseNode *Parser::parse_braced_block(bool is_scope) {
 BaseNode *Parser::parse_statement() {
     BaseNode *node;
     Token token = curr_token;
-    if (token.get_data() == "if") {
+    if (check_type(TokenType::If)) {
         node = parse_if_else();
-    } else if (token.get_data() == "for") {
+    } else if (check_type(TokenType::For)) {
         node = parse_for();
-    } else if (token.get_data() == "while") {
+    } else if (check_type(TokenType::While)) {
         node = parse_while();
     } else if (token.get_data() == "{") {
         node = parse_braced_block(true);
@@ -196,11 +201,11 @@ BaseNode *Parser::parse_statement() {
         node = add(new EmptyNode());
         get_token();
     } else {
-        if (accept_data("return")) {
+        if (accept_type(TokenType::Return)) {
             node = add(new ReturnNode(token, {parse_expression()}));
-        } else if (token.get_data() == "var") {
+        } else if (check_type(TokenType::Var)) {
             node = parse_var_declaration();
-        } else if (token.get_data() == "alias") {
+        } else if (check_type(TokenType::Alias)) {
             node = parse_alias();
         } else {
             node = add(new ExpressionStatementNode(parse_expression()));
@@ -211,12 +216,12 @@ BaseNode *Parser::parse_statement() {
 }
 
 BaseNode *Parser::parse_if_else() {
-    Token token = expect_data("if"); // TODO: keywords
+    Token token = expect_type(TokenType::If);
     expect_data("(");
     BaseNode *cond = parse_expression();
     expect_data(")");
     BaseNode *body_true = parse_statement();
-    if (accept_data("else")) {
+    if (accept_type(TokenType::Else)) {
         BaseNode *body_false = parse_statement();
         return add(new IfElseNode(token, cond, body_true, body_false));
     }
@@ -224,7 +229,7 @@ BaseNode *Parser::parse_if_else() {
 }
 
 BaseNode *Parser::parse_for() {
-    Token token = expect_data("for");
+    Token token = expect_type(TokenType::For);
     expect_data("(");
     BaseNode *init = add(new ExpressionStatementNode(parse_expression()));
     expect_data(";");
@@ -237,7 +242,7 @@ BaseNode *Parser::parse_for() {
 }
 
 BaseNode *Parser::parse_while() {
-    Token token = expect_data("while");
+    Token token = expect_type(TokenType::While);
     expect_data("(");
     BaseNode *cond = parse_expression();
     expect_data(")");
@@ -248,7 +253,7 @@ BaseNode *Parser::parse_while() {
 
 BaseNode *Parser::parse_var_declaration() {
     std::vector<BaseNode *> nodes;
-    Token token = expect_data("var");
+    Token token = expect_type(TokenType::Var);
 
     do {
         Token ident = expect_type(TokenType::Identifier);
@@ -273,11 +278,11 @@ BaseNode *Parser::parse_var_declaration() {
 
 BaseNode *Parser::parse_alias() {
     std::vector<BaseNode *> nodes;
-    Token token = expect_data("alias");
+    Token token = expect_type(TokenType::Alias);
 
     do {
         Token alias = expect_type(TokenType::Identifier);
-        expect_data("for");
+        expect_type(TokenType::For);
         Token source = expect_type(TokenType::Identifier);
         nodes.push_back(add(new AliasNode(token, alias, source)));
     } while (accept_data(","));
@@ -289,7 +294,7 @@ BaseNode *Parser::parse_alias() {
 }
 
 BaseNode *Parser::parse_expression() {
-    if (curr_token.get_data() == "lambda") {
+    if (check_type(TokenType::Lambda)) {
         return parse_lambda();
     }
     return parse_assignment();
@@ -308,8 +313,9 @@ BaseNode *Parser::parse_assignment() {
 }
 
 BaseNode *Parser::parse_lambda() {
-    Token token = expect_data("lambda");
-    std::vector<Token> params = parse_param_declaration(Token(TokenType::Operator, ":"));
+    Token token = expect_type(TokenType::Lambda);
+    std::vector<Token> params = parse_param_declaration(
+            Token(TokenType::Operator, ":"));
     BaseNode *body = parse_expression();
     return add(new LambdaNode(token, params, 
             add(new ReturnNode(Token::synthetic("<lambda-return>"), body))));

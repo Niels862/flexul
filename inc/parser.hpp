@@ -22,6 +22,7 @@ private:
     Token expect_token(Token const &other);
     Token accept_data(std::string const &data);
     Token accept_type(TokenType type);
+    Token check_type(TokenType type) const;
 
     BaseNode *parse_filebody();
     BaseNode *parse_function_declaration();

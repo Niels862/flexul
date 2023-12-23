@@ -102,6 +102,24 @@ std::string Token::type_string(TokenType type) {
             return "null";
         case TokenType::EndOfFile:
             return "end of file";
+        case TokenType::Function:
+            return "function";
+        case TokenType::Return:
+            return "return";
+        case TokenType::If:
+            return "if";
+        case TokenType::Else:
+            return "else";
+        case TokenType::While:
+            return "while";
+        case TokenType::For:
+            return "for";
+        case TokenType::Lambda:
+            return "lambda";
+        case TokenType::Var:
+            return "var";
+        case TokenType::Alias:
+            return "alias";
         default:
             return "errortype";
     }

@@ -4,6 +4,9 @@
 #include "token.hpp"
 #include <vector>
 #include <string>
+#include <unordered_map>
+
+using SyntaxMap = std::unordered_map<std::string, TokenType>;
 
 class Tokenizer {
 public:
@@ -20,6 +23,7 @@ private:
     Token get_operator();
     Token get_separator();
 
+    SyntaxMap syntax_map;
     std::string text;
     size_t i;
 };

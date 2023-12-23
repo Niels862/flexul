@@ -3,15 +3,23 @@
 #include <unordered_set>
 #include <stdexcept>
 
-std::unordered_set<std::string> keywords = {
-    "fn", "return", "if", "while", "for", "lambda", "var", "alias", "rename"
+SyntaxMap const &default_syntax_map = {
+    {"fn", TokenType::Function},
+    {"return", TokenType::Return},
+    {"if", TokenType::If},
+    {"else", TokenType::Else},
+    {"while", TokenType::While},
+    {"for", TokenType::For},
+    {"lambda", TokenType::Lambda},
+    {"var", TokenType::Var},
+    {"alias", TokenType::Alias}
 };
 
 Tokenizer::Tokenizer()
-        : text(), i(0) {}
+        : syntax_map(), text(), i(0) {}
 
 Tokenizer::Tokenizer(std::string const &text) 
-        : text(text), i(0) {}
+        : syntax_map(default_syntax_map), text(text), i(0) {}
 
 Token Tokenizer::get_token() {
     char c;
@@ -75,10 +83,11 @@ Token Tokenizer::get_identifier() {
         i++;
     } while (std::isalpha(text[i]) || std::isdigit(text[i]) || text[i] == '_');
     identifier = text.substr(start, i - start);
-    if (keywords.find(identifier) == keywords.end()) {
+    SyntaxMap::const_iterator iter = syntax_map.find(identifier);
+    if (iter == syntax_map.end()) {
         return Token(TokenType::Identifier, identifier);
     }
-    return Token(TokenType::Keyword, identifier);
+    return Token(iter->second, identifier);
 }
 
 Token Tokenizer::get_intlit() {
