@@ -8,7 +8,9 @@
 
 enum class StorageType {
     Invalid,
-    // Resolved using labels at assembling with labels placed at serialization
+    // Code label
+    Label,
+    // Variable label
     Absolute,
     // Resolved during serialization
     Relative,
@@ -23,6 +25,7 @@ struct SymbolEntry {
     SymbolId id;
     StorageType storage_type;
     uint32_t value;
+    uint32_t size;
     uint64_t usages;
 };
 

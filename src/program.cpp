@@ -24,6 +24,7 @@ uint32_t Program::run() {
         instr = stack[ip];
         opcode = static_cast<OpCode>(instr & 0x7F);
         funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
+        uint32_t i = ip;
         if ((instr >> 7) & 1) {
             operand = stack[ip + 1];
             ip++;

@@ -32,7 +32,7 @@ private:
     BaseNode *parse_if_else();
     BaseNode *parse_for();
     BaseNode *parse_while();
-    BaseNode *parse_declaration();
+    BaseNode *parse_var_declaration();
     BaseNode *parse_alias();
     BaseNode *parse_expression();
     BaseNode *parse_assignment();
@@ -45,6 +45,7 @@ private:
     BaseNode *parse_sum();
     BaseNode *parse_term();
     BaseNode *parse_value();
+    BaseNode *parse_postfix(BaseNode *value);
     
     std::unordered_set<BaseNode *> trees;
     Tokenizer tokenizer;

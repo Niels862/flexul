@@ -9,6 +9,12 @@
 
 class Serializer;
 
+template <typename T>
+struct Maybe {
+    T value;
+    bool null;
+};
+
 class BaseNode {
 public:
     BaseNode(Token token, std::vector<BaseNode *> children);
@@ -25,21 +31,18 @@ public:
             SymbolMap &enclosing_scope, SymbolMap &current_scope);
     virtual void serialize(Serializer &serializer) const = 0;
     virtual void serialize_load_address(Serializer &serializer) const;
+    virtual Maybe<uint32_t> get_constant_value() const;
 
     virtual std::string get_label() const;
     Token get_token() const;
     const std::vector<BaseNode *> &get_children() const;
-    BaseNode *get_first() const;
-    BaseNode *get_second() const;
-    BaseNode *get_third() const;
-    BaseNode *get_fourth() const;
+    BaseNode *get(size_t n) const;
     void set_id(SymbolId id);
     SymbolId get_id() const;
 
     static void print(BaseNode *node, std::string const labelPrefix = "", 
             std::string const branchPrefix = "");
 private:
-    BaseNode *get_nth(uint32_t n, std::string const &ordinal) const;
     Token token;
     std::vector<BaseNode *> children;
     SymbolId symbol_id;
@@ -57,6 +60,9 @@ public:
     IntLitNode(Token token);
 
     void serialize(Serializer &serializer) const override;
+    Maybe<uint32_t> get_constant_value() const;
+private:
+    uint32_t value;
 };
 
 class VariableNode : public BaseNode {
@@ -78,6 +84,8 @@ public:
     bool is_lvalue() const override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
+private:
+    size_t const Child = 0;
 };
 
 class BinaryNode : public BaseNode {
@@ -85,6 +93,8 @@ public:
     BinaryNode(Token token, BaseNode *left, BaseNode *right);
 
     void serialize(Serializer &serializer) const override;
+private:
+    size_t const Left = 0, Right = 1;
 };
 
 class IfElseNode : public BaseNode {
@@ -93,6 +103,8 @@ public:
             BaseNode *case_false);
 
     void serialize(Serializer &serializer) const override;
+private:
+    size_t const Cond = 0, CaseTrue = 1, CaseFalse = 2;
 };
 
 class CallNode : public BaseNode {
@@ -100,6 +112,19 @@ public:
     CallNode(BaseNode *func, BaseNode *args);
 
     void serialize(Serializer &serializer) const override;
+private:
+    size_t const Func = 0, Args = 1;
+};
+
+class SubscriptNode : public BaseNode {
+public:
+    SubscriptNode(BaseNode *array, BaseNode *subscript);
+
+    bool is_lvalue() const override;
+    void serialize(Serializer &serializer) const override;
+    void serialize_load_address(Serializer &serializer) const override;
+private:
+    size_t const Array = 0, Subscript = 1;
 };
 
 // Block without attached scope, scope managed by outside node:
@@ -142,6 +167,8 @@ public:
 
     std::string get_label() const;
 private:
+    size_t const Body = 0;
+
     Token ident;
     std::vector<Token> params;
     uint32_t frame_size;
@@ -158,6 +185,8 @@ public:
 
     std::string get_label() const;
 private:
+    size_t const Body = 0;
+
     std::vector<Token> params;
 };
 
@@ -173,6 +202,8 @@ public:
     IfNode(Token token, BaseNode *cond, BaseNode *case_true);
 
     void serialize(Serializer &serializer) const override;
+private:
+    size_t const Cond = 0, CaseTrue = 1;
 };
 
 class ForLoopNode : public BaseNode {
@@ -181,6 +212,8 @@ public:
             BaseNode *body);
 
     void serialize(Serializer &serializer) const override;
+private:
+    size_t const Init = 0, Cond = 1, Post = 2, Body = 3;
 };
 
 class ReturnNode : public BaseNode {
@@ -188,12 +221,17 @@ public:
     ReturnNode(Token token, BaseNode *child);
 
     void serialize(Serializer &serializer) const override;
+private:
+    size_t const RetValue = 0;
 };
 
 class DeclarationNode : public BaseNode {
 public:
-    DeclarationNode(Token token, Token ident, BaseNode *expr);
+    DeclarationNode(Token token, Token ident, BaseNode *size, 
+            BaseNode *init_value);
 
+    void resolve_symbols_first_pass(
+            Serializer &serializer, SymbolMap &current_scope);
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
@@ -201,6 +239,10 @@ public:
 
     std::string get_label() const;
 private:
+    size_t const Size = 0, InitValue = 1;
+
+    uint32_t get_size() const;
+
     Token ident;
 };
 
@@ -209,6 +251,8 @@ public:
     ExpressionStatementNode(BaseNode *child);
     
     void serialize(Serializer &serializer) const override;
+private:
+    size_t const Expr = 0;
 };
 
 class AliasNode : public BaseNode {

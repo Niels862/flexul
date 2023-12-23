@@ -9,11 +9,11 @@ ArgParser get_args(int argc, char *argv[]) {
     ArgParser args;
 
     args.add("codefilename", ArgType::String);
-    args.add_synonym("c", "codefilename");
+    args.add_alias("c", "codefilename");
     args.add("binfilename", ArgType::String);
-    args.add_synonym("b", "binfilename");
+    args.add_alias("b", "binfilename");
     args.add("outfilename", ArgType::String);
-    args.add_synonym("o", "outfilename");
+    args.add_alias("o", "outfilename");
     args.add("tree", ArgType::Bool);
     args.add("stats", ArgType::Bool);
     args.add("dis", ArgType::Bool);

@@ -137,10 +137,14 @@ void StackEntry::assemble(std::vector<uint32_t> &stack,
     }
 }
 
+size_t StackEntry::get_size() const {
+    return size;
+}
+
 Serializer::Serializer()
         : symbol_table({
-            {"<null>", 0, StorageType::Invalid, 0, 0}, 
-            {"<entry>", 1, StorageType::Absolute, 0, 0}
+            {"<null>", 0, StorageType::Invalid, 0, 0, 0}, 
+            {"<entry>", 1, StorageType::Label, 0, 0, 0}
         }), counter(2), stack() {}
 
 SymbolId Serializer::get_symbol_id() {
@@ -178,14 +182,15 @@ SymbolEntry const &Serializer::get_symbol_entry(SymbolId id) {
 }
 
 SymbolId Serializer::declare_symbol(std::string const &symbol, 
-        SymbolMap &scope, StorageType storage_type, uint32_t value) {
+        SymbolMap &scope, StorageType storage_type, uint32_t value, 
+        uint32_t size) {
     SymbolMap::const_iterator iter = scope.find(symbol);
     if (iter != scope.end()) {
         throw std::runtime_error("Redeclared symbol: " + symbol);
     }
     SymbolId id = get_symbol_id();
     scope[symbol] = id;
-    register_symbol({symbol, id, storage_type, value, 0});
+    register_symbol({symbol, id, storage_type, value, size, 0});
     return id;
 }
 
@@ -197,14 +202,21 @@ void Serializer::add_to_container(SymbolId id) {
     containers.top().push_back(id);
 }
 
-uint32_t Serializer::resolve_container() {
+uint32_t Serializer::get_container_size() const {
+    uint32_t size = 0;
+    for (SymbolId const id : containers.top()) {
+        size += symbol_table[id].size;
+    }
+    return size;
+}
+
+void Serializer::resolve_local_container() {
     uint32_t position = 0;
-    for (SymbolId const &id : containers.top()) {
+    for (SymbolId const id : containers.top()) {
         symbol_table[id].value = position;
-        position++;
+        position += symbol_table[id].size;
     }
     containers.pop();
-    return position;
 }
 
 void Serializer::dump_symbol_table() const {
@@ -255,6 +267,14 @@ uint32_t Serializer::get_label() {
     return label;
 }
 
+uint32_t Serializer::get_stack_size() const {
+    uint32_t size = 0;
+    for (StackEntry const &entry : stack) {
+        size += entry.get_size();
+    }
+    return size;
+}
+
 void Serializer::load_predefined(SymbolMap &symbol_map) {
     size_t i;
     for (i = 0; i < intrinsics.size(); i++) {
@@ -272,10 +292,15 @@ void Serializer::serialize(BaseNode *root) {
     uint32_t i;
 
     load_predefined(global_scope);
-    root->resolve_symbols_first_pass(*this, global_scope);
-    root->resolve_symbols_second_pass(*this, global_scope, 
-            enclosing_scope, current_scope);
+    open_container();
 
+    root->resolve_symbols_first_pass(*this, global_scope);
+    for (JobEntry const &job : code_jobs) {
+        job.node->resolve_symbols_second_pass(*this, global_scope, 
+                enclosing_scope, current_scope);
+    }
+    
+    uint32_t global_size = get_container_size();
     // Note that 'main' may not be a function name but could be another
     // global scope definition, this is intended behavior.
     auto iter = global_scope.find("main"); // TODO: variable entry point
@@ -284,27 +309,32 @@ void Serializer::serialize(BaseNode *root) {
     }
     entry_label = iter->second;
 
+    add_instr(OpCode::AddSp, global_size);
     add_instr(OpCode::Push, 0);
     add_instr(OpCode::Push, entry_label, true);
     add_instr(OpCode::Call);
     add_instr(OpCode::SysCall, FuncCode::Exit);
-    root->serialize(*this);
 
     for (i = 0; i < code_jobs.size(); i++) {
         add_label(code_jobs[i].label);
         code_jobs[i].node->serialize(*this);
     }
+
+    uint32_t position = get_stack_size();
+    for (SymbolId const id : containers.top()) {
+        labels[id] = position;
+        position++;
+    }
 }
 
-std::vector<uint32_t> Serializer::assemble() const {
+std::vector<uint32_t> Serializer::assemble() {
     std::vector<uint32_t> bytecode;
-    LabelMap map;
     uint32_t i = 0;
     for (StackEntry const &entry : stack) {
-        entry.register_label(map, i);
+        entry.register_label(labels, i);
     }
     for (StackEntry const &entry : stack) {
-        entry.assemble(bytecode, map);
+        entry.assemble(bytecode, labels);
     }
     return bytecode;
 }

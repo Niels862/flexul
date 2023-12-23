@@ -13,7 +13,7 @@ class ArgEntry;
 
 using ArgEntryMap = std::unordered_map<std::string, ArgEntry>;
 
-using SynonymMap = std::unordered_map<std::string, std::string>;
+using AliasMap = std::unordered_map<std::string, std::string>;
 
 class ArgEntry {
 public:
@@ -35,7 +35,7 @@ public:
     void parse(int argc, char *argv[]);
     void add(std::string const &name, ArgType type,
             std::string const &default_value = "");
-    void add_synonym(std::string const &synonym, 
+    void add_alias(std::string const &synonym, 
             std::string const &defined_name);
     std::string get(std::string const &name) const;
     bool get_bool(std::string const &name) const;
@@ -45,7 +45,7 @@ private:
             char *str_end, int argc, char *argv[]);
 
     ArgEntryMap entries;
-    SynonymMap synonyms;
+    AliasMap aliases;
 };
 
 #endif

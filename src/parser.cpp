@@ -105,8 +105,17 @@ Token Parser::accept_type(TokenType type) {
 
 BaseNode *Parser::parse_filebody() {
     std::vector<BaseNode *> nodes;
+    BaseNode *node;
     while (curr_token.get_type() != TokenType::EndOfFile) {
-        nodes.push_back(parse_function_declaration());
+        if (curr_token.get_data() == "fn") {
+            node = parse_function_declaration();
+        } else if (curr_token.get_data() == "var") {
+            node = parse_var_declaration();
+            expect_data(";");
+        } else {
+            throw std::runtime_error("Expected declaration");
+        }
+        nodes.push_back(node);
     }
     return add(new BlockNode(nodes));
 }
@@ -190,7 +199,7 @@ BaseNode *Parser::parse_statement() {
         if (accept_data("return")) {
             node = add(new ReturnNode(token, {parse_expression()}));
         } else if (token.get_data() == "var") {
-            node = parse_declaration();
+            node = parse_var_declaration();
         } else if (token.get_data() == "alias") {
             node = parse_alias();
         } else {
@@ -237,19 +246,23 @@ BaseNode *Parser::parse_while() {
             add(new EmptyNode()), body));
 }
 
-BaseNode *Parser::parse_declaration() {
+BaseNode *Parser::parse_var_declaration() {
     std::vector<BaseNode *> nodes;
     Token token = expect_data("var");
 
     do {
         Token ident = expect_type(TokenType::Identifier);
-        if (accept_data("=")) {
-            nodes.push_back(add(new DeclarationNode(
-                    token, ident, parse_expression())));
-        } else {
-            nodes.push_back(add(new DeclarationNode(
-                    token, ident, nullptr)));
+        BaseNode *size = nullptr;
+        BaseNode *init_value = nullptr;
+        if (accept_data("[")) {
+            size = parse_expression();
+            expect_data("]");
         }
+        if (accept_data("=")) {
+            init_value = parse_expression();
+        }
+        nodes.push_back(add(new DeclarationNode(
+                token, ident, size, init_value)));
     } while (accept_data(","));
 
     if (nodes.size() == 1) {
@@ -377,28 +390,37 @@ BaseNode *Parser::parse_term() {
 
 BaseNode *Parser::parse_value() {
     Token token = curr_token;
-    BaseNode *expression;
+    BaseNode *value;
     if (accept_data("+") || accept_data("-") || accept_data("&") 
             || accept_data("*")) {
-        BaseNode *value = parse_value();
+        value = parse_value();
         if (token.get_data() == "&" && !value->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
         }
-        expression = add(new UnaryNode(token, value));
+        value = add(new UnaryNode(token, value));
     } else if (accept_type(TokenType::IntLit)) {
-        expression = add(new IntLitNode(token));
+        value = add(new IntLitNode(token));
     } else if (accept_type(TokenType::Identifier)) {
-        expression = add(new VariableNode(token));
+        value = add(new VariableNode(token));
     } else if (accept_data("(")) {
-        expression = parse_expression();
+        value = parse_expression();
         expect_data(")");
     } else {
         throw std::runtime_error("Expected value, got " + token.to_string());
     }
-    while (accept_data("(")) {
+    return parse_postfix(value);
+}
+
+BaseNode *Parser::parse_postfix(BaseNode *value) {
+    if (accept_data("(")) {
         BaseNode *param_list = parse_param_list(
-                Token(TokenType::Separator, ")"));
-        expression = add(new CallNode(expression, param_list));
+        Token(TokenType::Separator, ")"));
+        return add(new CallNode(parse_postfix(value), param_list));
     }
-    return expression;
+    if (accept_data("[")) {
+        BaseNode *subscript = parse_expression();
+        expect_data("]");
+        return add(new SubscriptNode(parse_postfix(value), subscript));
+    }
+    return value;
 }

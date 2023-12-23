@@ -69,9 +69,9 @@ void ArgParser::add(std::string const &name, ArgType type,
     entries[name] = ArgEntry(type, default_value);
 }
 
-void ArgParser::add_synonym(std::string const &synonym, 
+void ArgParser::add_alias(std::string const &alias, 
         std::string const &defined_name) {
-    synonyms[synonym] = defined_name;
+    aliases[alias] = defined_name;
 }
 
 std::string ArgParser::get(std::string const &name) const {
@@ -87,11 +87,11 @@ bool ArgParser::get_bool(std::string const &name) const {
 }
 
 std::string ArgParser::get_defined_name(std::string const &name) const {
-    SynonymMap::const_iterator synonym_iter = synonyms.find(name);
-    if (synonym_iter == synonyms.end()) {
+    AliasMap::const_iterator iter = aliases.find(name);
+    if (iter == aliases.end()) {
         return name;
     }
-    return synonym_iter->second;
+    return iter->second;
 }
 
 void ArgParser::set_parsed_value(std::string const &name, int &i, 

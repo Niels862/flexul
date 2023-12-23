@@ -51,6 +51,8 @@ public:
     bool combine(StackEntry const &right, StackEntry &combined) const;
     void register_label(LabelMap &map, uint32_t &i) const;
     void assemble(std::vector<uint32_t> &stack, LabelMap const &map) const;
+
+    size_t get_size() const;
 private:
     EntryType type;
     OpCode opcode;
@@ -69,15 +71,17 @@ public:
     void register_symbol(SymbolEntry const &entry);
     SymbolEntry const &get_symbol_entry(SymbolId id);
     SymbolId declare_symbol(std::string const &symbol, SymbolMap &scope, 
-            StorageType storage_type, uint32_t value = 0);
+            StorageType storage_type, uint32_t value = 0, 
+            uint32_t size = 1);
 
     // Opens new storage container
     void open_container();
     // Adds id to container
     void add_to_container(SymbolId id);
+    uint32_t get_container_size() const;
     // Resolves every symbol in the current container and closes it
     // Returns size of resolved container
-    uint32_t resolve_container();
+    void resolve_local_container();
 
     void dump_symbol_table() const;
 
@@ -89,15 +93,17 @@ public:
     uint32_t add_label();
     uint32_t add_label(Label label);
     uint32_t get_label();
+    uint32_t get_stack_size() const;
 
     void load_predefined(SymbolMap &symbol_map);
 
     void serialize(BaseNode *root);
-    std::vector<uint32_t> assemble() const;
+    std::vector<uint32_t> assemble();
 private:
     void add_entry(StackEntry const &entry);
     std::vector<SymbolEntry> symbol_table;
     std::vector<JobEntry> code_jobs;
+    LabelMap labels;
     // First used to give each symbol a unique id, then to attach labels
     // Symbol ids are also used as labels
     // 0 -> invalid/unset id
