@@ -94,7 +94,9 @@ bool StackEntry::combine(StackEntry const &right, StackEntry &combined) const {
         }
         return true;
     }
-    if (opcode == OpCode::Push && has_immediate && !right.has_immediate) {
+    if (opcode == OpCode::Push && has_immediate && !right.has_immediate 
+            && !(right.opcode == OpCode::SysCall  // todo better
+                && right.funccode == FuncCode::GetC)) {
         combined = StackEntry::instr(right.opcode, right.funccode, 
                 data, references_label);
         return true;
@@ -284,7 +286,6 @@ void Serializer::load_predefined(SymbolMap &symbol_map) {
 }
 
 void Serializer::serialize(BaseNode *root) {
-    std::vector<std::string> symbol_table; // maps from int_id to identifier
     SymbolMap global_scope;
     SymbolMap enclosing_scope;
     SymbolMap current_scope;
@@ -323,7 +324,7 @@ void Serializer::serialize(BaseNode *root) {
     uint32_t position = get_stack_size();
     for (SymbolId const id : containers.top()) {
         labels[id] = position;
-        position++;
+        position += symbol_table[id].size;
     }
 }
 
