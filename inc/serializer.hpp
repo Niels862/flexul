@@ -13,6 +13,8 @@
 
 class BaseNode;
 
+class Serializer;
+
 using Label = uint32_t;
 
 using LabelMap = std::unordered_map<Label, uint32_t>;
@@ -30,6 +32,19 @@ struct IntrinsicEntry {
 };
 
 extern std::vector<IntrinsicEntry> const intrinsics;
+
+class CallableEntry {
+public:
+    CallableEntry();
+
+    void add_overload(BaseNode *overload);
+
+    void call(Serializer &serializer, BaseNode *params) const;
+private:
+    std::vector<BaseNode *> overloads;
+};
+
+using CallableMap = std::unordered_map<SymbolId, CallableEntry>;
 
 enum class EntryType {
     Invalid, Instruction, Data, Label
@@ -53,6 +68,8 @@ public:
     void assemble(std::vector<uint32_t> &stack, LabelMap const &map) const;
 
     size_t get_size() const;
+
+    void disassemble() const;
 private:
     EntryType type;
     OpCode opcode;
@@ -73,6 +90,8 @@ public:
     SymbolId declare_symbol(std::string const &symbol, SymbolMap &scope, 
             StorageType storage_type, uint32_t value = 0, 
             uint32_t size = 1);
+    SymbolId declare_callable(std::string const &name, SymbolMap &scope, 
+            BaseNode *callable_node);
 
     // Opens new storage container
     void open_container();
@@ -82,6 +101,8 @@ public:
     // Resolves every symbol in the current container and closes it
     // Returns size of resolved container
     void resolve_local_container();
+
+    void call(SymbolId id, BaseNode *params);
 
     void dump_symbol_table() const;
 
@@ -99,6 +120,8 @@ public:
 
     void serialize(BaseNode *root);
     std::vector<uint32_t> assemble();
+
+    void disassemble() const;
 private:
     void add_entry(StackEntry const &entry);
     std::vector<SymbolEntry> symbol_table;
@@ -112,6 +135,7 @@ private:
     std::vector<StackEntry> stack;
     std::stack<Label> break_labels;
     std::stack<std::vector<SymbolId>> containers;
+    CallableMap callables;
 };
 
 #endif

@@ -15,7 +15,8 @@ enum class StorageType {
     // Resolved during serialization
     Relative,
     Intrinsic,
-    Alias
+    Alias,
+    Callable
 };
 
 using SymbolId = uint32_t;

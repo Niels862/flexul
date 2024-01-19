@@ -17,6 +17,7 @@ ArgParser get_args(int argc, char *argv[]) {
     args.add("tree", ArgType::Bool);
     args.add("stats", ArgType::Bool);
     args.add("dis", ArgType::Bool);
+    args.add("no-exec", ArgType::Bool);
 
     args.parse(argc, argv);
 
@@ -41,6 +42,9 @@ std::vector<uint32_t> compile(ArgParser const &args) {
         BaseNode::print(root);
     }
     serializer.serialize(root);
+    if (args.get_bool("dis")) {
+        serializer.disassemble();
+    }
     return serializer.assemble();
 }
 
@@ -65,9 +69,6 @@ std::vector<uint32_t> read_bytecode_file(ArgParser const &args) {
 void run_bytecode(ArgParser const &args, 
         std::vector<uint32_t> bytecode) {
     Program program = Program::load(bytecode);
-    if (args.get_bool("dis")) {
-        program.disassemble();
-    }
     uint32_t exit_code = program.run();
     std::cout << "Program finished with exit code " 
             << exit_code << " (" 
@@ -104,8 +105,11 @@ int main(int argc, char *argv[]) {
             bytecode = compile(args);
         }
 
-        if (args.get("outfilename").empty()) { // Interpret bytecode
-            run_bytecode(args, bytecode);
+        // Interpret bytecode
+        if (args.get("outfilename").empty()) {
+            if (!args.get_bool("no-exec")) {
+                run_bytecode(args, bytecode);
+            }
         } else { // Write bytecode to file
             write_bytecode_file(args, bytecode);
         }

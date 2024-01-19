@@ -1,20 +1,39 @@
 #include "mnemonics.hpp"
 
+std::string empty = "";
+
 std::string const op_names[] = {
-    "NOP", "SYSCALL", "UNARY", "BINARY", 
-    "PUSH", "POP", "ADDSP", "LOADREL", "LOADABS", "LOADADDRREL",
-    "CALL", "RET", "JUMP", "BRTRUE", "BRFALSE"
+    "nop", "syscall", "unary", "binary", 
+    "push", "pop", "addsp", "loadrel", "loadabs", "loadaddrrel",
+    "call", "ret", "jump", "brtrue", "brfalse"
 };
 
 std::string const unary_func_names[] = {
-    "NOP", "NEG"
+    "nop", "neg"
 };
 
 std::string const binary_func_names[] = {
-    "NOP", "ADD", "SUB", "MUL", "DIV", "MOD", "EQUAL", "NOTEQUAL", 
-    "LESSTHAN", "GREATERTHAN", "ASSIGN"
+    "nop", "add", "sub", "mul", "div", "mod", "equal", "notequal", 
+    "lessthan", "lessequal", "assign"
 };
 
 std::string const syscall_func_names[] = {
-    "NOP", "EXIT", "PUTC", "GETC"
+    "nop", "exit", "putc", "getc"
 };
+
+std::string const &get_op_name(OpCode opcode) {
+    return op_names[static_cast<size_t>(opcode)];
+}
+
+std::string const &get_func_name(OpCode opcode, FuncCode funccode) {
+    switch (opcode) {
+        case OpCode::Unary:
+            return unary_func_names[static_cast<size_t>(funccode)];
+        case OpCode::Binary:
+            return binary_func_names[static_cast<size_t>(funccode)];
+        case OpCode::SysCall:
+            return syscall_func_names[static_cast<size_t>(funccode)];
+        default:
+            return empty;
+    }
+}

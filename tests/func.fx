@@ -1,7 +1,4 @@
-fn f(x) {
-    return x;
-}
-
 fn main() {
-    return f(5);
+    var x = 4;
+    return x;
 }

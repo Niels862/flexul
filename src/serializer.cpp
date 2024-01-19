@@ -1,5 +1,6 @@
 #include "serializer.hpp"
 #include "utils.hpp"
+#include "mnemonics.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <unordered_set>
@@ -9,6 +10,37 @@ std::vector<IntrinsicEntry> const intrinsics = {
     {"__putc__", 1, OpCode::SysCall, FuncCode::PutC},
     {"__getc__", 0, OpCode::SysCall, FuncCode::GetC}
 };
+
+CallableEntry::CallableEntry() 
+        : overloads() {}
+
+void CallableEntry::add_overload(BaseNode *overload) {
+    overloads.push_back(overload);
+}
+
+void CallableEntry::call(Serializer &serializer, BaseNode *params) const {
+    if (overloads.empty()) {
+        throw std::runtime_error("No overloads declared for function");
+    }
+    BaseNode *overload;
+    uint32_t n_params;
+    if (params == nullptr) {
+        if (overloads.size() != 1) {
+            throw std::runtime_error("Overloads present for generic call");
+        }
+        overload = overloads[0];
+        n_params = 0;
+    } else {
+        overload = overloads[0]; // TEMP
+        n_params = params->get_children().size();
+    }
+    if (params != nullptr) {
+        params->serialize(serializer);
+    }
+    serializer.add_instr(OpCode::Push, n_params);
+    serializer.add_instr(OpCode::Push, overload->get_id(), true);
+    serializer.add_instr(OpCode::Call);
+}
 
 StackEntry::StackEntry()
         : type(EntryType::Instruction), opcode(OpCode::Nop), 
@@ -143,6 +175,26 @@ size_t StackEntry::get_size() const {
     return size;
 }
 
+void StackEntry::disassemble() const {
+    if (type == EntryType::Label) {
+        std::cerr << ".L" << data << ":" << std::endl;
+    } else if (type == EntryType::Instruction) {
+        std::cerr << "    " << get_op_name(opcode);
+        std::string func_name = get_func_name(opcode, funccode);
+        if (!func_name.empty()) {
+            std::cerr << "." << func_name;
+        }
+        if (has_immediate) {
+            if (references_label) {
+                std::cerr << " .L" << data;
+            } else {
+                std::cerr << " " << data;
+            }
+        }
+        std::cerr << std::endl;
+    }
+}
+
 Serializer::Serializer()
         : symbol_table({
             {"<null>", 0, StorageType::Invalid, 0, 0, 0}, 
@@ -196,6 +248,31 @@ SymbolId Serializer::declare_symbol(std::string const &symbol,
     return id;
 }
 
+SymbolId Serializer::declare_callable(std::string const &name, 
+        SymbolMap &scope, BaseNode *callable_node) {
+    SymbolMap::const_iterator name_iter = scope.find(name);
+    SymbolId name_id;
+    if (name_iter == scope.end()) { // New callable
+        name_id = declare_symbol(name, scope, StorageType::Callable);
+    } else {
+        name_id = name_iter->second;
+        if (symbol_table[name_id].storage_type != StorageType::Callable) {
+            throw std::runtime_error("Can only overload other callables");
+        }
+    }
+
+    CallableMap::iterator iter = callables.find(name_id);
+    if (iter == callables.end()) {
+        CallableEntry callable;
+        callable.add_overload(callable_node);
+        callables[name_id] = callable;
+    } else {
+        iter->second.add_overload(callable_node);
+    }
+    return declare_symbol("." + name + "_" + std::to_string(counter), 
+            scope, StorageType::Label);
+}
+
 void Serializer::open_container() {
     containers.push(std::vector<SymbolId>());
 }
@@ -219,6 +296,14 @@ void Serializer::resolve_local_container() {
         position += symbol_table[id].size;
     }
     containers.pop();
+}
+
+void Serializer::call(SymbolId id, BaseNode *params) {
+    CallableMap::const_iterator iter = callables.find(id);
+    if (iter == callables.end()) {
+        throw std::runtime_error("Oh no");
+    }
+    iter->second.call(*this, params);
 }
 
 void Serializer::dump_symbol_table() const {
@@ -289,7 +374,6 @@ void Serializer::serialize(BaseNode *root) {
     SymbolMap global_scope;
     SymbolMap enclosing_scope;
     SymbolMap current_scope;
-    Label entry_label;
     uint32_t i;
 
     load_predefined(global_scope);
@@ -301,6 +385,8 @@ void Serializer::serialize(BaseNode *root) {
                 enclosing_scope, current_scope);
     }
     
+    dump_symbol_table();
+
     uint32_t global_size = get_container_size();
     // Note that 'main' may not be a function name but could be another
     // global scope definition, this is intended behavior.
@@ -308,12 +394,9 @@ void Serializer::serialize(BaseNode *root) {
     if (iter == global_scope.end()) {
         throw std::runtime_error("Entry point 'main' was not defined");
     }
-    entry_label = iter->second;
 
     add_instr(OpCode::AddSp, global_size);
-    add_instr(OpCode::Push, 0);
-    add_instr(OpCode::Push, entry_label, true);
-    add_instr(OpCode::Call);
+    call(iter->second, nullptr);
     add_instr(OpCode::SysCall, FuncCode::Exit);
 
     for (i = 0; i < code_jobs.size(); i++) {
@@ -338,6 +421,12 @@ std::vector<uint32_t> Serializer::assemble() {
         entry.assemble(bytecode, labels);
     }
     return bytecode;
+}
+
+void Serializer::disassemble() const {
+    for (StackEntry const &entry : stack) {
+        entry.disassemble();
+    }
 }
 
 void Serializer::add_entry(StackEntry const &entry) {

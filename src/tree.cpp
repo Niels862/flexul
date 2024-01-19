@@ -376,8 +376,7 @@ FunctionNode::FunctionNode(Token token, Token ident, std::vector<Token> params,
 
 void FunctionNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
-    set_id(serializer.declare_symbol(ident.get_data(), symbol_map, 
-            StorageType::Label));
+    set_id(serializer.declare_callable(ident.get_data(), symbol_map, this));
     serializer.add_job(get_id(), this);
 }
 
