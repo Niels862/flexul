@@ -13,6 +13,8 @@
 
 class BaseNode;
 
+class CallableNode;
+
 class Serializer;
 
 using Label = uint32_t;
@@ -37,11 +39,11 @@ class CallableEntry {
 public:
     CallableEntry();
 
-    void add_overload(BaseNode *overload);
+    void add_overload(CallableNode *overload);
 
     void call(Serializer &serializer, BaseNode *params) const;
 private:
-    std::vector<BaseNode *> overloads;
+    std::vector<CallableNode *> overloads;
 };
 
 using CallableMap = std::unordered_map<SymbolId, CallableEntry>;
@@ -91,7 +93,7 @@ public:
             StorageType storage_type, uint32_t value = 0, 
             uint32_t size = 1);
     SymbolId declare_callable(std::string const &name, SymbolMap &scope, 
-            BaseNode *callable_node);
+            CallableNode *node);
 
     // Opens new storage container
     void open_container();

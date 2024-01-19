@@ -14,7 +14,7 @@ std::vector<IntrinsicEntry> const intrinsics = {
 CallableEntry::CallableEntry() 
         : overloads() {}
 
-void CallableEntry::add_overload(BaseNode *overload) {
+void CallableEntry::add_overload(CallableNode *overload) {
     overloads.push_back(overload);
 }
 
@@ -22,7 +22,7 @@ void CallableEntry::call(Serializer &serializer, BaseNode *params) const {
     if (overloads.empty()) {
         throw std::runtime_error("No overloads declared for function");
     }
-    BaseNode *overload;
+    BaseNode *overload = nullptr;
     uint32_t n_params;
     if (params == nullptr) {
         if (overloads.size() != 1) {
@@ -31,8 +31,18 @@ void CallableEntry::call(Serializer &serializer, BaseNode *params) const {
         overload = overloads[0];
         n_params = 0;
     } else {
-        overload = overloads[0]; // TEMP
         n_params = params->get_children().size();
+        for (CallableNode * const callable : overloads) {
+            if (callable->get_n_params() == n_params) {
+                if (overload != nullptr) {
+                    throw std::runtime_error("Multiple candidates for call");
+                }
+                overload = callable;
+            }
+        }
+        if (overload == nullptr) {
+            throw std::runtime_error("No suitable candidate for call");
+        }
     }
     if (params != nullptr) {
         params->serialize(serializer);
@@ -249,7 +259,7 @@ SymbolId Serializer::declare_symbol(std::string const &symbol,
 }
 
 SymbolId Serializer::declare_callable(std::string const &name, 
-        SymbolMap &scope, BaseNode *callable_node) {
+        SymbolMap &scope, CallableNode *node) {
     SymbolMap::const_iterator name_iter = scope.find(name);
     SymbolId name_id;
     if (name_iter == scope.end()) { // New callable
@@ -264,10 +274,10 @@ SymbolId Serializer::declare_callable(std::string const &name,
     CallableMap::iterator iter = callables.find(name_id);
     if (iter == callables.end()) {
         CallableEntry callable;
-        callable.add_overload(callable_node);
+        callable.add_overload(node);
         callables[name_id] = callable;
     } else {
-        iter->second.add_overload(callable_node);
+        iter->second.add_overload(node);
     }
     return declare_symbol("." + name + "_" + std::to_string(counter), 
             scope, StorageType::Label);

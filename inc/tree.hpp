@@ -153,7 +153,22 @@ private:
     SymbolMap scope_map;
 };
 
-class FunctionNode : public BaseNode {
+class CallableNode : public BaseNode {
+public:
+    CallableNode(Token token, Token name, std::vector<Token> params, 
+            BaseNode *body);
+    
+    Token const &get_ident() const;
+    std::vector<Token> const &get_params() const;
+    uint32_t get_n_params() const;
+
+    size_t const Body = 0;
+private:
+    Token ident;
+    std::vector<Token> params;
+};
+
+class FunctionNode : public CallableNode {
 public:
     FunctionNode(Token token, Token ident, std::vector<Token> params, 
             BaseNode *body);
@@ -166,11 +181,8 @@ public:
     void serialize(Serializer &serializer) const override;
 
     std::string get_label() const;
-private:
-    size_t const Body = 0;
 
-    Token ident;
-    std::vector<Token> params;
+private:
     uint32_t frame_size;
 };
 
