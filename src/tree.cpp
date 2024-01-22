@@ -124,6 +124,10 @@ void VariableNode::serialize(Serializer &serializer) const {
         serializer.add_instr(OpCode::LoadRel, entry.value);
     } else if (entry.storage_type == StorageType::Absolute) {
         serializer.add_instr(OpCode::LoadAbs, entry.id, true);
+    } else if (entry.storage_type == StorageType::Callable) {
+        throw std::runtime_error("not implemented");
+    } else if (entry.storage_type == StorageType::InlineReference) {
+        serializer.use_inline_param(entry.value);
     } else {
         std::cerr << entry.symbol << ": " << get_token().get_data() << std::endl;
         throw std::runtime_error(
@@ -377,6 +381,10 @@ CallableNode::CallableNode(Token token, Token ident, std::vector<Token> params,
         BaseNode *body)
         : BaseNode(token, {body}), ident(ident), params(params) {}
 
+bool CallableNode::is_matching_call(BaseNode *params) const {
+    return params->get_children().size() == get_n_params();
+}
+
 Token const &CallableNode::get_ident() const {
     return ident;
 }
@@ -394,8 +402,9 @@ FunctionNode::FunctionNode(Token token, Token ident, std::vector<Token> params,
 
 void FunctionNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
-    set_id(serializer.declare_callable(get_ident().get_data(), symbol_map, this));
-    serializer.add_job(get_id(), this);
+    set_id(serializer.declare_callable(get_ident().get_data(), 
+            symbol_map, this));
+    serializer.add_job(get_id(), this, false);
 }
 
 void FunctionNode::resolve_symbols_second_pass(
@@ -428,7 +437,57 @@ void FunctionNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Ret, 0);
 }
 
+void FunctionNode::serialize_call(Serializer &serializer, 
+        BaseNode *params) const {
+    if (params != nullptr) {
+        params->serialize(serializer);
+    }
+    serializer.add_instr(OpCode::Push, get_n_params());
+    serializer.add_instr(OpCode::Push, get_id(), true);
+    serializer.add_instr(OpCode::Call);
+}
+
 std::string FunctionNode::get_label() const {
+    return get_token().get_data() + " " + get_ident().get_data() + "(" 
+            + tokenlist_to_string(get_params()) + ")";
+}
+
+InlineNode::InlineNode(Token token, Token ident, std::vector<Token> params, 
+        BaseNode *body)
+        : CallableNode(token, ident, params, body) {}
+
+void InlineNode::resolve_symbols_first_pass(
+        Serializer &serializer, SymbolMap &symbol_map) {
+    set_id(serializer.declare_callable(get_ident().get_data(), 
+            symbol_map, this));
+    serializer.add_job(get_id(), this, true);
+}
+
+void InlineNode::resolve_symbols_second_pass(
+        Serializer &serializer, SymbolMap &global_scope, 
+        SymbolMap &, SymbolMap &) {
+    SymbolMap empty_scope;
+    SymbolMap function_scope;
+    uint32_t position = 0;
+    for (Token const &param : get_params()) {
+        serializer.declare_symbol(param.get_data(), function_scope, 
+                StorageType::InlineReference, position);
+        position++;
+    }
+    get(Body)->resolve_symbols_second_pass(serializer, global_scope, 
+            empty_scope, function_scope);
+}
+
+void InlineNode::serialize(Serializer &) const {}
+
+void InlineNode::serialize_call(Serializer &serializer, 
+        BaseNode *params) const {
+    serializer.open_inline_call(params);
+    get(Body)->serialize(serializer);
+    serializer.close_inline_call();
+}
+
+std::string InlineNode::get_label() const {
     return get_token().get_data() + " " + get_ident().get_data() + "(" 
             + tokenlist_to_string(get_params()) + ")";
 }
@@ -453,7 +512,7 @@ void LambdaNode::resolve_symbols_second_pass(
 
 void LambdaNode::serialize(Serializer &serializer) const {
     SymbolId id = serializer.get_label();
-    serializer.add_job(id, get(Body));
+    serializer.add_job(id, get(Body), false);
     serializer.add_instr(OpCode::Push, id, true);
 }
 

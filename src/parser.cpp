@@ -1,15 +1,11 @@
 #include "parser.hpp"
+#include "utils.hpp"
 #include <iostream>
 
 Parser::Parser() {}
 
-Parser::Parser(std::ifstream &file) {
-    std::string text;
-    text.assign(
-        (std::istreambuf_iterator<char>(file)),
-        (std::istreambuf_iterator<char>())
-    );
-    tokenizer = Tokenizer(text);
+Parser::Parser(std::string const &filename) {
+    include_file(filename);
 }
 
 Parser::~Parser() {
@@ -19,13 +15,24 @@ Parser::~Parser() {
 }
 
 BaseNode *Parser::parse() {
-    get_token();
     BaseNode *root = parse_filebody();
     if (get_token().get_type() != TokenType::EndOfFile) {
         throw std::runtime_error(
-                "Unexpected token: " + tokenizer.get_token().to_string());
+                "Unexpected token: " + curr_token.to_string());
     }
+    print_iterable(included_files);
     return root;
+}
+
+void Parser::include_file(std::string const &filename) {
+    if (included_files.find(filename) != included_files.end()) {
+        get_token();
+    } else {
+        Tokenizer tokenizer(filename);
+        curr_token = tokenizer.get_token();
+        tokenizers.push(tokenizer);
+        included_files.insert(filename);
+    }
 }
 
 template <typename T>
@@ -35,6 +42,18 @@ T Parser::add(T node) {
     }
     trees.insert(node);
     return node;
+}
+
+BaseNode *Parser::add_unary(Token const &op, BaseNode *operand) {
+    return add(new CallNode(add(new VariableNode(op)), 
+            add(new ExpressionListNode(
+                Token::synthetic("<params>"), {operand}))));
+}
+
+BaseNode *Parser::add_binary(Token const &op, BaseNode *left, BaseNode *right) {
+    return add(new CallNode(add(new VariableNode(op)), 
+            add(new ExpressionListNode(
+                Token::synthetic("<params>"), {left, right}))));
 }
 
 void Parser::adopt(BaseNode *node) {
@@ -48,7 +67,17 @@ void Parser::adopt(BaseNode *node) {
 }
 
 Token Parser::get_token() {
-    curr_token = tokenizer.get_token();
+    if (tokenizers.empty()) {
+        return Token(TokenType::EndOfFile);
+    }
+    curr_token = tokenizers.top().get_token();
+    while (curr_token == Token(TokenType::EndOfFile)) {
+        tokenizers.pop();
+        if (tokenizers.empty()) {
+            return curr_token;
+        }
+        curr_token = tokenizers.top().get_token();
+    }
     return curr_token;
 }
 
@@ -114,27 +143,62 @@ BaseNode *Parser::parse_filebody() {
     std::vector<BaseNode *> nodes;
     BaseNode *node;
     while (!check_type(TokenType::EndOfFile)) {
-        if (check_type(TokenType::Function)) {
+        node = nullptr;
+        if (check_type(TokenType::Include)) {
+            parse_include();
+        } else if (check_type(TokenType::Function)) {
             node = parse_function_declaration();
+        } else if (check_type(TokenType::Inline)) {
+            node = parse_inline_declaration();
         } else if (check_type(TokenType::Var)) {
             node = parse_var_declaration();
             expect_data(";");
         } else {
             throw std::runtime_error("Expected declaration");
         }
-        nodes.push_back(node);
+        if (node != nullptr) {
+            nodes.push_back(node);
+        }
     }
     return add(new BlockNode(nodes));
 }
 
+void Parser::parse_include() {
+    expect_type(TokenType::Include);
+    std::string filename = expect_type(TokenType::Identifier).get_data();
+    if (curr_token.get_data() != ";") {
+        expect_data(";");
+    } else {
+        include_file(filename);
+    }
+}
+
 BaseNode *Parser::parse_function_declaration() {
     Token fn_token = expect_type(TokenType::Function);
-    Token ident = expect_type(TokenType::Identifier);
+    Token ident = accept_type(TokenType::Identifier);
+    if (!ident) {
+        ident = expect_type(TokenType::Operator);
+    }
     expect_data("(");
     std::vector<Token> param_list = parse_param_declaration(
             Token(TokenType::Separator, ")"));
     BaseNode *body = parse_braced_block(false);
     return add(new FunctionNode(fn_token, ident, param_list, body));
+}
+
+BaseNode *Parser::parse_inline_declaration() {
+    Token inline_token = expect_type(TokenType::Inline);
+    Token ident = accept_type(TokenType::Identifier);
+    if (!ident) {
+        ident = expect_type(TokenType::Operator);
+    }
+    expect_data("(");
+    std::vector<Token> param_list = parse_param_declaration(
+            Token(TokenType::Separator, ")"));
+    expect_data(":");
+    BaseNode *body = parse_expression();
+    expect_data(";");
+    return add(new InlineNode(inline_token, ident, param_list, body));
 }
 
 BaseNode *Parser::parse_param_list(Token const &end_token) {
@@ -378,7 +442,7 @@ BaseNode *Parser::parse_sum() {
     BaseNode *left = parse_term();
     Token token = curr_token;
     while (accept_data("+") || accept_data("-")) {
-        left = add(new BinaryNode(token, left, parse_term()));
+        left = add_binary(token, left, parse_term());
         token = curr_token;
     }
     return left;
@@ -388,7 +452,7 @@ BaseNode *Parser::parse_term() {
     BaseNode *left = parse_value();
     Token token = curr_token;
     while (accept_data("*") || accept_data("/") || accept_data("%")) {
-        left = add(new BinaryNode(token, left, parse_value()));
+        left = add_binary(token, left, parse_value());
         token = curr_token;
     }
     return left;
@@ -397,8 +461,9 @@ BaseNode *Parser::parse_term() {
 BaseNode *Parser::parse_value() {
     Token token = curr_token;
     BaseNode *value;
-    if (accept_data("+") || accept_data("-") || accept_data("&") 
-            || accept_data("*")) {
+    if (accept_data("+") || accept_data("-")) {
+        value = add_unary(token, parse_value());
+    } else if (accept_data("&") || accept_data("*")) {
         value = parse_value();
         if (token.get_data() == "&" && !value->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");

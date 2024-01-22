@@ -1,11 +1,9 @@
-fn f(x) {
-    return x + 1;
-}
+inline +(x, y): __iadd__(x, y);
 
-fn f(x, y) {
-    return f(x) + y;
+fn -(x) {
+    return x + x;
 }
 
 fn main() {
-    return f(5, 6);
+    return -3;
 }

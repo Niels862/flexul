@@ -104,8 +104,12 @@ std::string Token::type_string(TokenType type) {
             return "end of file";
         case TokenType::Function:
             return "function";
+        case TokenType::Inline:
+            return "inline";
         case TokenType::Return:
             return "return";
+        case TokenType::Include:
+            return "include";
         case TokenType::If:
             return "if";
         case TokenType::Else:

@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <string>
 
 template <typename T>
 void print_map(T const &map, size_t width = 16) {
@@ -20,5 +21,7 @@ void print_iterable(T const &iterable) {
     }
     std::cerr << "}" << std::endl;
 }
+
+bool endswith(std::string const &string, std::string const &postfix);
 
 #endif

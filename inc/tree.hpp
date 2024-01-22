@@ -158,6 +158,10 @@ public:
     CallableNode(Token token, Token name, std::vector<Token> params, 
             BaseNode *body);
     
+    bool is_matching_call(BaseNode *params) const;
+    virtual void serialize_call(Serializer &serializer, 
+            BaseNode *params) const = 0;
+
     Token const &get_ident() const;
     std::vector<Token> const &get_params() const;
     uint32_t get_n_params() const;
@@ -179,11 +183,28 @@ public:
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
+    void serialize_call(Serializer &serializer, BaseNode *params) const;
 
     std::string get_label() const;
 
 private:
     uint32_t frame_size;
+};
+
+class InlineNode : public CallableNode {
+public:
+    InlineNode(Token token, Token ident, std::vector<Token> params, 
+            BaseNode *body);
+
+    void resolve_symbols_first_pass(
+            Serializer &serializer, SymbolMap &symbol_map) override;
+    void resolve_symbols_second_pass(
+            Serializer &serializer, SymbolMap &global_scope, 
+            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
+    void serialize(Serializer &serializer) const override;
+    void serialize_call(Serializer &serializer, BaseNode *params) const;
+
+    std::string get_label() const;
 };
 
 class LambdaNode : public BaseNode {

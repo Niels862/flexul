@@ -16,7 +16,8 @@ enum class StorageType {
     Relative,
     Intrinsic,
     Alias,
-    Callable
+    Callable,
+    InlineReference
 };
 
 using SymbolId = uint32_t;

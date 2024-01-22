@@ -11,7 +11,7 @@ using SyntaxMap = std::unordered_map<std::string, TokenType>;
 class Tokenizer {
 public:
     Tokenizer();
-    Tokenizer(std::string const &text);
+    Tokenizer(std::string const &filename);
     Token get_token();
     bool eof();
 private:

@@ -4,6 +4,7 @@
 #include "tree.hpp"
 #include "opcodes.hpp"
 #include "symbol.hpp"
+#include "callable.hpp"
 #include <vector>
 #include <stack>
 #include <string>
@@ -24,6 +25,7 @@ using LabelMap = std::unordered_map<Label, uint32_t>;
 struct JobEntry {
     uint32_t label;
     BaseNode *node;
+    bool no_serialize;
 };
 
 struct IntrinsicEntry {
@@ -34,19 +36,6 @@ struct IntrinsicEntry {
 };
 
 extern std::vector<IntrinsicEntry> const intrinsics;
-
-class CallableEntry {
-public:
-    CallableEntry();
-
-    void add_overload(CallableNode *overload);
-
-    void call(Serializer &serializer, BaseNode *params) const;
-private:
-    std::vector<CallableNode *> overloads;
-};
-
-using CallableMap = std::unordered_map<SymbolId, CallableEntry>;
 
 enum class EntryType {
     Invalid, Instruction, Data, Label
@@ -104,6 +93,10 @@ public:
     // Returns size of resolved container
     void resolve_local_container();
 
+    void open_inline_call(BaseNode *params);
+    void use_inline_param(uint32_t index);
+    void close_inline_call();
+
     void call(SymbolId id, BaseNode *params);
 
     void dump_symbol_table() const;
@@ -112,7 +105,7 @@ public:
     void add_instr(OpCode opcode, uint32_t data, bool references_label = false);
     void add_instr(OpCode opcode, FuncCode funccode, 
             uint32_t data, bool references_label = false);
-    void add_job(Label label, BaseNode *node);
+    void add_job(Label label, BaseNode *node, bool no_serialize);
     uint32_t add_label();
     uint32_t add_label(Label label);
     uint32_t get_label();
@@ -137,6 +130,7 @@ private:
     std::vector<StackEntry> stack;
     std::stack<Label> break_labels;
     std::stack<std::vector<SymbolId>> containers;
+    std::stack<BaseNode *> inline_params;
     CallableMap callables;
 };
 

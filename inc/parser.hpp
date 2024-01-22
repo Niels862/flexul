@@ -5,16 +5,21 @@
 #include "tree.hpp"
 #include <fstream>
 #include <unordered_set>
+#include <stack>
 
 class Parser {
 public:
     Parser();
-    Parser(std::ifstream &file);
+    Parser(std::string const &filename);
     ~Parser();
     BaseNode *parse();
 private:
+    // Overrides curr_token
+    void include_file(std::string const &filename);
     template <typename T>
     T add(T node);
+    BaseNode *add_unary(Token const &op, BaseNode *operand);
+    BaseNode *add_binary(Token const &op, BaseNode *left, BaseNode *right);
     void adopt(BaseNode *BaseNode);
     Token get_token();
     Token expect_data(std::string const &data);
@@ -25,7 +30,9 @@ private:
     Token check_type(TokenType type) const;
 
     BaseNode *parse_filebody();
+    void parse_include();
     BaseNode *parse_function_declaration();
+    BaseNode *parse_inline_declaration();
     BaseNode *parse_param_list(Token const &end_token);
     std::vector<Token> parse_param_declaration(Token const &end_token);
     BaseNode *parse_braced_block(bool is_scope);
@@ -49,8 +56,9 @@ private:
     BaseNode *parse_postfix(BaseNode *value);
     
     std::unordered_set<BaseNode *> trees;
-    Tokenizer tokenizer;
+    std::stack<Tokenizer> tokenizers;
     Token curr_token;
+    std::unordered_set<std::string> included_files;
 };
 
 #endif

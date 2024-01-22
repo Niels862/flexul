@@ -8,49 +8,18 @@
 std::vector<IntrinsicEntry> const intrinsics = {
     {"__exit__", 1, OpCode::SysCall, FuncCode::Exit},
     {"__putc__", 1, OpCode::SysCall, FuncCode::PutC},
-    {"__getc__", 0, OpCode::SysCall, FuncCode::GetC}
+    {"__getc__", 0, OpCode::SysCall, FuncCode::GetC},
+    {"__ineg__", 1, OpCode::Unary, FuncCode::Neg},
+    {"__iadd__", 2, OpCode::Binary, FuncCode::Add},
+    {"__isub__", 2, OpCode::Binary, FuncCode::Sub},
+    {"__idiv__", 2, OpCode::Binary, FuncCode::Div},
+    {"__imul__", 2, OpCode::Binary, FuncCode::Mul},
+    {"__imod__", 2, OpCode::Binary, FuncCode::Mod},
+    {"__ieq__", 2, OpCode::Binary, FuncCode::Equals},
+    {"__ineq__", 2, OpCode::Binary, FuncCode::NotEquals},
+    {"__ilt__", 2, OpCode::Binary, FuncCode::LessThan},
+    {"__ile__", 2, OpCode::Binary, FuncCode::LessEquals},
 };
-
-CallableEntry::CallableEntry() 
-        : overloads() {}
-
-void CallableEntry::add_overload(CallableNode *overload) {
-    overloads.push_back(overload);
-}
-
-void CallableEntry::call(Serializer &serializer, BaseNode *params) const {
-    if (overloads.empty()) {
-        throw std::runtime_error("No overloads declared for function");
-    }
-    BaseNode *overload = nullptr;
-    uint32_t n_params;
-    if (params == nullptr) {
-        if (overloads.size() != 1) {
-            throw std::runtime_error("Overloads present for generic call");
-        }
-        overload = overloads[0];
-        n_params = 0;
-    } else {
-        n_params = params->get_children().size();
-        for (CallableNode * const callable : overloads) {
-            if (callable->get_n_params() == n_params) {
-                if (overload != nullptr) {
-                    throw std::runtime_error("Multiple candidates for call");
-                }
-                overload = callable;
-            }
-        }
-        if (overload == nullptr) {
-            throw std::runtime_error("No suitable candidate for call");
-        }
-    }
-    if (params != nullptr) {
-        params->serialize(serializer);
-    }
-    serializer.add_instr(OpCode::Push, n_params);
-    serializer.add_instr(OpCode::Push, overload->get_id(), true);
-    serializer.add_instr(OpCode::Call);
-}
 
 StackEntry::StackEntry()
         : type(EntryType::Instruction), opcode(OpCode::Nop), 
@@ -308,6 +277,18 @@ void Serializer::resolve_local_container() {
     containers.pop();
 }
 
+void Serializer::open_inline_call(BaseNode *params) {
+    inline_params.push(params);
+}
+
+void Serializer::use_inline_param(uint32_t index) {
+    inline_params.top()->get(index)->serialize(*this);
+}
+
+void Serializer::close_inline_call() {
+    inline_params.pop();
+}
+
 void Serializer::call(SymbolId id, BaseNode *params) {
     CallableMap::const_iterator iter = callables.find(id);
     if (iter == callables.end()) {
@@ -345,8 +326,8 @@ void Serializer::add_instr(OpCode opcode, FuncCode funccode,
             StackEntry::instr(opcode, funccode, data, references_label));
 }
 
-void Serializer::add_job(uint32_t label, BaseNode *node) {
-    code_jobs.push_back({label, node});
+void Serializer::add_job(uint32_t label, BaseNode *node, bool no_serialize) {
+    code_jobs.push_back({label, node, no_serialize});
 }
 
 uint32_t Serializer::add_label() {
@@ -395,8 +376,6 @@ void Serializer::serialize(BaseNode *root) {
                 enclosing_scope, current_scope);
     }
     
-    dump_symbol_table();
-
     uint32_t global_size = get_container_size();
     // Note that 'main' may not be a function name but could be another
     // global scope definition, this is intended behavior.
@@ -410,8 +389,10 @@ void Serializer::serialize(BaseNode *root) {
     add_instr(OpCode::SysCall, FuncCode::Exit);
 
     for (i = 0; i < code_jobs.size(); i++) {
-        add_label(code_jobs[i].label);
-        code_jobs[i].node->serialize(*this);
+        if (!code_jobs[i].no_serialize) {
+            add_label(code_jobs[i].label);
+            code_jobs[i].node->serialize(*this);
+        }
     }
 
     uint32_t position = get_stack_size();
@@ -419,6 +400,8 @@ void Serializer::serialize(BaseNode *root) {
         labels[id] = position;
         position += symbol_table[id].size;
     }
+
+    dump_symbol_table();
 }
 
 std::vector<uint32_t> Serializer::assemble() {

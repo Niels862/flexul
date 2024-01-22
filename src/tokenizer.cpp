@@ -1,11 +1,16 @@
 #include "tokenizer.hpp"
+#include "utils.hpp"
 #include <cctype>
 #include <unordered_set>
 #include <stdexcept>
+#include <iostream>
+#include <fstream>
 
 SyntaxMap const &default_syntax_map = {
     {"fn", TokenType::Function},
+    {"inline", TokenType::Inline},
     {"return", TokenType::Return},
+    {"include", TokenType::Include},
     {"if", TokenType::If},
     {"else", TokenType::Else},
     {"while", TokenType::While},
@@ -18,8 +23,22 @@ SyntaxMap const &default_syntax_map = {
 Tokenizer::Tokenizer()
         : syntax_map(), text(), i(0) {}
 
-Tokenizer::Tokenizer(std::string const &text) 
-        : syntax_map(default_syntax_map), text(text), i(0) {}
+Tokenizer::Tokenizer(std::string const &filename)
+        : syntax_map(default_syntax_map), text(), i(0) {
+    std::string include_name = 
+            filename + (endswith(filename, ".fx") ? "" : ".fx");
+    std::ifstream file(filename);
+    if (!file) {
+        file = std::ifstream("std/" + include_name);
+    }
+    if (!file) {
+        throw std::runtime_error("Could not open file: " + filename);
+    }
+    text.assign(
+        (std::istreambuf_iterator<char>(file)),
+        (std::istreambuf_iterator<char>())
+    );
+}
 
 Token Tokenizer::get_token() {
     char c;

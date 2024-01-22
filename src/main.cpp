@@ -29,12 +29,8 @@ std::vector<uint32_t> compile(ArgParser const &args) {
     if (infilename.empty()) {
         throw std::runtime_error("Code filename is not defined");
     }
-    std::ifstream infile(infilename);
-    if (!infile) {
-        throw std::runtime_error("Could not open file: " + infilename);
-    }
 
-    Parser parser(infile);
+    Parser parser(infilename);
     Serializer serializer;
 
     BaseNode *root = parser.parse();

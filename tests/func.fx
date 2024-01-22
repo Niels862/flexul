@@ -1,4 +1,5 @@
+include core;
+
 fn main() {
-    var x = 4;
-    return x;
+    return 5 - 8 == -3;
 }
