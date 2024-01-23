@@ -20,7 +20,6 @@ BaseNode *Parser::parse() {
         throw std::runtime_error(
                 "Unexpected token: " + curr_token.to_string());
     }
-    print_iterable(included_files);
     return root;
 }
 

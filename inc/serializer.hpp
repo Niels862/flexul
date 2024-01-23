@@ -116,7 +116,6 @@ public:
 
     void serialize(BaseNode *root);
     std::vector<uint32_t> assemble();
-
     void disassemble() const;
 private:
     void add_entry(StackEntry const &entry);

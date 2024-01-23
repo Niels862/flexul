@@ -408,8 +408,6 @@ void Serializer::serialize(BaseNode *root) {
         labels[id] = position;
         position += symbol_table[id].size;
     }
-
-    dump_symbol_table();
 }
 
 std::vector<uint32_t> Serializer::assemble() {

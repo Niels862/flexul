@@ -17,6 +17,7 @@ ArgParser get_args(int argc, char *argv[]) {
     args.add("tree", ArgType::Bool);
     args.add("stats", ArgType::Bool);
     args.add("dis", ArgType::Bool);
+    args.add("symbols", ArgType::Bool);
     args.add("no-exec", ArgType::Bool);
 
     args.parse(argc, argv);
@@ -35,10 +36,16 @@ std::vector<uint32_t> compile(ArgParser const &args) {
 
     BaseNode *root = parser.parse();
     if (args.get_bool("tree")) {
+        std::cerr << "Syntax Tree:" << std::endl;
         BaseNode::print(root);
     }
     serializer.serialize(root);
+    if (args.get_bool("symbols")) {
+        std::cerr << "Symbol Table:" << std::endl;
+        serializer.dump_symbol_table();
+    }
     if (args.get_bool("dis")) {
+        std::cerr << "Assembly:" << std::endl;
         serializer.disassemble();
     }
     return serializer.assemble();

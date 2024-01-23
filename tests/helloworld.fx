@@ -1,6 +1,6 @@
-fn main() {
-    alias putc for __putc__;
+include io;
 
+fn main() {
     putc('H');
     putc('e');
     putc('l');

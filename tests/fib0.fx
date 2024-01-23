@@ -1,3 +1,5 @@
+include core;
+
 fn fib(n) {
     if (n <= 1) {
         return n;
@@ -6,5 +8,5 @@ fn fib(n) {
 }
 
 fn main() {
-    return fib(42);
+    return fib(40);
 }

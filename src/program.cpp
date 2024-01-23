@@ -5,11 +5,18 @@
 #include <iomanip>
 
 Program::Program() 
-        : ip(0), bp(0), completed_instrs(0), execution_time(0) {}
+        : stack(nullptr), ip(0), bp(0), completed_instrs(0), execution_time(0) {}
 
-Program Program::load(std::vector<uint32_t> bytecode) {
+Program::~Program() {
+    delete[] stack;
+}
+
+Program Program::load(std::vector<uint32_t> const &bytecode) {
     Program program;
-    program.stack = bytecode;
+    program.stack = new uint32_t[10000];
+    std::copy(bytecode.data(), bytecode.data() + bytecode.size(), 
+            program.stack);
+    program.sp = bytecode.size();
     return program;
 }
 
@@ -20,7 +27,7 @@ uint32_t Program::run() {
     FuncCode funccode;
     clock_t start = std::clock();
     completed_instrs = 0;
-    while (ip < stack.size()) {
+    while (ip < sp) {
         instr = stack[ip];
         opcode = static_cast<OpCode>(instr & 0x7F);
         funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
@@ -29,8 +36,8 @@ uint32_t Program::run() {
             ip++;
         } else if (opcode != OpCode::Nop 
                 && !(opcode == OpCode::SysCall && funccode == FuncCode::GetC)) {
-            operand = stack[stack.size() - 1];
-            stack.pop_back();
+            operand = stack[sp];
+            sp--;
         }
         switch (opcode) {
             case OpCode::Nop: break;
@@ -40,10 +47,12 @@ uint32_t Program::run() {
                         execution_time = std::clock() - start;
                         return operand;
                     case FuncCode::PutC:
-                        stack.push_back(putc(operand, stdout));
+                        sp++;
+                        stack[sp] = putc(operand, stdout);
                         break;
                     case FuncCode::GetC:
-                        stack.push_back(getc(stdin));
+                        sp++;
+                        stack[sp] = getc(stdin);
                         break;
                     default: 
                         throw std::runtime_error(
@@ -63,10 +72,10 @@ uint32_t Program::run() {
                         throw std::runtime_error(
                                 "Unrecognized funccode");
                 }
-                stack.push_back(y);
+                stack[sp] = y;
                 break;
             case OpCode::Binary: 
-                a = stack[stack.size() - 1];
+                a = stack[sp];
                 b = operand;
                 y = a;
                 switch (funccode) {
@@ -110,34 +119,37 @@ uint32_t Program::run() {
                         throw std::runtime_error(
                                 "Unrecognized funccode");
                 }
-                stack[stack.size() - 1] = y;
+                stack[sp] = y;
                 break;
             case OpCode::Push:
-                stack.push_back(operand);
+                sp++;
+                stack[sp] = operand;
                 break;
             case OpCode::Pop:
                 break;
             case OpCode::AddSp:
-                stack.resize(stack.size() + static_cast<int32_t>(operand));
+                sp += static_cast<int32_t>(operand);
                 break;
             case OpCode::LoadRel:
-                a = operand;
-                stack.push_back(stack[bp + a]);
+                sp++;
+                stack[sp] = stack[bp + operand];
                 break;
             case OpCode::LoadAbs:
-                a = operand;
-                stack.push_back(stack[a]);
+                sp++;
+                stack[sp] = stack[operand];
                 break;
             case OpCode::LoadAddrRel:
-                a = operand;
-                stack.push_back(bp + a);
+                sp++;
+                stack[sp] = bp + operand;
                 break;
             case OpCode::Call:
                 // Before call: arguments, N arguments and func address pushed
                 addr = operand;
-                stack.push_back(bp);
-                stack.push_back(ip);
-                bp = stack.size();
+                sp++;
+                stack[sp] = bp;
+                sp++;
+                stack[sp] = ip;
+                bp = sp + 1;
                 ip = addr - 1;
                 break;
             case OpCode::Ret:
@@ -145,24 +157,23 @@ uint32_t Program::run() {
                 ret_bp = stack[bp - 2];
                 addr = stack[bp - 1];
                 ret_val = operand;
-                stack.resize(bp - 3 - n_args);
-                stack.push_back(ret_val);
+                sp = bp - n_args - 3;
+                stack[sp] = ret_val;
                 bp = ret_bp;
                 ip = addr;
                 break;
             case OpCode::Jump:
-                addr = operand;
-                ip = addr - 1;
+                ip = operand - 1;
                 break;
             case OpCode::BrTrue:
             case OpCode::BrFalse:
-                a = stack[stack.size() - 1];
+                a = stack[sp];
                 addr = operand;
                 if ((a && opcode == OpCode::BrTrue)
                         || (!a && opcode == OpCode::BrFalse)) {
                     ip = addr - 1;
                 }
-                stack.pop_back();
+                sp--;
                 break;
             default: 
                 break;
@@ -190,16 +201,16 @@ void Program::analytics() const {
 }
 
 void Program::dump_stack() const {
-    for (uint32_t const &elem : stack) {
-        std::cout << elem << std::endl;
+    for (size_t i = 0; i < sp; i++) {
+        std::cout << stack[i] << std::endl;
     }
 }
 
 void Program::disassemble() const {
     uint32_t i;
-    for (i = 0; i < stack.size(); i++) {
+    for (i = 0; i < sp; i++) {
         std::cerr << std::setw(6) << i << ": ";
-        disassemble_instr(stack[i], i + 1 < stack.size() ? stack[i + 1] : 0, i);
+        disassemble_instr(stack[i], i + 1 < sp ? stack[i + 1] : 0, i);
     }
 }
 
