@@ -297,6 +297,14 @@ void Serializer::call(SymbolId id, BaseNode *params) {
     iter->second.call(*this, params);
 }
 
+void Serializer::push_callable_addr(SymbolId id) {
+    CallableMap::const_iterator iter = callables.find(id);
+    if (iter == callables.end()) {
+        throw std::runtime_error("Oh no");
+    }
+    iter->second.push_callable_addr(*this);
+}
+
 void Serializer::dump_symbol_table() const {
     uint32_t i;
     for (i = 0; i < symbol_table.size(); i++) {

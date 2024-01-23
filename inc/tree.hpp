@@ -77,24 +77,51 @@ public:
     void serialize_load_address(Serializer &serializer) const override;
 };
 
-class UnaryNode : public BaseNode {
+class AssignNode : public BaseNode {
 public:
-    UnaryNode(Token token, BaseNode *child);
+    AssignNode(Token token, BaseNode *target, BaseNode *expr);
+
+    void serialize(Serializer &serializer) const override;
+private:
+    size_t const Target = 0, Expr = 1;
+};
+
+class AndNode : public BaseNode {
+public:
+    AndNode(Token token, BaseNode *left, BaseNode *right);
+
+    void serialize(Serializer &serializer) const override;
+private:
+    size_t const Left = 0, Right = 1;
+};
+
+class OrNode : public BaseNode {
+public:
+    OrNode(Token token, BaseNode *left, BaseNode *right);
+
+    void serialize(Serializer &serializer) const override;
+private:
+    size_t const Left = 0, Right = 1;
+};
+
+class AddressOfNode : public BaseNode {
+public:
+    AddressOfNode(Token token, BaseNode *operand);
+
+    void serialize(Serializer &serializer) const override;
+private:
+    size_t const Operand = 0;
+};
+
+class DereferenceNode : public BaseNode {
+public:
+    DereferenceNode(Token token, BaseNode *operand);
 
     bool is_lvalue() const override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 private:
-    size_t const Child = 0;
-};
-
-class BinaryNode : public BaseNode {
-public:
-    BinaryNode(Token token, BaseNode *left, BaseNode *right);
-
-    void serialize(Serializer &serializer) const override;
-private:
-    size_t const Left = 0, Right = 1;
+    size_t const Operand = 0;
 };
 
 class IfElseNode : public BaseNode {

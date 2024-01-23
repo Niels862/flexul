@@ -1,5 +1,6 @@
-include core;
+include io;
 
 fn main() {
-    return 5 - 8 == -3;
+    print_number(42);
+    return 0;
 }

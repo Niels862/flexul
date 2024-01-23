@@ -33,3 +33,11 @@ void CallableEntry::call(Serializer &serializer, BaseNode *params) const {
     }
     overload->serialize_call(serializer, params);
 }
+
+void CallableEntry::push_callable_addr(Serializer &serializer) const {
+    if (overloads.size() != 1) {
+        throw std::runtime_error(
+                "Can only load address of single implmementation");
+    }
+    serializer.add_instr(OpCode::Push, overloads[0]->get_id(), true);
+}

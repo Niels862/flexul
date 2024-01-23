@@ -18,6 +18,7 @@ public:
     void add_overload(CallableNode *overload);
 
     void call(Serializer &serializer, BaseNode *params) const;
+    void push_callable_addr(Serializer &serializer) const;
 private:
     std::vector<CallableNode *> overloads;
 };

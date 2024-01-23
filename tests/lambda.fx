@@ -1,3 +1,5 @@
+include core;
+
 fn func(f, x) {
     var z = 6;
     return f(x, z);

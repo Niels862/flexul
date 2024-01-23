@@ -371,7 +371,7 @@ BaseNode *Parser::parse_assignment() {
         if (!left->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
         }
-        return add(new BinaryNode(token, left, parse_expression()));
+        return add(new AssignNode(token, left, parse_expression()));
     }
     return left;
 }
@@ -401,7 +401,7 @@ BaseNode *Parser::parse_or() {
     BaseNode *left = parse_and();
     Token token = curr_token;
     while (accept_data("||")) {
-        left = add(new BinaryNode(token, left, parse_and()));
+        left = add(new OrNode(token, left, parse_and()));
         token = curr_token;
     }
     return left;
@@ -411,7 +411,7 @@ BaseNode *Parser::parse_and() {
     BaseNode *left = parse_equality_1();
     Token token = curr_token;
     while (accept_data("&&")) {
-        left = add(new BinaryNode(token, left, parse_equality_1()));
+        left = add(new AndNode(token, left, parse_equality_1()));
         token = curr_token;
     }
     return left;
@@ -421,7 +421,7 @@ BaseNode *Parser::parse_equality_1() {
     BaseNode *left = parse_equality_2();
     Token token = curr_token;
     while (accept_data("==") || accept_data("!=")) {
-        left = add(new BinaryNode(token, left, parse_equality_2()));
+        left = add_binary(token, left, parse_equality_2());
         token = curr_token;
     }
     return left;
@@ -432,7 +432,7 @@ BaseNode *Parser::parse_equality_2() {
     Token token = curr_token;
     while (accept_data("<") || accept_data(">") || accept_data("<=") 
             || accept_data(">=")) {
-        left = add(new BinaryNode(token, left, parse_sum()));
+        left = add_binary(token, left, parse_sum());
         token = curr_token;
     }
     return left;
@@ -463,12 +463,14 @@ BaseNode *Parser::parse_value() {
     BaseNode *value;
     if (accept_data("+") || accept_data("-")) {
         value = add_unary(token, parse_value());
-    } else if (accept_data("&") || accept_data("*")) {
+    } else if (accept_data("&")) {
         value = parse_value();
         if (token.get_data() == "&" && !value->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
         }
-        value = add(new UnaryNode(token, value));
+        value = add(new AddressOfNode(token, value));
+    } else if (accept_data("*")) {
+        value = add(new DereferenceNode(token, parse_value()));
     } else if (accept_type(TokenType::IntLit)) {
         value = add(new IntLitNode(token));
     } else if (accept_type(TokenType::Identifier)) {

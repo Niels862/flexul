@@ -125,11 +125,10 @@ void VariableNode::serialize(Serializer &serializer) const {
     } else if (entry.storage_type == StorageType::Absolute) {
         serializer.add_instr(OpCode::LoadAbs, entry.id, true);
     } else if (entry.storage_type == StorageType::Callable) {
-        throw std::runtime_error("not implemented");
+        serializer.push_callable_addr(entry.id);
     } else if (entry.storage_type == StorageType::InlineReference) {
         serializer.use_inline_param(entry.value);
     } else {
-        std::cerr << entry.symbol << ": " << get_token().get_data() << std::endl;
         throw std::runtime_error(
                 "Invalid storage type: " 
                 + std::to_string(static_cast<int>(entry.storage_type)));
@@ -151,129 +150,78 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
     }
 }
 
-UnaryNode::UnaryNode(Token token, BaseNode *child)
-        : BaseNode(token, {child}) {}
-
-bool UnaryNode::is_lvalue() const {
-    return get_token().get_data() == "*";
-}
-
-void UnaryNode::serialize(Serializer &serializer) const {
-    Token token = get_token();
-    if (token.get_data() == "&") {
-        get(Child)->serialize_load_address(serializer);
-        return;
-    }
-    get(Child)->serialize(serializer);
-    if (token.get_data() == "-") {
-        serializer.add_instr(OpCode::Unary, FuncCode::Neg);
-    } else if (token.get_data() == "*") {
-        serializer.add_instr(OpCode::LoadAbs);
-    } else if (token.get_data() != "*") {
-        throw std::runtime_error(
-                "Unrecognized operator for unary expression: " 
-                + token.get_data());
-    }
-}
-
-void UnaryNode::serialize_load_address(Serializer &serializer) const {
-    if (get_token().get_data() != "*") {
-        throw std::runtime_error("Cannot load address of non lvalue");
-    }
-    get(Child)->serialize(serializer);
-}
-
-BinaryNode::BinaryNode(Token token, BaseNode *left, BaseNode *right)
+AssignNode::AssignNode(Token token, BaseNode *left, BaseNode *right)
         : BaseNode(token, {left, right}) {}
 
-void BinaryNode::serialize(Serializer &serializer) const {
-    FuncCode funccode;
-    Token token = get_token();
-    Label label_true, label_false, label_end;
+void AssignNode::serialize(Serializer &serializer) const {
+    get(Target)->serialize_load_address(serializer);
+    get(Expr)->serialize(serializer);
+    serializer.add_instr(OpCode::Binary, FuncCode::Assign);
+}
 
-    if (token.get_data() == "=") {
-        get(Left)->serialize_load_address(serializer);
-        get(Right)->serialize(serializer);
-        serializer.add_instr(OpCode::Binary, FuncCode::Assign);
-        return;
-    }
+AndNode::AndNode(Token token, BaseNode *left, BaseNode *right)
+        : BaseNode(token, {left, right}) {}
 
-    if (token.get_data() == ">" || token.get_data() == ">=") {
-        if (token.get_data() == ">=") {
-            funccode = FuncCode::LessEquals;
-        } else {
-            funccode = FuncCode::LessThan;
-        }
-        get(Right)->serialize(serializer);
-        get(Left)->serialize(serializer);
-        serializer.add_instr(OpCode::Binary, funccode);
-        return;
-    }
+void AndNode::serialize(Serializer &serializer) const {
+    Label label_false = serializer.get_label();
+    Label label_end = serializer.get_label();
 
-    if (token.get_data() == "||") {
-        label_true = serializer.get_label();
-        label_end = serializer.get_label();
-
-        get(Left)->serialize(serializer);
-        serializer.add_instr(OpCode::BrTrue, label_true, true);
-
-        get(Right)->serialize(serializer);
-        serializer.add_instr(OpCode::BrTrue, label_true, true);
-        serializer.add_instr(OpCode::Push, 0);
-        serializer.add_instr(OpCode::Jump, label_end, true);
-
-        serializer.add_label(label_true);
-        serializer.add_instr(OpCode::Push, 1);
-
-        serializer.add_label(label_end);
-        return;
-    }
-
-    if (token.get_data() == "&&") {
-        label_false = serializer.get_label();
-        label_end = serializer.get_label();
-
-        get(Left)->serialize(serializer);
-        serializer.add_instr(OpCode::BrFalse, label_false, true);
-
-        get(Right)->serialize(serializer);
-        serializer.add_instr(OpCode::BrFalse, label_false, true);
-        serializer.add_instr(OpCode::Push, 1);
-        serializer.add_instr(OpCode::Jump, label_end, true);
-
-        serializer.add_label(label_false);
-        serializer.add_instr(OpCode::Push, 0);
-
-        serializer.add_label(label_end);
-        return;
-    }
-
-    if (token.get_data() == "+") {
-        funccode = FuncCode::Add;
-    } else if (token.get_data() == "-") {
-        funccode = FuncCode::Sub;
-    } else if (token.get_data() == "*") {
-        funccode = FuncCode::Mul;
-    } else if (token.get_data() == "/") {
-        funccode = FuncCode::Div;
-    } else if (token.get_data() == "%") {
-        funccode = FuncCode::Mod;
-    } else if (token.get_data() == "==") {
-        funccode = FuncCode::Equals;
-    } else if (token.get_data() == "!=") {
-        funccode = FuncCode::NotEquals;
-    } else if (token.get_data() == "<") {
-        funccode = FuncCode::LessThan;
-    } else if (token.get_data() == "<=") {
-        funccode = FuncCode::LessEquals;
-    } else {
-        throw std::runtime_error(
-                "Unrecognized operator for binary expression: "
-                + token.get_data());
-    }
     get(Left)->serialize(serializer);
+    serializer.add_instr(OpCode::BrFalse, label_false, true);
+
     get(Right)->serialize(serializer);
-    serializer.add_instr(OpCode::Binary, funccode);
+    serializer.add_instr(OpCode::BrFalse, label_false, true);
+    serializer.add_instr(OpCode::Push, 1);
+    serializer.add_instr(OpCode::Jump, label_end, true);
+
+    serializer.add_label(label_false);
+    serializer.add_instr(OpCode::Push, 0);
+
+    serializer.add_label(label_end);
+}
+
+OrNode::OrNode(Token token, BaseNode *left, BaseNode *right)
+        : BaseNode(token, {left, right}) {}
+
+void OrNode::serialize(Serializer &serializer) const {
+    Label label_true = serializer.get_label();
+    Label label_end = serializer.get_label();
+
+    get(Left)->serialize(serializer);
+    serializer.add_instr(OpCode::BrTrue, label_true, true);
+
+    get(Right)->serialize(serializer);
+    serializer.add_instr(OpCode::BrTrue, label_true, true);
+    serializer.add_instr(OpCode::Push, 0);
+    serializer.add_instr(OpCode::Jump, label_end, true);
+
+    serializer.add_label(label_true);
+    serializer.add_instr(OpCode::Push, 1);
+
+    serializer.add_label(label_end);
+}
+
+AddressOfNode::AddressOfNode(Token token, BaseNode *operand)
+        : BaseNode(token, {operand}) {}
+
+void AddressOfNode::serialize(Serializer &serializer) const {
+    get(Operand)->serialize_load_address(serializer);
+}
+
+DereferenceNode::DereferenceNode(Token token, BaseNode *operand)
+        : BaseNode(token, {operand}) {}
+
+bool DereferenceNode::is_lvalue() const {
+    return true;
+}
+
+void DereferenceNode::serialize(Serializer &serializer) const {
+    get(Operand)->serialize(serializer);
+    serializer.add_instr(OpCode::LoadAbs);
+}
+
+void DereferenceNode::serialize_load_address(Serializer &serializer) const {
+    get(Operand)->serialize(serializer);
 }
 
 IfElseNode::IfElseNode(Token token, BaseNode *cond, BaseNode *case_true, 

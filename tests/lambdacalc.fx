@@ -1,3 +1,5 @@
+include core;
+
 var pool[1024];
 var used[256];
 var min_free;

@@ -98,6 +98,7 @@ public:
     void close_inline_call();
 
     void call(SymbolId id, BaseNode *params);
+    void push_callable_addr(SymbolId id);
 
     void dump_symbol_table() const;
 
