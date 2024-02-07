@@ -9,17 +9,15 @@
 class Program {
 public:
     Program();
-    ~Program();
-    static Program load(std::vector<uint32_t> const &bytecode);
+    static Program load(std::vector<uint32_t>);
     uint32_t run();
     void analytics() const;
     void dump_stack() const;
     void disassemble() const;
     void disassemble_instr(uint32_t instr, uint32_t next, uint32_t &i) const;
 private:
-    uint32_t *stack;
+    std::vector<uint32_t> stack;
     uint32_t ip;
-    uint32_t sp;
     uint32_t bp;
     
     uint64_t completed_instrs;

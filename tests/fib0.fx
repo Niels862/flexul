@@ -8,5 +8,5 @@ fn fib(n) {
 }
 
 fn main() {
-    return fib(40);
+    return fib(38);
 }

@@ -1,3 +1,5 @@
+include core;
+
 fn fac(n) {
     return n ? n * fac(n - 1) : 1;
 }

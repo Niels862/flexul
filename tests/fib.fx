@@ -1,3 +1,5 @@
+include core;
+
 var arr[100];
 
 fn fib(n) {
@@ -16,5 +18,5 @@ fn main() {
     for (i = 0; i < 100; i = i + 1) {
         arr[i] = -1;
     }
-    return fib(47);
+    return fib(2);
 }
