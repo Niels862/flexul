@@ -54,13 +54,13 @@ public:
 
     void disassemble() const;
 private:
-    EntryType type;
-    OpCode opcode;
-    FuncCode funccode;
-    uint32_t data;
-    bool has_immediate;
-    bool references_label;
-    size_t size;
+    EntryType m_type;
+    OpCode m_opcode;
+    FuncCode m_funccode;
+    uint32_t m_data;
+    bool m_has_immediate;
+    bool m_references_label;
+    size_t m_size;
 };
 
 class Serializer {

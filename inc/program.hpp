@@ -16,12 +16,12 @@ public:
     void disassemble() const;
     void disassemble_instr(uint32_t instr, uint32_t next, uint32_t &i) const;
 private:
-    std::vector<uint32_t> stack;
-    uint32_t ip;
-    uint32_t bp;
+    std::vector<uint32_t> m_stack;
+    uint32_t m_ip;
+    uint32_t m_bp;
     
-    uint64_t completed_instrs;
-    clock_t execution_time;
+    uint64_t m_completed_instrs;
+    clock_t m_execution_time;
 };
 
 #endif

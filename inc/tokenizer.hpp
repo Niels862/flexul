@@ -23,9 +23,9 @@ private:
     Token get_operator();
     Token get_separator();
 
-    SyntaxMap syntax_map;
-    std::string text;
-    size_t i;
+    SyntaxMap m_syntax_map;
+    std::string m_text;
+    size_t m_i;
 };
 
 bool is_op_char(char c);

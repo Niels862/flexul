@@ -6,14 +6,9 @@
 #include "symbol.hpp"
 #include <vector>
 #include <unordered_map>
+#include <optional>
 
 class Serializer;
-
-template <typename T>
-struct Maybe {
-    T value;
-    bool null;
-};
 
 class BaseNode {
 public:
@@ -31,21 +26,21 @@ public:
             SymbolMap &enclosing_scope, SymbolMap &current_scope);
     virtual void serialize(Serializer &serializer) const = 0;
     virtual void serialize_load_address(Serializer &serializer) const;
-    virtual Maybe<uint32_t> get_constant_value() const;
+    virtual std::optional<uint32_t> get_constant_value() const;
 
-    virtual std::string get_label() const;
-    Token get_token() const;
-    const std::vector<BaseNode *> &get_children() const;
+    virtual std::string label() const;
+    Token token() const;
+    const std::vector<BaseNode *> &children() const;
     BaseNode *get(size_t n) const;
     void set_id(SymbolId id);
-    SymbolId get_id() const;
+    SymbolId id() const;
 
     static void print(BaseNode *node, std::string const labelPrefix = "", 
             std::string const branchPrefix = "");
 private:
-    Token token;
-    std::vector<BaseNode *> children;
-    SymbolId symbol_id;
+    Token m_token;
+    std::vector<BaseNode *> m_children;
+    SymbolId m_id;
 };
 
 class EmptyNode : public BaseNode {
@@ -60,9 +55,9 @@ public:
     IntLitNode(Token token);
 
     void serialize(Serializer &serializer) const override;
-    Maybe<uint32_t> get_constant_value() const;
+    std::optional<uint32_t> get_constant_value() const;
 private:
-    uint32_t value;
+    uint32_t m_value;
 };
 
 class VariableNode : public BaseNode {
@@ -164,7 +159,7 @@ public:
             Serializer &serializer, SymbolMap &symbol_map) override;
     void serialize(Serializer &serializer) const override;
 private:
-    SymbolMap scope_map;
+    SymbolMap m_scope_map;
 };
 
 // Block which introduces a new scope: statement blocks
@@ -177,7 +172,7 @@ public:
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 private:
-    SymbolMap scope_map;
+    SymbolMap m_scope_map;
 };
 
 class CallableNode : public BaseNode {
@@ -195,8 +190,8 @@ public:
 
     size_t const Body = 0;
 private:
-    Token ident;
-    std::vector<Token> params;
+    Token m_ident;
+    std::vector<Token> m_params;
 };
 
 class FunctionNode : public CallableNode {
@@ -215,7 +210,7 @@ public:
     std::string get_label() const;
 
 private:
-    uint32_t frame_size;
+    uint32_t m_frame_size;
 };
 
 class InlineNode : public CallableNode {
@@ -245,11 +240,11 @@ public:
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 
-    std::string get_label() const;
+    std::string label() const;
 private:
     size_t const Body = 0;
 
-    std::vector<Token> params;
+    std::vector<Token> m_params;
 };
 
 class ExpressionListNode : public BaseNode {
@@ -299,13 +294,13 @@ public:
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 
-    std::string get_label() const;
+    std::string label() const;
 private:
     size_t const Size = 0, InitValue = 1;
 
     uint32_t get_size() const;
 
-    Token ident;
+    Token m_ident;
 };
 
 class ExpressionStatementNode : public BaseNode {

@@ -14,31 +14,31 @@ Argument::operator bool() const {
 }
 
 ArgParser::ArgParser()
-        : positionals(), keywords(), keywordMap() {}
+        : m_positionals(), m_keywords(), m_keyword_map() {}
 
 void ArgParser::add(std::string name) {
-    positionals.push_back(Argument(name, "", "", ArgType::String));
+    m_positionals.push_back(Argument(name, "", "", ArgType::String));
 }
 
 void ArgParser::add(std::string const &name, std::string const &alias, 
         std::string const &defaultValue, ArgType type) {
-    keywordMap[name] = keywords.size();
+    m_keyword_map[name] = m_keywords.size();
     if (!alias.empty()) {
-        keywordMap[alias] = keywords.size();
+        m_keyword_map[alias] = m_keywords.size();
     }
-    keywords.push_back(Argument(name, alias, defaultValue, type));
+    m_keywords.push_back(Argument(name, alias, defaultValue, type));
 }
 
 Argument const &ArgParser::get(size_t i) const {
-    if (i >= positionals.size()) {
+    if (i >= m_positionals.size()) {
         throw std::runtime_error("Undefined positional argument: " 
                                  + std::to_string(i));
     }
-    return positionals[i];
+    return m_positionals[i];
 }
 
 Argument const &ArgParser::get(std::string const &name) const {
-    return keywords[lookupKeyword(name)];
+    return m_keywords[lookup_keyword(name)];
 }
 
 void ArgParser::parse(int argc, char *argv[]) {
@@ -49,28 +49,28 @@ void ArgParser::parse(int argc, char *argv[]) {
         char *str = argv[i];
         if (str[0] == '-') {
             if (str[1] == '-') { // long name: --argname
-                argIndex = lookupKeyword(std::string(&str[2]));
+                argIndex = lookup_keyword(std::string(&str[2]));
             } else if (std::isalpha(str[1]) && str[2] == '\0') { // alias: -a
-                argIndex = lookupKeyword(std::string(1, str[1]));
+                argIndex = lookup_keyword(std::string(1, str[1]));
             } else {
                 throw std::runtime_error("Expected argument value");
             }
             // Argument value found in next place for string argument
-            if (keywords[argIndex].type == ArgType::String) {
+            if (m_keywords[argIndex].type == ArgType::String) {
                 i++;
             }
-            assignArg(argc, argv, i, keywords[argIndex]);
+            assign_arg(argc, argv, i, m_keywords[argIndex]);
         } else {
-            if (positionalIndex >= positionals.size()) {
+            if (positionalIndex >= m_positionals.size()) {
                 throw std::runtime_error("Unexpected positional argument: " 
                                          + std::string(str));
             }
-            assignArg(argc, argv, i, positionals[positionalIndex]);
+            assign_arg(argc, argv, i, m_positionals[positionalIndex]);
             positionalIndex++;
         }
     }
 
-    for (Argument const &arg : positionals) {
+    for (Argument const &arg : m_positionals) {
         if (arg.value.empty()) {
             throw std::runtime_error("Positional argument has no value: " 
                                      + arg.name);
@@ -78,15 +78,15 @@ void ArgParser::parse(int argc, char *argv[]) {
     }
 }
 
-size_t ArgParser::lookupKeyword(std::string const &name) const {
-    KeywordMap::const_iterator iter = keywordMap.find(name);
-    if (iter == keywordMap.end()) {
+size_t ArgParser::lookup_keyword(std::string const &name) const {
+    KeywordMap::const_iterator iter = m_keyword_map.find(name);
+    if (iter == m_keyword_map.end()) {
         throw std::runtime_error("Undefined argument: " + name);
     }
     return iter->second;
 }
 
-void ArgParser::assignArg(int argc, char *argv[], int i, Argument &arg) {
+void ArgParser::assign_arg(int argc, char *argv[], int i, Argument &arg) {
     if (arg.type == ArgType::Flag) {
         arg.value = "y";
         return;

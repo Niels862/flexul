@@ -16,12 +16,14 @@ public:
 private:
     // Overrides curr_token
     void include_file(std::string const &filename);
+
     template <typename T>
     T add(T node);
     BaseNode *add_unary(Token const &op, BaseNode *operand);
     BaseNode *add_binary(Token const &op, BaseNode *left, BaseNode *right);
     void adopt(BaseNode *BaseNode);
     Token get_token();
+    
     Token expect_data(std::string const &data);
     Token expect_type(TokenType type);
     Token expect_token(Token const &other);
@@ -54,10 +56,10 @@ private:
     BaseNode *parse_value();
     BaseNode *parse_postfix(BaseNode *value);
     
-    std::unordered_set<BaseNode *> trees;
-    std::stack<Tokenizer> tokenizers;
-    Token curr_token;
-    std::unordered_set<std::string> included_files;
+    std::unordered_set<BaseNode *> m_trees;
+    std::stack<Tokenizer> m_tokenizers;
+    Token m_curr_token;
+    std::unordered_set<std::string> m_included_files;
 };
 
 #endif

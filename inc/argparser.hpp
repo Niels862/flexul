@@ -31,18 +31,17 @@ public:
     void add(std::string name);
     void add(std::string const &name, std::string const &alias, 
                     std::string const &defaultValue, ArgType type);
-
     Argument const &get(size_t i) const;
     Argument const &get(std::string const &name) const;
 
     void parse(int argc, char *argv[]);
 private:
-    size_t lookupKeyword(std::string const &name) const;
-    void assignArg(int argc, char *argv[], int i, Argument &arg);
+    size_t lookup_keyword(std::string const &name) const;
+    void assign_arg(int argc, char *argv[], int i, Argument &arg);
 
-    std::vector<Argument> positionals;
-    std::vector<Argument> keywords;
-    KeywordMap keywordMap;
+    std::vector<Argument> m_positionals;
+    std::vector<Argument> m_keywords;
+    KeywordMap m_keyword_map;
 };
 
 #endif

@@ -5,11 +5,11 @@
 #include <iomanip>
 
 Program::Program() 
-        : ip(0), bp(0), completed_instrs(0), execution_time(0) {}
+        : m_ip(0), m_bp(0), m_completed_instrs(0), m_execution_time(0) {}
 
 Program Program::load(std::vector<uint32_t> bytecode) {
     Program program;
-    program.stack = bytecode;
+    program.m_stack = bytecode;
     return program;
 }
 
@@ -19,31 +19,31 @@ uint32_t Program::run() {
     OpCode opcode;
     FuncCode funccode;
     clock_t start = std::clock();
-    completed_instrs = 0;
-    while (ip < stack.size()) {
-        instr = stack[ip];
+    m_completed_instrs = 0;
+    while (m_ip < m_stack.size()) {
+        instr = m_stack[m_ip];
         opcode = static_cast<OpCode>(instr & 0x7F);
         funccode = static_cast<FuncCode>((instr >> 8) & 0xFF);
         if ((instr >> 7) & 1) {
-            operand = stack[ip + 1];
-            ip++;
+            operand = m_stack[m_ip + 1];
+            m_ip++;
         } else if (opcode != OpCode::Nop 
                 && !(opcode == OpCode::SysCall && funccode == FuncCode::GetC)) {
-            operand = stack[stack.size() - 1];
-            stack.pop_back();
+            operand = m_stack[m_stack.size() - 1];
+            m_stack.pop_back();
         }
         switch (opcode) {
             case OpCode::Nop: break;
             case OpCode::SysCall:
                 switch (funccode) {
                     case FuncCode::Exit:
-                        execution_time = std::clock() - start;
+                        m_execution_time = std::clock() - start;
                         return operand;
                     case FuncCode::PutC:
-                        stack.push_back(putc(operand, stdout));
+                        m_stack.push_back(putc(operand, stdout));
                         break;
                     case FuncCode::GetC:
-                        stack.push_back(getc(stdin));
+                        m_stack.push_back(getc(stdin));
                         break;
                     default: 
                         throw std::runtime_error(
@@ -63,10 +63,10 @@ uint32_t Program::run() {
                         throw std::runtime_error(
                                 "Unrecognized funccode");
                 }
-                stack.push_back(y);
+                m_stack.push_back(y);
                 break;
             case OpCode::Binary: 
-                a = stack[stack.size() - 1];
+                a = m_stack[m_stack.size() - 1];
                 b = operand;
                 y = a;
                 switch (funccode) {
@@ -103,103 +103,103 @@ uint32_t Program::run() {
                         y = a <= b;
                         break;
                     case FuncCode::Assign:
-                        stack[a] = b;
+                        m_stack[a] = b;
                         y = b;
                         break;
                     default: 
                         throw std::runtime_error(
                                 "Unrecognized funccode");
                 }
-                stack[stack.size() - 1] = y;
+                m_stack[m_stack.size() - 1] = y;
                 break;
             case OpCode::Push:
-                stack.push_back(operand);
+                m_stack.push_back(operand);
                 break;
             case OpCode::Pop:
                 break;
             case OpCode::AddSp:
-                stack.resize(stack.size() + static_cast<int32_t>(operand));
+                m_stack.resize(m_stack.size() + static_cast<int32_t>(operand));
                 break;
             case OpCode::LoadRel:
                 a = operand;
-                stack.push_back(stack[bp + a]);
+                m_stack.push_back(m_stack[m_bp + a]);
                 break;
             case OpCode::LoadAbs:
                 a = operand;
-                stack.push_back(stack[a]);
+                m_stack.push_back(m_stack[a]);
                 break;
             case OpCode::LoadAddrRel:
                 a = operand;
-                stack.push_back(bp + a);
+                m_stack.push_back(m_bp + a);
                 break;
             case OpCode::Call:
                 // Before call: arguments, N arguments and func address pushed
                 addr = operand;
-                stack.push_back(bp);
-                stack.push_back(ip);
-                bp = stack.size();
-                ip = addr - 1;
+                m_stack.push_back(m_bp);
+                m_stack.push_back(m_ip);
+                m_bp = m_stack.size();
+                m_ip = addr - 1;
                 break;
             case OpCode::Ret:
-                n_args = stack[bp - 3];
-                ret_bp = stack[bp - 2];
-                addr = stack[bp - 1];
+                n_args = m_stack[m_bp - 3];
+                ret_bp = m_stack[m_bp - 2];
+                addr = m_stack[m_bp - 1];
                 ret_val = operand;
-                stack.resize(bp - 3 - n_args);
-                stack.push_back(ret_val);
-                bp = ret_bp;
-                ip = addr;
+                m_stack.resize(m_bp - 3 - n_args);
+                m_stack.push_back(ret_val);
+                m_bp = ret_bp;
+                m_ip = addr;
                 break;
             case OpCode::Jump:
                 addr = operand;
-                ip = addr - 1;
+                m_ip = addr - 1;
                 break;
             case OpCode::BrTrue:
             case OpCode::BrFalse:
-                a = stack[stack.size() - 1];
+                a = m_stack[m_stack.size() - 1];
                 addr = operand;
                 if ((a && opcode == OpCode::BrTrue)
                         || (!a && opcode == OpCode::BrFalse)) {
-                    ip = addr - 1;
+                    m_ip = addr - 1;
                 }
-                stack.pop_back();
+                m_stack.pop_back();
                 break;
             default: 
                 break;
         }
-        completed_instrs++;
-        ip++;
+        m_completed_instrs++;
+        m_ip++;
     }
-    execution_time = std::clock() - start;
-    std::cerr << "Instruction fetch overread at " << ip << std::endl;
+    m_execution_time = std::clock() - start;
+    std::cerr << "Instruction fetch overread at " << m_ip << std::endl;
     return -1;
 }
 
 void Program::analytics() const {
     double execution_time_secs = 
-            static_cast<double>(execution_time) / CLOCKS_PER_SEC;
+            static_cast<double>(m_execution_time) / CLOCKS_PER_SEC;
     std::cout << "Instructions completed:  " 
-            << completed_instrs << std::endl;
+            << m_completed_instrs << std::endl;
     std::cout << "Execution time:          " 
             << execution_time_secs << std::endl;
     std::cout << "Seconds per instruction: " 
-            << (execution_time_secs / completed_instrs) << std::endl;
+            << (execution_time_secs / m_completed_instrs) << std::endl;
     std::cout << "Instructions per second: " 
-            << static_cast<uint64_t>(completed_instrs / execution_time_secs) 
+            << static_cast<uint64_t>(m_completed_instrs / execution_time_secs) 
             << std::endl;
 }
 
 void Program::dump_stack() const {
-    for (uint32_t const &elem : stack) {
+    for (uint32_t const &elem : m_stack) {
         std::cout << elem << std::endl;
     }
 }
 
 void Program::disassemble() const {
     uint32_t i;
-    for (i = 0; i < stack.size(); i++) {
+    for (i = 0; i < m_stack.size(); i++) {
         std::cerr << std::setw(6) << i << ": ";
-        disassemble_instr(stack[i], i + 1 < stack.size() ? stack[i + 1] : 0, i);
+        disassemble_instr(m_stack[i], i + 1 < m_stack.size() ? m_stack[i + 1] : 0, i);
     }
 }
 

@@ -21,7 +21,7 @@ public:
     void call(Serializer &serializer, BaseNode *params) const;
     void push_callable_addr(Serializer &serializer) const;
 private:
-    std::vector<CallableNode *> overloads;
+    std::vector<CallableNode *> m_overloads;
 };
 
 using CallableMap = std::unordered_map<SymbolId, CallableEntry>;
@@ -41,7 +41,6 @@ public:
             std::vector<SymbolId> const &param_ids);
     BaseNode *get(SymbolId id);
     void close_call(std::vector<SymbolId> const &param_ids);
-
 private:
     InlineParamMap m_params;
     std::stack<InlineRecord> m_records;

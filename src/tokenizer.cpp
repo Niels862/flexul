@@ -20,10 +20,10 @@ SyntaxMap const &default_syntax_map = {
 };
 
 Tokenizer::Tokenizer()
-        : syntax_map(), text(), i(0) {}
+        : m_syntax_map(), m_text(), m_i(0) {}
 
 Tokenizer::Tokenizer(std::string const &filename)
-        : syntax_map(default_syntax_map), text(), i(0) {
+        : m_syntax_map(default_syntax_map), m_text(), m_i(0) {
     std::string include_name = 
             filename + (endswith(filename, ".fx") ? "" : ".fx");
     std::ifstream file(filename);
@@ -33,7 +33,7 @@ Tokenizer::Tokenizer(std::string const &filename)
     if (!file) {
         throw std::runtime_error("Could not open file: " + filename);
     }
-    text.assign(
+    m_text.assign(
         (std::istreambuf_iterator<char>(file)),
         (std::istreambuf_iterator<char>())
     );
@@ -45,7 +45,7 @@ Token Tokenizer::get_token() {
     if (eof()) {
         return Token(TokenType::EndOfFile);
     }
-    c = text[i];
+    c = m_text[m_i];
     if (std::isalpha(c) || c == '_') {
         return get_identifier();
     }
@@ -65,78 +65,78 @@ Token Tokenizer::get_token() {
 }
 
 bool Tokenizer::eof() {
-    return i >= text.length();
+    return m_i >= m_text.length();
 }
 
 void Tokenizer::cleanup() {
     char c;
     while (!eof()) {
-        c = text[i];
+        c = m_text[m_i];
         if (c == '#') {
             while (!eof()) {
-                c = text[i];
+                c = m_text[m_i];
                 if (c == '\n') {
                     break;
                 }
-                i++;
+                m_i++;
             }
         }
         if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
             return;
         }
-        i++;
+        m_i++;
     }
 }
 
 void Tokenizer::assert_no_newline() const {
-    if (text[i] == '\n' || text[i] == '\r') {
+    if (m_text[m_i] == '\n' || m_text[m_i] == '\r') {
         throw std::runtime_error("Unexpected newline");
     }
 }
 
 Token Tokenizer::get_identifier() {
-    size_t start = i;
+    size_t start = m_i;
     std::string identifier;
     do {
-        i++;
-    } while (std::isalpha(text[i]) || std::isdigit(text[i]) || text[i] == '_');
-    identifier = text.substr(start, i - start);
-    SyntaxMap::const_iterator iter = syntax_map.find(identifier);
-    if (iter == syntax_map.end()) {
+        m_i++;
+    } while (std::isalpha(m_text[m_i]) || std::isdigit(m_text[m_i]) || m_text[m_i] == '_');
+    identifier = m_text.substr(start, m_i - start);
+    SyntaxMap::const_iterator iter = m_syntax_map.find(identifier);
+    if (iter == m_syntax_map.end()) {
         return Token(TokenType::Identifier, identifier);
     }
     return Token(iter->second, identifier);
 }
 
 Token Tokenizer::get_intlit() {
-    size_t start = i;
+    size_t start = m_i;
     do {
-        i++;
-    } while (std::isdigit(text[i]));
-    return Token(TokenType::IntLit, text.substr(start, i - start));
+        m_i++;
+    } while (std::isdigit(m_text[m_i]));
+    return Token(TokenType::IntLit, m_text.substr(start, m_i - start));
 }
 
 Token Tokenizer::get_charlit() {
-    size_t start = i;
+    size_t start = m_i;
     do {
-        i++;
+        m_i++;
         assert_no_newline();
-    } while (text[i] != '\'');
-    i++;
-    return Token(TokenType::IntLit, text.substr(start, i - start));
+    } while (m_text[m_i] != '\'');
+    m_i++;
+    return Token(TokenType::IntLit, m_text.substr(start, m_i - start));
 }
 
 Token Tokenizer::get_operator() {
-    size_t start = i;
+    size_t start = m_i;
     do {
-        i++;
-    } while (is_op_char(text[i]));
-    return Token(TokenType::Operator, text.substr(start, i - start));
+        m_i++;
+    } while (is_op_char(m_text[m_i]));
+    return Token(TokenType::Operator, m_text.substr(start, m_i - start));
 }
 
 Token Tokenizer::get_separator() {
-    Token token(TokenType::Separator, text.substr(i, 1));
-    i++;
+    Token token(TokenType::Separator, m_text.substr(m_i, 1));
+    m_i++;
     return token;
 }
 

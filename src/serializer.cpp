@@ -6,17 +6,17 @@
 #include <unordered_set>
 
 StackEntry::StackEntry()
-        : type(EntryType::Instruction), opcode(OpCode::Nop), 
-        funccode(FuncCode::Nop), data(0), has_immediate(0),
-        references_label(0), size(0) {}
+        : m_type(EntryType::Instruction), m_opcode(OpCode::Nop), 
+        m_funccode(FuncCode::Nop), m_data(0), m_has_immediate(0),
+        m_references_label(0), m_size(0) {}
 
 StackEntry::StackEntry(EntryType type, OpCode opcode, FuncCode funccode, 
         uint32_t data, bool has_immediate, bool references_label)
-        : type(type), opcode(opcode), funccode(funccode), 
-        data(data), has_immediate(has_immediate), 
-        references_label(references_label), size(0) {
+        : m_type(type), m_opcode(opcode), m_funccode(funccode), 
+        m_data(data), m_has_immediate(has_immediate), 
+        m_references_label(references_label), m_size(0) {
     if (type == EntryType::Instruction) {
-        size = 1 + has_immediate;
+        m_size = 1 + has_immediate;
     } else if (type == EntryType::Data) {
         throw std::runtime_error("data not implemented");
     }
@@ -48,18 +48,18 @@ StackEntry StackEntry::label(Label label) {
 }
 
 bool StackEntry::has_no_effect() const {
-    if (opcode == OpCode::Nop) {
+    if (m_opcode == OpCode::Nop) {
         return true;
     }
-    if (opcode == OpCode::AddSp && has_immediate && data == 0) {
+    if (m_opcode == OpCode::AddSp && m_has_immediate && m_data == 0) {
         return true;
     }
     return false;
 }
 
 bool StackEntry::combine(StackEntry const &right, StackEntry &combined) const {
-    if (type != EntryType::Instruction 
-            || right.type != EntryType::Instruction) {
+    if (m_type != EntryType::Instruction 
+            || right.m_type != EntryType::Instruction) {
         return false;
     }
     if (has_no_effect()) {
@@ -70,53 +70,53 @@ bool StackEntry::combine(StackEntry const &right, StackEntry &combined) const {
         combined = *this;
         return true;
     }
-    if (opcode == OpCode::Jump || opcode == OpCode::Ret) {
+    if (m_opcode == OpCode::Jump || m_opcode == OpCode::Ret) {
         combined = *this;
         return true; 
         // TODO: After serializing, remove unused labels and check 
         // if jump label; label: can be combined
     }
-    if (opcode == OpCode::Push && has_immediate && !references_label
-            && right.has_immediate 
-            && (right.opcode == OpCode::BrTrue 
-                || right.opcode == OpCode::BrFalse)) {
-        if ((data && right.opcode == OpCode::BrTrue) 
-                || (!data && right.opcode == OpCode::BrFalse)) {
+    if (m_opcode == OpCode::Push && m_has_immediate && !m_references_label
+            && right.m_has_immediate 
+            && (right.m_opcode == OpCode::BrTrue 
+                || right.m_opcode == OpCode::BrFalse)) {
+        if ((m_data && right.m_opcode == OpCode::BrTrue) 
+                || (!m_data && right.m_opcode == OpCode::BrFalse)) {
             combined = StackEntry::instr(
-                    OpCode::Jump, right.data, right.references_label);
+                    OpCode::Jump, right.m_data, right.m_references_label);
         } else {
             combined = StackEntry::instr(OpCode::Nop);
         }
         return true;
     }
-    if (opcode == OpCode::Push && has_immediate && !right.has_immediate 
-            && !(right.opcode == OpCode::SysCall  // todo better
-                && right.funccode == FuncCode::GetC)) {
-        combined = StackEntry::instr(right.opcode, right.funccode, 
-                data, references_label);
+    if (m_opcode == OpCode::Push && m_has_immediate && !right.m_has_immediate 
+            && !(right.m_opcode == OpCode::SysCall  // todo better
+                && right.m_funccode == FuncCode::GetC)) {
+        combined = StackEntry::instr(right.m_opcode, right.m_funccode, 
+                m_data, m_references_label);
         return true;
     }
     return false;
 }
 
 void StackEntry::register_label(LabelMap &map, uint32_t &i) const {
-    if (type == EntryType::Label) {
-        if (map.find(data) != map.end()) {
+    if (m_type == EntryType::Label) {
+        if (map.find(m_data) != map.end()) {
             throw std::runtime_error(
-                    "Redefinition of label " + std::to_string(data));
+                    "Redefinition of label " + std::to_string(m_data));
         }
-        map[data] = i;
+        map[m_data] = i;
     }
-    i += size;
+    i += m_size;
 }
 
 void StackEntry::assemble(std::vector<uint32_t> &stack, 
         LabelMap const &map) const {
-    uint32_t immediate = data;
-    if (type == EntryType::Invalid) {
+    uint32_t immediate = m_data;
+    if (m_type == EntryType::Invalid) {
         throw std::runtime_error("Invalid entry");
     }
-    if (references_label) {
+    if (m_references_label) {
         auto iter = map.find(immediate);
         if (iter == map.end()) {
             throw std::runtime_error(
@@ -124,34 +124,34 @@ void StackEntry::assemble(std::vector<uint32_t> &stack,
         }
         immediate = iter->second;
     }
-    if (type == EntryType::Instruction) {
-        stack.push_back(static_cast<uint32_t>(opcode) 
-                | (static_cast<uint32_t>(funccode) << 8)
-                | (has_immediate << 7));
-        if (has_immediate) {
+    if (m_type == EntryType::Instruction) {
+        stack.push_back(static_cast<uint32_t>(m_opcode) 
+                | (static_cast<uint32_t>(m_funccode) << 8)
+                | (m_has_immediate << 7));
+        if (m_has_immediate) {
             stack.push_back(immediate);
         }
     }
 }
 
 size_t StackEntry::get_size() const {
-    return size;
+    return m_size;
 }
 
 void StackEntry::disassemble() const {
-    if (type == EntryType::Label) {
-        std::cerr << ".L" << data << ":" << std::endl;
-    } else if (type == EntryType::Instruction) {
-        std::cerr << "    " << get_op_name(opcode);
-        std::string func_name = get_func_name(opcode, funccode);
+    if (m_type == EntryType::Label) {
+        std::cerr << ".L" << m_data << ":" << std::endl;
+    } else if (m_type == EntryType::Instruction) {
+        std::cerr << "    " << get_op_name(m_opcode);
+        std::string func_name = get_func_name(m_opcode, m_funccode);
         if (!func_name.empty()) {
             std::cerr << "." << func_name;
         }
-        if (has_immediate) {
-            if (references_label) {
-                std::cerr << " .L" << data;
+        if (m_has_immediate) {
+            if (m_references_label) {
+                std::cerr << " .L" << m_data;
             } else {
-                std::cerr << " " << data;
+                std::cerr << " " << m_data;
             }
         }
         std::cerr << std::endl;

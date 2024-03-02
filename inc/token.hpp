@@ -27,8 +27,8 @@ public:
     bool operator !=(Token const &other) const;
     operator bool() const;
 private:
-    TokenType type;
-    std::string data;
+    TokenType m_type;
+    std::string m_data;
 };
 
 std::string tokenlist_to_string(std::vector<Token> const &tokens, 

@@ -2,13 +2,13 @@
 #include <stdexcept>
 
 Token::Token() 
-        : type(TokenType::Null), data("") {}
+        : m_type(TokenType::Null), m_data("") {}
 
 Token::Token(TokenType type)
-        : type(type), data("") {}
+        : m_type(type), m_data("") {}
 
 Token::Token(TokenType type, std::string data) 
-        : type(type), data(data) {}
+        : m_type(type), m_data(data) {}
 
 Token Token::synthetic(std::string data) {
     return Token(TokenType::Synthetic, data);
@@ -19,27 +19,27 @@ Token Token::null() {
 }
 
 TokenType Token::get_type() const {
-    return type;
+    return m_type;
 }
 
 std::string Token::get_data() const {
-    return data;
+    return m_data;
 }
 
 std::string Token::to_string() const {
-    std::string type_string = Token::type_string(type);
-    if (data.empty()) {
+    std::string type_string = Token::type_string(m_type);
+    if (m_data.empty()) {
         return type_string;
     }
-    return type_string + ": '" + data + "'";
+    return type_string + ": '" + m_data + "'";
 }
 
 uint32_t Token::to_int() const {
-    if (data.size() >= 3 && data[0] == '\'' && data[data.size() - 1] == '\'') {
-        if (data.size() == 3) {
-            return data[1];
-        } else if (data.size() == 4 && data[1] == '\\') {
-            switch (data[2]) {
+    if (m_data.size() >= 3 && m_data[0] == '\'' && m_data[m_data.size() - 1] == '\'') {
+        if (m_data.size() == 3) {
+            return m_data[1];
+        } else if (m_data.size() == 4 && m_data[1] == '\\') {
+            switch (m_data[2]) {
                 case 'n':
                     return '\n';
                 case 'r':
@@ -49,18 +49,18 @@ uint32_t Token::to_int() const {
                 case '\'':
                 case '\"':
                 case '\\':
-                    return data[2];
+                    return m_data[2];
                 case '0':
                     return 0;
                 default:
                     break;
             }
-        } else if (data.size() == 5 && data[1] == '\\' && data[2] == 'x') {
-            if (std::isxdigit(data[3]) && std::isxdigit(data[4])) {
+        } else if (m_data.size() == 5 && m_data[1] == '\\' && m_data[2] == 'x') {
+            if (std::isxdigit(m_data[3]) && std::isxdigit(m_data[4])) {
                 uint32_t n = 0;
                 size_t i;
                 for (i = 0; i < 2; i++) {
-                    char c = data[3 + i];
+                    char c = m_data[3 + i];
                     if (std::isdigit(c)) {
                         n = 16 * n + c - '0';
                     } else {
@@ -70,18 +70,18 @@ uint32_t Token::to_int() const {
                 return n;
             }
         }
-        throw std::runtime_error("Unrecognized char literal: " + data);
+        throw std::runtime_error("Unrecognized char literal: " + m_data);
     }
     try {
-        return std::stoi(data);
+        return std::stoi(m_data);
     } catch (std::exception const &e) {
         throw std::runtime_error(
-                "Could not convert string to int: " + data);
+                "Could not convert string to int: " + m_data);
     }
 }
 
 bool Token::is_synthetic(std::string const &cmp_data) const {
-    return type == TokenType::Synthetic && data == cmp_data;
+    return m_type == TokenType::Synthetic && m_data == cmp_data;
 }
 
 std::string Token::type_string(TokenType type) {
@@ -128,15 +128,15 @@ std::string Token::type_string(TokenType type) {
 }
 
 bool Token::operator ==(Token const &other) const {
-    return type == other.type && data == other.data;
+    return m_type == other.m_type && m_data == other.m_data;
 }
 
 bool Token::operator !=(Token const &other) const {
-    return type != other.type || data != other.data;
+    return m_type != other.m_type || m_data != other.m_data;
 }
 
 Token::operator bool() const {
-    return type != TokenType::Null;
+    return m_type != TokenType::Null;
 }
 
 std::string tokenlist_to_string(std::vector<Token> const &tokens, 

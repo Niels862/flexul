@@ -9,7 +9,7 @@ Parser::Parser(std::string const &filename) {
 }
 
 Parser::~Parser() {
-    for (BaseNode * const node : trees) {
+    for (BaseNode * const node : m_trees) {
         delete node;
     }
 }
@@ -18,28 +18,28 @@ BaseNode *Parser::parse() {
     BaseNode *root = parse_filebody();
     if (get_token().get_type() != TokenType::EndOfFile) {
         throw std::runtime_error(
-                "Unexpected token: " + curr_token.to_string());
+                "Unexpected token: " + m_curr_token.to_string());
     }
     return root;
 }
 
 void Parser::include_file(std::string const &filename) {
-    if (included_files.find(filename) != included_files.end()) {
+    if (m_included_files.find(filename) != m_included_files.end()) {
         get_token();
     } else {
         Tokenizer tokenizer(filename);
-        curr_token = tokenizer.get_token();
-        tokenizers.push(tokenizer);
-        included_files.insert(filename);
+        m_curr_token = tokenizer.get_token();
+        m_tokenizers.push(tokenizer);
+        m_included_files.insert(filename);
     }
 }
 
 template <typename T>
 T Parser::add(T node) {
-    for (BaseNode *child : node->get_children()) {
+    for (BaseNode *child : node->children()) {
         adopt(child);
     }
-    trees.insert(node);
+    m_trees.insert(node);
     return node;
 }
 
@@ -59,29 +59,29 @@ void Parser::adopt(BaseNode *node) {
     if (node == nullptr) {
         return;
     }
-    if (trees.find(node) == trees.end()) {
+    if (m_trees.find(node) == m_trees.end()) {
         throw std::runtime_error("Violation: child is not a (sub)tree");
     }
-    trees.erase(node);
+    m_trees.erase(node);
 }
 
 Token Parser::get_token() {
-    if (tokenizers.empty()) {
+    if (m_tokenizers.empty()) {
         return Token(TokenType::EndOfFile);
     }
-    curr_token = tokenizers.top().get_token();
-    while (curr_token == Token(TokenType::EndOfFile)) {
-        tokenizers.pop();
-        if (tokenizers.empty()) {
-            return curr_token;
+    m_curr_token = m_tokenizers.top().get_token();
+    while (m_curr_token == Token(TokenType::EndOfFile)) {
+        m_tokenizers.pop();
+        if (m_tokenizers.empty()) {
+            return m_curr_token;
         }
-        curr_token = tokenizers.top().get_token();
+        m_curr_token = m_tokenizers.top().get_token();
     }
-    return curr_token;
+    return m_curr_token;
 }
 
 Token Parser::expect_data(std::string const &data) {
-    Token token = curr_token;
+    Token token = m_curr_token;
     if (token.get_data() != data) {
         throw std::runtime_error(
                 "Expected '" + data + "', got '" 
@@ -92,7 +92,7 @@ Token Parser::expect_data(std::string const &data) {
 }
 
 Token Parser::expect_type(TokenType type) {
-    Token token = curr_token;
+    Token token = m_curr_token;
     if (token.get_type() != type) {
         throw std::runtime_error(
                 "Expected token of type " + Token::type_string(type) 
@@ -103,7 +103,7 @@ Token Parser::expect_type(TokenType type) {
 }
 
 Token Parser::expect_token(Token const &other) {
-    Token token = curr_token;
+    Token token = m_curr_token;
     if (token != other) {
         throw std::runtime_error(
                 "Expected " + other.to_string()
@@ -114,7 +114,7 @@ Token Parser::expect_token(Token const &other) {
 }
 
 Token Parser::accept_data(std::string const &data) {
-    Token token = curr_token;
+    Token token = m_curr_token;
     if (token.get_data() != data) {
         return Token::null();
     }
@@ -123,7 +123,7 @@ Token Parser::accept_data(std::string const &data) {
 }
 
 Token Parser::accept_type(TokenType type) {
-    Token token = curr_token;
+    Token token = m_curr_token;
     if (token.get_type() != type) {
         return Token::null();
     }
@@ -132,10 +132,10 @@ Token Parser::accept_type(TokenType type) {
 }
 
 Token Parser::check_type(TokenType type) const {
-    if (curr_token.get_type() != type) {
+    if (m_curr_token.get_type() != type) {
         return Token::null();
     }
-    return curr_token;
+    return m_curr_token;
 }
 
 BaseNode *Parser::parse_filebody() {
@@ -165,7 +165,7 @@ BaseNode *Parser::parse_filebody() {
 void Parser::parse_include() {
     expect_type(TokenType::Include);
     std::string filename = expect_type(TokenType::Identifier).get_data();
-    if (curr_token.get_data() != ";") {
+    if (m_curr_token.get_data() != ";") {
         expect_data(";");
     } else {
         include_file(filename);
@@ -203,12 +203,12 @@ BaseNode *Parser::parse_inline_declaration() {
 BaseNode *Parser::parse_param_list(Token const &end_token) {
     std::vector<BaseNode *> params;
 
-    if (curr_token == end_token) {
+    if (m_curr_token == end_token) {
         get_token();
     } else {
         while (true) {
             params.push_back(parse_expression());
-            if (curr_token.get_data() == ",") {
+            if (m_curr_token.get_data() == ",") {
                 get_token();
             } else {
                 expect_token(end_token);
@@ -222,7 +222,7 @@ BaseNode *Parser::parse_param_list(Token const &end_token) {
 std::vector<Token> Parser::parse_param_declaration(Token const &end_token) {
     std::vector<Token> params;
 
-    if (curr_token == end_token) {
+    if (m_curr_token == end_token) {
         get_token();
     } else {
         while (true) {
@@ -239,7 +239,7 @@ std::vector<Token> Parser::parse_param_declaration(Token const &end_token) {
 BaseNode *Parser::parse_braced_block(bool is_scope) {
     std::vector<BaseNode *> statements;
     expect_data("{");
-    while (curr_token.get_data() != "}") {
+    while (m_curr_token.get_data() != "}") {
         statements.push_back(parse_statement());
     }
     get_token();
@@ -251,7 +251,7 @@ BaseNode *Parser::parse_braced_block(bool is_scope) {
 
 BaseNode *Parser::parse_statement() {
     BaseNode *node;
-    Token token = curr_token;
+    Token token = m_curr_token;
     if (check_type(TokenType::If)) {
         node = parse_if_else();
     } else if (check_type(TokenType::For)) {
@@ -346,7 +346,7 @@ BaseNode *Parser::parse_expression() {
 
 BaseNode *Parser::parse_assignment() {
     BaseNode *left = parse_ternary();
-    Token token = curr_token;
+    Token token = m_curr_token;
     if (accept_data("=")) {
         if (!left->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
@@ -367,7 +367,7 @@ BaseNode *Parser::parse_lambda() {
 
 BaseNode *Parser::parse_ternary() {
     BaseNode *cond = parse_or();
-    Token token = curr_token;
+    Token token = m_curr_token;
     if (accept_data("?")) {
         BaseNode *expr_true = parse_ternary();
         expect_data(":");
@@ -379,67 +379,67 @@ BaseNode *Parser::parse_ternary() {
 
 BaseNode *Parser::parse_or() {
     BaseNode *left = parse_and();
-    Token token = curr_token;
+    Token token = m_curr_token;
     while (accept_data("||")) {
         left = add(new OrNode(token, left, parse_and()));
-        token = curr_token;
+        token = m_curr_token;
     }
     return left;
 }
 
 BaseNode *Parser::parse_and() {
     BaseNode *left = parse_equality_1();
-    Token token = curr_token;
+    Token token = m_curr_token;
     while (accept_data("&&")) {
         left = add(new AndNode(token, left, parse_equality_1()));
-        token = curr_token;
+        token = m_curr_token;
     }
     return left;
 }
 
 BaseNode *Parser::parse_equality_1() {
     BaseNode *left = parse_equality_2();
-    Token token = curr_token;
+    Token token = m_curr_token;
     while (accept_data("==") || accept_data("!=")) {
         left = add_binary(token, left, parse_equality_2());
-        token = curr_token;
+        token = m_curr_token;
     }
     return left;
 }
 
 BaseNode *Parser::parse_equality_2() {
     BaseNode *left = parse_sum();
-    Token token = curr_token;
+    Token token = m_curr_token;
     while (accept_data("<") || accept_data(">") || accept_data("<=") 
             || accept_data(">=")) {
         left = add_binary(token, left, parse_sum());
-        token = curr_token;
+        token = m_curr_token;
     }
     return left;
 }
 
 BaseNode *Parser::parse_sum() {
     BaseNode *left = parse_term();
-    Token token = curr_token;
+    Token token = m_curr_token;
     while (accept_data("+") || accept_data("-")) {
         left = add_binary(token, left, parse_term());
-        token = curr_token;
+        token = m_curr_token;
     }
     return left;
 }
 
 BaseNode *Parser::parse_term() {
     BaseNode *left = parse_value();
-    Token token = curr_token;
+    Token token = m_curr_token;
     while (accept_data("*") || accept_data("/") || accept_data("%")) {
         left = add_binary(token, left, parse_value());
-        token = curr_token;
+        token = m_curr_token;
     }
     return left;
 }
 
 BaseNode *Parser::parse_value() {
-    Token token = curr_token;
+    Token token = m_curr_token;
     BaseNode *value;
     if (accept_data("+") || accept_data("-")) {
         value = add_unary(token, parse_value());

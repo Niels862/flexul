@@ -2,24 +2,24 @@
 #include "serializer.hpp"
 
 CallableEntry::CallableEntry() 
-        : overloads() {}
+        : m_overloads() {}
 
 void CallableEntry::add_overload(CallableNode *overload) {
-    overloads.push_back(overload);
+    m_overloads.push_back(overload);
 }
 
 void CallableEntry::call(Serializer &serializer, BaseNode *params) const {
-    if (overloads.empty()) {
+    if (m_overloads.empty()) {
         throw std::runtime_error("No overloads declared for function");
     }
     CallableNode *overload = nullptr;
     if (params == nullptr) {
-        if (overloads.size() != 1) {
+        if (m_overloads.size() != 1) {
             throw std::runtime_error("Overloads present for generic call");
         }
-        overload = overloads[0];
+        overload = m_overloads[0];
     } else {
-        for (CallableNode * const callable : overloads) {
+        for (CallableNode * const callable : m_overloads) {
             if (callable->is_matching_call(params)) {
                 if (overload != nullptr) {
                     throw std::runtime_error("Multiple candidates for call");
@@ -35,11 +35,11 @@ void CallableEntry::call(Serializer &serializer, BaseNode *params) const {
 }
 
 void CallableEntry::push_callable_addr(Serializer &serializer) const {
-    if (overloads.size() != 1) {
+    if (m_overloads.size() != 1) {
         throw std::runtime_error(
                 "Can only load address of single implmementation");
     }
-    serializer.add_instr(OpCode::Push, overloads[0]->get_id(), true);
+    serializer.add_instr(OpCode::Push, m_overloads[0]->id(), true);
 }
 
 InlineFrames::InlineFrames()
@@ -51,7 +51,7 @@ void InlineFrames::open_call(BaseNode *params,
         SymbolId id = param_ids[i];
         InlineParamMap::const_iterator iter = m_params.find(id);
         m_records.push({id, iter == m_params.end() ? nullptr : iter->second});
-        m_params[id] = params->get_children()[i];
+        m_params[id] = params->children()[i];
     }
 }
 
