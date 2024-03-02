@@ -298,7 +298,7 @@ public:
 private:
     size_t const Size = 0, InitValue = 1;
 
-    uint32_t get_size() const;
+    uint32_t declared_size() const;
 
     Token m_ident;
 };

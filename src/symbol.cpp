@@ -40,7 +40,7 @@ SymbolId lookup_symbol(std::string const &symbol, SymbolMap const &global_scope,
 SymbolTable::SymbolTable(SymbolId &counter)
         : m_table({
             {"<null>", 0, StorageType::Invalid, 0, 0, 0}, 
-            {"<entry>", 1, StorageType::Label, 0, 0, 0}
+            {"<entry>", 1, StorageType::AbsoluteRef, 0, 0, 0}
         }), m_counter(counter) {}
 
 SymbolId SymbolTable::next_id() {

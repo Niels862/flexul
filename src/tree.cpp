@@ -118,35 +118,48 @@ void VariableNode::resolve_symbols_second_pass(
 
 void VariableNode::serialize(Serializer &serializer) const {
     SymbolEntry entry = serializer.symbol_table().get(id());
-    if (entry.storage_type == StorageType::Label) {
-        serializer.add_instr(OpCode::Push, entry.id, true);
-    } else if (entry.storage_type == StorageType::Relative) {
-        serializer.add_instr(OpCode::LoadRel, entry.value);
-    } else if (entry.storage_type == StorageType::Absolute) {
-        serializer.add_instr(OpCode::LoadAbs, entry.id, true);
-    } else if (entry.storage_type == StorageType::Callable) {
-        serializer.push_callable_addr(entry.id);
-    } else if (entry.storage_type == StorageType::InlineReference) {
-        serializer.inline_frames().get(entry.id)->serialize(serializer);
-    } else {
-        throw std::runtime_error(
-                "Invalid storage type: " 
-                + std::to_string(static_cast<int>(entry.storage_type)));
+    switch (entry.storage_type) {
+        case StorageType::AbsoluteRef:
+            serializer.add_instr(OpCode::Push, entry.id, true);
+            break;
+        case StorageType::RelativeRef:
+            serializer.add_instr(OpCode::LoadAddrRel, entry.value);
+            break;
+        case StorageType::Absolute:
+            serializer.add_instr(OpCode::LoadAbs, entry.id, true);
+            break;
+        case StorageType::Relative:
+            serializer.add_instr(OpCode::LoadRel, entry.value);
+            break;
+        case StorageType::Callable:
+            serializer.push_callable_addr(entry.id);
+            break;
+        case StorageType::InlineReference:
+            serializer.inline_frames().get(entry.id)->serialize(serializer);
+            break;
+        default:
+            throw std::runtime_error("Invalid storage type");
     }
 }
 
 void VariableNode::serialize_load_address(Serializer &serializer) const {
     SymbolEntry entry = serializer.symbol_table().get(id());
-    if (entry.storage_type == StorageType::Label) {
-        throw std::runtime_error("Cannot load address of label");
-    } else if (entry.storage_type == StorageType::Relative) {
-        serializer.add_instr(OpCode::LoadAddrRel, entry.value);
-    } else if (entry.storage_type == StorageType::Absolute) {
-        serializer.add_instr(OpCode::Push, entry.id, true);
-    } else {
-        throw std::runtime_error(
-                "Invalid storage type: " 
-                + std::to_string(static_cast<int>(entry.storage_type)));
+    switch (entry.storage_type) {
+        case StorageType::AbsoluteRef:
+        case StorageType::RelativeRef:
+            throw std::runtime_error("Cannot load address of reference");
+        case StorageType::Absolute:
+            serializer.add_instr(OpCode::Push, entry.id, true);
+            break;
+        case StorageType::Relative:
+            serializer.add_instr(OpCode::LoadAddrRel, entry.value);
+            break;
+        case StorageType::InlineReference:
+        serializer.inline_frames().get(entry.id)
+                ->serialize_load_address(serializer);
+            break;
+        default:
+            throw std::runtime_error("Invalid storage type");
     }
 }
 
@@ -281,7 +294,7 @@ void SubscriptNode::serialize(Serializer &serializer) const {
 }
 
 void SubscriptNode::serialize_load_address(Serializer &serializer) const {
-    get(Array)->serialize_load_address(serializer);
+    get(Array)->serialize(serializer);
     get(Subscript)->serialize(serializer);
     serializer.add_instr(OpCode::Binary, FuncCode::Add);
 }
@@ -529,7 +542,9 @@ void DeclarationNode::resolve_symbols_first_pass(
     }
     set_id(serializer.symbol_table().declare(
             m_ident.get_data(), current_scope, 
-            StorageType::Absolute, 0, get_size()));
+            get(Size) == nullptr ? 
+                StorageType::Absolute : StorageType::AbsoluteRef, 
+            0, declared_size()));
     serializer.symbol_table().add_to_container(id());
 }
 
@@ -542,7 +557,9 @@ void DeclarationNode::resolve_symbols_second_pass(
     }
     set_id(serializer.symbol_table().declare(
             m_ident.get_data(), current_scope, 
-            StorageType::Relative, 0, get_size()));
+            get(Size) == nullptr ? 
+                StorageType::Relative : StorageType::RelativeRef, 
+            0, declared_size()));
     serializer.symbol_table().add_to_container(id());
 }
 
@@ -560,7 +577,7 @@ std::string DeclarationNode::label() const {
     return token().get_data() + " " + m_ident.get_data();
 }
 
-uint32_t DeclarationNode::get_size() const {
+uint32_t DeclarationNode::declared_size() const {
     if (get(Size) == nullptr) {
         return 1;
     }

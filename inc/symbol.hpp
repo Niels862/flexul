@@ -11,11 +11,9 @@
 
 enum class StorageType {
     Invalid,
-    // Code label
-    Label,
-    // Variable label
+    AbsoluteRef,
+    RelativeRef,
     Absolute,
-    // Resolved during serialization
     Relative,
     Intrinsic,
     Callable,

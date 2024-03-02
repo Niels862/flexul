@@ -151,7 +151,7 @@ void StackEntry::disassemble() const {
             if (m_references_label) {
                 std::cerr << " .L" << m_data;
             } else {
-                std::cerr << " " << m_data;
+                std::cerr << " " << static_cast<int32_t>(m_data);
             }
         }
         std::cerr << std::endl;
@@ -183,7 +183,7 @@ SymbolId Serializer::declare_callable(std::string const &name,
         iter->second.add_overload(node);
     }
     return m_symbol_table.declare("." + name + "_" + std::to_string(m_counter), 
-            scope, StorageType::Label);
+            scope, StorageType::AbsoluteRef);
 }
 
 void Serializer::call(SymbolId id, BaseNode *params) {
