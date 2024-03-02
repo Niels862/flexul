@@ -19,14 +19,14 @@ fn alloc() {
         if (used[i] == 0) {
             used[i] = 1;
             min_free = i + 1;
-            return &pool + 4 * i;
+            return pool + 4 * i;
         }
     }
     __exit__(1);
 }
 
 fn free(p) {
-    var i = (p - &pool) / 4;
+    var i = (p - pool) / 4;
     if (i < 0 || i >= 256) {
         __exit__(1);
     }

@@ -30,7 +30,7 @@ public:
 
     virtual std::string label() const;
     Token token() const;
-    const std::vector<BaseNode *> &children() const;
+    virtual std::vector<BaseNode *> const &children() const;
     BaseNode *get(size_t n) const;
     void set_id(SymbolId id);
     SymbolId id() const;
@@ -48,6 +48,18 @@ public:
     EmptyNode();
 
     void serialize(Serializer &serializer) const override;
+};
+
+class LinkNode : public BaseNode {
+public:
+    LinkNode(BaseNode *link);
+
+    void serialize(Serializer &serializer) const override;
+
+    std::vector<BaseNode *> const &children() const override;
+private:
+    std::vector<BaseNode *> link;
+    size_t const Link = 0;
 };
 
 class IntLitNode : public BaseNode {

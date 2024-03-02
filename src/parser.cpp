@@ -16,7 +16,7 @@ Parser::~Parser() {
 
 BaseNode *Parser::parse() {
     BaseNode *root = parse_filebody();
-    if (get_token().get_type() != TokenType::EndOfFile) {
+    if (get_token().type() != TokenType::EndOfFile) {
         throw std::runtime_error(
                 "Unexpected token: " + m_curr_token.to_string());
     }
@@ -55,6 +55,12 @@ BaseNode *Parser::add_binary(Token const &op, BaseNode *left, BaseNode *right) {
                 Token::synthetic("<params>"), {left, right}))));
 }
 
+BaseNode *Parser::add_link(BaseNode *link) {
+    BaseNode *node = new LinkNode(link);
+    m_trees.insert(node);
+    return node;
+}
+
 void Parser::adopt(BaseNode *node) {
     if (node == nullptr) {
         return;
@@ -82,7 +88,7 @@ Token Parser::get_token() {
 
 Token Parser::expect_data(std::string const &data) {
     Token token = m_curr_token;
-    if (token.get_data() != data) {
+    if (token.data() != data) {
         throw std::runtime_error(
                 "Expected '" + data + "', got '" 
                 + token.to_string() + "'");
@@ -93,7 +99,7 @@ Token Parser::expect_data(std::string const &data) {
 
 Token Parser::expect_type(TokenType type) {
     Token token = m_curr_token;
-    if (token.get_type() != type) {
+    if (token.type() != type) {
         throw std::runtime_error(
                 "Expected token of type " + Token::type_string(type) 
                 + ", got " + token.to_string());
@@ -115,7 +121,7 @@ Token Parser::expect_token(Token const &other) {
 
 Token Parser::accept_data(std::string const &data) {
     Token token = m_curr_token;
-    if (token.get_data() != data) {
+    if (token.data() != data) {
         return Token::null();
     }
     get_token();
@@ -124,7 +130,7 @@ Token Parser::accept_data(std::string const &data) {
 
 Token Parser::accept_type(TokenType type) {
     Token token = m_curr_token;
-    if (token.get_type() != type) {
+    if (token.type() != type) {
         return Token::null();
     }
     get_token();
@@ -132,7 +138,7 @@ Token Parser::accept_type(TokenType type) {
 }
 
 Token Parser::check_type(TokenType type) const {
-    if (m_curr_token.get_type() != type) {
+    if (m_curr_token.type() != type) {
         return Token::null();
     }
     return m_curr_token;
@@ -164,8 +170,8 @@ BaseNode *Parser::parse_filebody() {
 
 void Parser::parse_include() {
     expect_type(TokenType::Include);
-    std::string filename = expect_type(TokenType::Identifier).get_data();
-    if (m_curr_token.get_data() != ";") {
+    std::string filename = expect_type(TokenType::Identifier).data();
+    if (m_curr_token.data() != ";") {
         expect_data(";");
     } else {
         include_file(filename);
@@ -208,7 +214,7 @@ BaseNode *Parser::parse_param_list(Token const &end_token) {
     } else {
         while (true) {
             params.push_back(parse_expression());
-            if (m_curr_token.get_data() == ",") {
+            if (m_curr_token.data() == ",") {
                 get_token();
             } else {
                 expect_token(end_token);
@@ -239,7 +245,7 @@ std::vector<Token> Parser::parse_param_declaration(Token const &end_token) {
 BaseNode *Parser::parse_braced_block(bool is_scope) {
     std::vector<BaseNode *> statements;
     expect_data("{");
-    while (m_curr_token.get_data() != "}") {
+    while (m_curr_token.data() != "}") {
         statements.push_back(parse_statement());
     }
     get_token();
@@ -258,9 +264,9 @@ BaseNode *Parser::parse_statement() {
         node = parse_for();
     } else if (check_type(TokenType::While)) {
         node = parse_while();
-    } else if (token.get_data() == "{") {
+    } else if (token.data() == "{") {
         node = parse_braced_block(true);
-    } else if (token.get_data() == ";") {
+    } else if (token.data() == ";") {
         node = add(new EmptyNode());
         get_token();
     } else {
@@ -345,13 +351,26 @@ BaseNode *Parser::parse_expression() {
 }
 
 BaseNode *Parser::parse_assignment() {
+    static std::unordered_map<std::string, std::string> const assignments = {
+        {"+=", "+"},
+        {"-=", "-"},
+        {"/=", "/"},
+        {"*=", "*"},
+        {"%=", "%"}
+    };
+
     BaseNode *left = parse_ternary();
     Token token = m_curr_token;
     if (accept_data("=")) {
-        if (!left->is_lvalue()) {
-            throw std::runtime_error("Expected lvalue");
-        }
         return add(new AssignNode(token, left, parse_expression()));
+    } else {
+        auto iter = assignments.find(token.data());
+        if (iter != assignments.end()) {
+            get_token();
+            return add(new AssignNode(token, left, add_binary(
+                    Token::synthetic(iter->second), 
+                    add_link(left), parse_expression())));
+        }
     }
     return left;
 }
@@ -445,7 +464,7 @@ BaseNode *Parser::parse_value() {
         value = add_unary(token, parse_value());
     } else if (accept_data("&")) {
         value = parse_value();
-        if (token.get_data() == "&" && !value->is_lvalue()) {
+        if (token.data() == "&" && !value->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
         }
         value = add(new AddressOfNode(token, value));
@@ -465,6 +484,15 @@ BaseNode *Parser::parse_value() {
 }
 
 BaseNode *Parser::parse_postfix(BaseNode *value) {
+    static std::unordered_map<std::string, std::string> const assignments = {
+        {"++", "+"},
+        {"--", "-"},
+        {"**", "*"},
+        {"//", "/"},
+        {"%%", "%"}
+    };
+
+    Token token = m_curr_token;
     if (accept_data("(")) {
         BaseNode *param_list = parse_param_list(
         Token(TokenType::Separator, ")"));
@@ -474,6 +502,14 @@ BaseNode *Parser::parse_postfix(BaseNode *value) {
         BaseNode *subscript = parse_expression();
         expect_data("]");
         return add(new SubscriptNode(parse_postfix(value), subscript));
+    }
+    auto iter = assignments.find(token.data());
+    if (iter != assignments.end()) {
+        get_token();
+        return add(new AssignNode(token, value, add_binary(
+                Token::synthetic(iter->second),
+                add_link(value),
+                add(new IntLitNode(Token::synthetic("1"))))));
     }
     return value;
 }

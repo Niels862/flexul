@@ -18,11 +18,11 @@ Token Token::null() {
     return Token(TokenType::Null);
 }
 
-TokenType Token::get_type() const {
+TokenType Token::type() const {
     return m_type;
 }
 
-std::string Token::get_data() const {
+std::string Token::data() const {
     return m_data;
 }
 
@@ -147,7 +147,7 @@ std::string tokenlist_to_string(std::vector<Token> const &tokens,
         if (i) {
             str += sep;
         }
-        str += tokens[i].get_data();
+        str += tokens[i].data();
     }
     return str;
 }

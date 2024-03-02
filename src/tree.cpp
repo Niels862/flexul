@@ -32,7 +32,7 @@ std::optional<uint32_t> BaseNode::get_constant_value() const {
 }
 
 std::string BaseNode::label() const {
-    return m_token.get_data();
+    return m_token.data();
 }
 
 Token BaseNode::token() const {
@@ -71,15 +71,15 @@ void BaseNode::print(BaseNode *node, std::string const labelPrefix,
     } else {
         std::cerr << std::endl;
     }
-    if (node->m_children.empty()) {
+    if (node->children().empty()) {
         return;
     }
-    for (i = 0; i < node->m_children.size() - 1; i++) {
-        BaseNode::print(node->m_children[i], 
+    for (i = 0; i < node->children().size() - 1; i++) {
+        BaseNode::print(node->children()[i], 
                 branchPrefix + "\u251C\u2500", 
                 branchPrefix + "\u2502 ");
     }
-    BaseNode::print(node->m_children[i], 
+    BaseNode::print(node->children()[i], 
             branchPrefix + "\u2570\u2500", 
             branchPrefix + "  ");
 }
@@ -88,6 +88,17 @@ EmptyNode::EmptyNode()
         : BaseNode(Token::synthetic("<empty>"), {}) {}
 
 void EmptyNode::serialize(Serializer &) const {}
+
+LinkNode::LinkNode(BaseNode *link)
+        : BaseNode(Token::synthetic("<link>"), {}), link({link}) {}
+
+void LinkNode::serialize(Serializer &serializer) const {
+    link[0]->serialize(serializer);
+}
+
+std::vector<BaseNode *> const &LinkNode::children() const {
+    return link;
+}
 
 IntLitNode::IntLitNode(Token token)
         : BaseNode(token, {}), m_value(token.to_int()) {
@@ -111,7 +122,7 @@ bool VariableNode::is_lvalue() const {
 void VariableNode::resolve_symbols_second_pass(
         Serializer &, SymbolMap &global_scope, 
         SymbolMap &enclosing_scope, SymbolMap &current_scope) {
-    SymbolId id = lookup_symbol(token().get_data(), global_scope, 
+    SymbolId id = lookup_symbol(token().data(), global_scope, 
             enclosing_scope, current_scope);
     set_id(id);
 }
@@ -147,6 +158,7 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
     switch (entry.storage_type) {
         case StorageType::AbsoluteRef:
         case StorageType::RelativeRef:
+            std::cerr << entry.symbol << std::endl;
             throw std::runtime_error("Cannot load address of reference");
         case StorageType::Absolute:
             serializer.add_instr(OpCode::Push, entry.id, true);
@@ -164,7 +176,11 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
 }
 
 AssignNode::AssignNode(Token token, BaseNode *left, BaseNode *right)
-        : BaseNode(token, {left, right}) {}
+        : BaseNode(token, {left, right}) {
+    if (!left->is_lvalue()) {
+        throw std::runtime_error("Expected lvalue as assignment target");
+    }
+}
 
 void AssignNode::serialize(Serializer &serializer) const {
     get(Target)->serialize_load_address(serializer);
@@ -363,7 +379,7 @@ FunctionNode::FunctionNode(Token token, Token ident, std::vector<Token> params,
 
 void FunctionNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
-    set_id(serializer.declare_callable(get_ident().get_data(), 
+    set_id(serializer.declare_callable(get_ident().data(), 
             symbol_map, this));
     serializer.add_job(id(), this, false);
 }
@@ -377,7 +393,7 @@ void FunctionNode::resolve_symbols_second_pass(
     SymbolMap function_scope;
     uint32_t position = -3 - get_n_params();
     for (Token const &param : get_params()) {
-        serializer.symbol_table().declare(param.get_data(), function_scope, 
+        serializer.symbol_table().declare(param.data(), function_scope, 
                 StorageType::Relative, position);
         position++;
     }
@@ -408,7 +424,7 @@ void FunctionNode::serialize_call(Serializer &serializer,
 }
 
 std::string FunctionNode::get_label() const {
-    return token().get_data() + " " + get_ident().get_data() + "(" 
+    return token().data() + " " + get_ident().data() + "(" 
             + tokenlist_to_string(get_params()) + ")";
 }
 
@@ -418,7 +434,7 @@ InlineNode::InlineNode(Token token, Token ident, std::vector<Token> params,
 
 void InlineNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
-    set_id(serializer.declare_callable(get_ident().get_data(), 
+    set_id(serializer.declare_callable(get_ident().data(), 
             symbol_map, this));
     serializer.add_job(id(), this, true);
 }
@@ -431,7 +447,7 @@ void InlineNode::resolve_symbols_second_pass(
     uint32_t position = 0;
     for (Token const &param : get_params()) {
 
-        SymbolId id = serializer.symbol_table().declare(param.get_data(), 
+        SymbolId id = serializer.symbol_table().declare(param.data(), 
                 function_scope, StorageType::InlineReference, position);
         m_param_ids.push_back(id);
         position++;
@@ -450,7 +466,7 @@ void InlineNode::serialize_call(Serializer &serializer,
 }
 
 std::string InlineNode::get_label() const {
-    return token().get_data() + " " + get_ident().get_data() + "(" 
+    return token().data() + " " + get_ident().data() + "(" 
             + tokenlist_to_string(get_params()) + ")";
 }
 
@@ -464,7 +480,7 @@ void LambdaNode::resolve_symbols_second_pass(
     SymbolMap lambda_scope;
     uint32_t position = -3 - m_params.size();
     for (Token const &param : m_params) {
-        serializer.symbol_table().declare(param.get_data(), lambda_scope, 
+        serializer.symbol_table().declare(param.data(), lambda_scope, 
                 StorageType::Relative, position);
         position++;
     }
@@ -479,7 +495,7 @@ void LambdaNode::serialize(Serializer &serializer) const {
 }
 
 std::string LambdaNode::label() const {
-    return token().get_data() + " (" + tokenlist_to_string(m_params) + ")";
+    return token().data() + " (" + tokenlist_to_string(m_params) + ")";
 }
 
 ExpressionListNode::ExpressionListNode(
@@ -541,7 +557,7 @@ void DeclarationNode::resolve_symbols_first_pass(
         throw std::runtime_error("not implemented");
     }
     set_id(serializer.symbol_table().declare(
-            m_ident.get_data(), current_scope, 
+            m_ident.data(), current_scope, 
             get(Size) == nullptr ? 
                 StorageType::Absolute : StorageType::AbsoluteRef, 
             0, declared_size()));
@@ -556,7 +572,7 @@ void DeclarationNode::resolve_symbols_second_pass(
                 enclosing_scope, current_scope);
     }
     set_id(serializer.symbol_table().declare(
-            m_ident.get_data(), current_scope, 
+            m_ident.data(), current_scope, 
             get(Size) == nullptr ? 
                 StorageType::Relative : StorageType::RelativeRef, 
             0, declared_size()));
@@ -574,7 +590,7 @@ void DeclarationNode::serialize(Serializer &serializer) const {
 }
 
 std::string DeclarationNode::label() const {
-    return token().get_data() + " " + m_ident.get_data();
+    return token().data() + " " + m_ident.data();
 }
 
 uint32_t DeclarationNode::declared_size() const {

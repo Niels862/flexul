@@ -21,6 +21,7 @@ private:
     T add(T node);
     BaseNode *add_unary(Token const &op, BaseNode *operand);
     BaseNode *add_binary(Token const &op, BaseNode *left, BaseNode *right);
+    BaseNode *add_link(BaseNode *link);
     void adopt(BaseNode *BaseNode);
     Token get_token();
     
