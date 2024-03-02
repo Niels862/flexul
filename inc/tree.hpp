@@ -232,6 +232,8 @@ public:
     void serialize_call(Serializer &serializer, BaseNode *params) const;
 
     std::string get_label() const;
+private:
+    std::vector<SymbolId> m_param_ids;
 };
 
 class LambdaNode : public BaseNode {

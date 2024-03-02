@@ -8,6 +8,7 @@
 #include <vector>
 #include <stack>
 #include <string>
+#include <algorithm>
 #include <unordered_map>
 #include <cstdint>
 #include <fstream>
@@ -93,9 +94,10 @@ public:
     // Returns size of resolved container
     void resolve_local_container();
 
-    void open_inline_call(BaseNode *params);
+    void open_inline_call(BaseNode *params, 
+            std::vector<SymbolId> const &param_ids);
     void use_inline_param(uint32_t index);
-    void close_inline_call();
+    void close_inline_call(std::vector<SymbolId> const &param_ids);
 
     void call(SymbolId id, BaseNode *params);
     void push_callable_addr(SymbolId id);
@@ -119,19 +121,18 @@ public:
     void disassemble() const;
 private:
     void add_entry(StackEntry const &entry);
-    std::vector<SymbolEntry> symbol_table;
-    std::vector<JobEntry> code_jobs;
-    LabelMap labels;
+    std::vector<SymbolEntry> m_symbol_table;
+    std::vector<JobEntry> m_code_jobs;
+    LabelMap m_labels;
     // First used to give each symbol a unique id, then to attach labels
     // Symbol ids are also used as labels
     // 0 -> invalid/unset id
     // 1 -> entry point id
-    uint32_t counter;
-    std::vector<StackEntry> stack;
-    std::stack<Label> break_labels;
-    std::stack<std::vector<SymbolId>> containers;
-    std::stack<BaseNode *> inline_params;
-    CallableMap callables;
+    uint32_t m_counter;
+    std::vector<StackEntry> m_stack;
+    std::stack<std::vector<SymbolId>> m_containers;
+    std::stack<std::pair<SymbolId, BaseNode *>> m_inline_params;
+    CallableMap m_callables;
 };
 
 #endif

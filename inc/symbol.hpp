@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 enum class StorageType {
     Invalid,
@@ -22,8 +23,13 @@ enum class StorageType {
 
 using SymbolId = uint32_t;
 
+using SymbolIdList = std::vector<SymbolId>;
+
+class BaseNode;
+
 struct SymbolEntry {
     std::string symbol;
+    BaseNode *node;
     SymbolId id;
     StorageType storage_type;
     uint32_t value;

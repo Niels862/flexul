@@ -175,43 +175,43 @@ void StackEntry::disassemble() const {
 }
 
 Serializer::Serializer()
-        : symbol_table({
-            {"<null>", 0, StorageType::Invalid, 0, 0, 0}, 
-            {"<entry>", 1, StorageType::Label, 0, 0, 0}
-        }), counter(2), stack() {}
+        : m_symbol_table({
+            {"<null>", nullptr, 0, StorageType::Invalid, 0, 0, 0}, 
+            {"<entry>", nullptr, 1, StorageType::Label, 0, 0, 0}
+        }), m_counter(2), m_stack() {}
 
 SymbolId Serializer::get_symbol_id() {
-    SymbolId id = counter;
-    counter++;
+    SymbolId id = m_counter;
+    m_counter++;
     return id;
 }
 
 void Serializer::register_symbol(SymbolEntry const &entry) {
-    if (entry.id != symbol_table.size()) {
+    if (entry.id != m_symbol_table.size()) {
         throw std::runtime_error(
                 "Registered symbol ID does not match expected value: got "
                 + std::to_string(entry.id) + ", expected "
-                + std::to_string(symbol_table.size()));
+                + std::to_string(m_symbol_table.size()));
     }
-    symbol_table.push_back(entry);
+    m_symbol_table.push_back(entry);
 }
 
 SymbolEntry const &Serializer::get_symbol_entry(SymbolId id) {
     SymbolId i = id;
     std::unordered_set<SymbolId> aliases;
-    SymbolEntry entry = symbol_table[id];
+    SymbolEntry entry = m_symbol_table[id];
 
     while (entry.storage_type == StorageType::Alias) {
         if (aliases.find(entry.value) != aliases.end()) {
             throw std::runtime_error(
-                    "Circular alias definition: " + symbol_table[id].symbol);
+                    "Circular alias definition: " + m_symbol_table[id].symbol);
         }
         i = entry.value;
-        entry = symbol_table[i];
+        entry = m_symbol_table[i];
     }
 
-    symbol_table[i].usages++;
-    return symbol_table[i];
+    m_symbol_table[i].usages++;
+    return m_symbol_table[i];
 }
 
 SymbolId Serializer::declare_symbol(std::string const &symbol, 
@@ -223,7 +223,7 @@ SymbolId Serializer::declare_symbol(std::string const &symbol,
     }
     SymbolId id = get_symbol_id();
     scope[symbol] = id;
-    register_symbol({symbol, id, storage_type, value, size, 0});
+    register_symbol({symbol, nullptr, id, storage_type, value, size, 0});
     return id;
 }
 
@@ -235,71 +235,81 @@ SymbolId Serializer::declare_callable(std::string const &name,
         name_id = declare_symbol(name, scope, StorageType::Callable);
     } else {
         name_id = name_iter->second;
-        if (symbol_table[name_id].storage_type != StorageType::Callable) {
+        if (m_symbol_table[name_id].storage_type != StorageType::Callable) {
             throw std::runtime_error("Can only overload other callables");
         }
     }
 
-    CallableMap::iterator iter = callables.find(name_id);
-    if (iter == callables.end()) {
+    CallableMap::iterator iter = m_callables.find(name_id);
+    if (iter == m_callables.end()) {
         CallableEntry callable;
         callable.add_overload(node);
-        callables[name_id] = callable;
+        m_callables[name_id] = callable;
     } else {
         iter->second.add_overload(node);
     }
-    return declare_symbol("." + name + "_" + std::to_string(counter), 
+    return declare_symbol("." + name + "_" + std::to_string(m_counter), 
             scope, StorageType::Label);
 }
 
 void Serializer::open_container() {
-    containers.push(std::vector<SymbolId>());
+    m_containers.push(std::vector<SymbolId>());
 }
 
 void Serializer::add_to_container(SymbolId id) {
-    containers.top().push_back(id);
+    m_containers.top().push_back(id);
 }
 
 uint32_t Serializer::get_container_size() const {
     uint32_t size = 0;
-    for (SymbolId const id : containers.top()) {
-        size += symbol_table[id].size;
+    for (SymbolId const id : m_containers.top()) {
+        size += m_symbol_table[id].size;
     }
     return size;
 }
 
 void Serializer::resolve_local_container() {
     uint32_t position = 0;
-    for (SymbolId const id : containers.top()) {
-        symbol_table[id].value = position;
-        position += symbol_table[id].size;
+    for (SymbolId const id : m_containers.top()) {
+        m_symbol_table[id].value = position;
+        position += m_symbol_table[id].size;
     }
-    containers.pop();
+    m_containers.pop();
 }
 
-void Serializer::open_inline_call(BaseNode *params) {
-    inline_params.push(params);
+void Serializer::open_inline_call(BaseNode *params, 
+        SymbolIdList const &param_ids) {
+    for (std::size_t i = 0; i < param_ids.size(); i++) {
+        SymbolId id = param_ids[i];
+        m_inline_params.push(std::make_pair(id, m_symbol_table[id].node));
+        m_symbol_table[id].node = params->get_children()[i];
+    }
 }
 
-void Serializer::use_inline_param(uint32_t index) {
-    inline_params.top()->get(index)->serialize(*this);
+void Serializer::use_inline_param(SymbolId id) {
+    m_symbol_table[id].node->serialize(*this);
 }
 
-void Serializer::close_inline_call() {
-    inline_params.pop();
+void Serializer::close_inline_call(std::vector<SymbolId> const &param_ids) {
+    for (SymbolIdList::const_reverse_iterator riter = param_ids.rbegin(); 
+            riter != param_ids.rend(); riter++) {
+        std::pair<SymbolId, BaseNode *> param = m_inline_params.top();
+        m_symbol_table[param.first].node = param.second;
+        m_inline_params.pop();
+    }
 }
 
 void Serializer::call(SymbolId id, BaseNode *params) {
-    CallableMap::const_iterator iter = callables.find(id);
-    if (iter == callables.end()) {
+    CallableMap::const_iterator iter = m_callables.find(id);
+    if (iter == m_callables.end()) {
         throw std::runtime_error("Oh no");
     }
     iter->second.call(*this, params);
 }
 
 void Serializer::push_callable_addr(SymbolId id) {
-    CallableMap::const_iterator iter = callables.find(id);
-    if (iter == callables.end()) {
+    CallableMap::const_iterator iter = m_callables.find(id);
+    if (iter == m_callables.end()) {
         throw std::runtime_error("Oh no");
     }
     iter->second.push_callable_addr(*this);
@@ -307,8 +317,8 @@ void Serializer::push_callable_addr(SymbolId id) {
 
 void Serializer::dump_symbol_table() const {
     uint32_t i;
-    for (i = 0; i < symbol_table.size(); i++) {
-        SymbolEntry entry = symbol_table[i];
+    for (i = 0; i < m_symbol_table.size(); i++) {
+        SymbolEntry entry = m_symbol_table[i];
         std::cerr << std::setw(6) << i << ": " 
                 << entry.symbol << " of type " 
                 << static_cast<int>(entry.storage_type)
@@ -335,7 +345,7 @@ void Serializer::add_instr(OpCode opcode, FuncCode funccode,
 }
 
 void Serializer::add_job(uint32_t label, BaseNode *node, bool no_serialize) {
-    code_jobs.push_back({label, node, no_serialize});
+    m_code_jobs.push_back({label, node, no_serialize});
 }
 
 uint32_t Serializer::add_label() {
@@ -348,14 +358,14 @@ uint32_t Serializer::add_label(Label label) {
 }
 
 uint32_t Serializer::get_label() {
-    Label label = counter;
-    counter++;
+    Label label = m_counter;
+    m_counter++;
     return label;
 }
 
 uint32_t Serializer::get_stack_size() const {
     uint32_t size = 0;
-    for (StackEntry const &entry : stack) {
+    for (StackEntry const &entry : m_stack) {
         size += entry.get_size();
     }
     return size;
@@ -379,7 +389,7 @@ void Serializer::serialize(BaseNode *root) {
     open_container();
 
     root->resolve_symbols_first_pass(*this, global_scope);
-    for (JobEntry const &job : code_jobs) {
+    for (JobEntry const &job : m_code_jobs) {
         job.node->resolve_symbols_second_pass(*this, global_scope, 
                 enclosing_scope, current_scope);
     }
@@ -396,49 +406,49 @@ void Serializer::serialize(BaseNode *root) {
     call(iter->second, nullptr);
     add_instr(OpCode::SysCall, FuncCode::Exit);
 
-    for (i = 0; i < code_jobs.size(); i++) {
-        if (!code_jobs[i].no_serialize) {
-            add_label(code_jobs[i].label);
-            code_jobs[i].node->serialize(*this);
+    for (i = 0; i < m_code_jobs.size(); i++) {
+        if (!m_code_jobs[i].no_serialize) {
+            add_label(m_code_jobs[i].label);
+            m_code_jobs[i].node->serialize(*this);
         }
     }
 
     uint32_t position = get_stack_size();
-    for (SymbolId const id : containers.top()) {
-        labels[id] = position;
-        position += symbol_table[id].size;
+    for (SymbolId const id : m_containers.top()) {
+        m_labels[id] = position;
+        position += m_symbol_table[id].size;
     }
 }
 
 std::vector<uint32_t> Serializer::assemble() {
     std::vector<uint32_t> bytecode;
     uint32_t i = 0;
-    for (StackEntry const &entry : stack) {
-        entry.register_label(labels, i);
+    for (StackEntry const &entry : m_stack) {
+        entry.register_label(m_labels, i);
     }
-    for (StackEntry const &entry : stack) {
-        entry.assemble(bytecode, labels);
+    for (StackEntry const &entry : m_stack) {
+        entry.assemble(bytecode, m_labels);
     }
     return bytecode;
 }
 
 void Serializer::disassemble() const {
-    for (StackEntry const &entry : stack) {
+    for (StackEntry const &entry : m_stack) {
         entry.disassemble();
     }
 }
 
 void Serializer::add_entry(StackEntry const &entry) {
-    stack.push_back(entry);
+    m_stack.push_back(entry);
     StackEntry left;
     StackEntry right;
     StackEntry combined;
-    while (stack.size() > 1) {
-        left = stack[stack.size() - 2];
-        right = stack[stack.size() - 1];
+    while (m_stack.size() > 1) {
+        left = m_stack[m_stack.size() - 2];
+        right = m_stack[m_stack.size() - 1];
         if (left.combine(right, combined)) {
-            stack.pop_back();
-            stack[stack.size() - 1] = combined;
+            m_stack.pop_back();
+            m_stack[m_stack.size() - 1] = combined;
         } else {
             return;
         }

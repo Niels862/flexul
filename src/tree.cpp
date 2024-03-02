@@ -127,7 +127,7 @@ void VariableNode::serialize(Serializer &serializer) const {
     } else if (entry.storage_type == StorageType::Callable) {
         serializer.push_callable_addr(entry.id);
     } else if (entry.storage_type == StorageType::InlineReference) {
-        serializer.use_inline_param(entry.value);
+        serializer.use_inline_param(entry.id);
     } else {
         throw std::runtime_error(
                 "Invalid storage type: " 
@@ -402,7 +402,7 @@ std::string FunctionNode::get_label() const {
 
 InlineNode::InlineNode(Token token, Token ident, std::vector<Token> params, 
         BaseNode *body)
-        : CallableNode(token, ident, params, body) {}
+        : CallableNode(token, ident, params, body), m_param_ids() {}
 
 void InlineNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
@@ -418,8 +418,10 @@ void InlineNode::resolve_symbols_second_pass(
     SymbolMap function_scope;
     uint32_t position = 0;
     for (Token const &param : get_params()) {
-        serializer.declare_symbol(param.get_data(), function_scope, 
-                StorageType::InlineReference, position);
+
+        SymbolId id = serializer.declare_symbol(param.get_data(), 
+                function_scope, StorageType::InlineReference, position);
+        m_param_ids.push_back(id);
         position++;
     }
     get(Body)->resolve_symbols_second_pass(serializer, global_scope, 
@@ -430,9 +432,9 @@ void InlineNode::serialize(Serializer &) const {}
 
 void InlineNode::serialize_call(Serializer &serializer, 
         BaseNode *params) const {
-    serializer.open_inline_call(params);
+    serializer.open_inline_call(params, m_param_ids);
     get(Body)->serialize(serializer);
-    serializer.close_inline_call();
+    serializer.close_inline_call(m_param_ids);
 }
 
 std::string InlineNode::get_label() const {
