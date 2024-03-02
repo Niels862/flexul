@@ -368,11 +368,11 @@ void FunctionNode::resolve_symbols_second_pass(
                 StorageType::Relative, position);
         position++;
     }
-    serializer.open_container();
+    serializer.symbol_table().open_container();
     get(Body)->resolve_symbols_second_pass(serializer, global_scope, 
             empty_scope, function_scope);
-    frame_size = serializer.get_container_size();
-    serializer.resolve_local_container();
+    frame_size = serializer.symbol_table().container_size();
+    serializer.symbol_table().resolve_local_container();
 }
 
 void FunctionNode::serialize(Serializer &serializer) const {
@@ -531,7 +531,7 @@ void DeclarationNode::resolve_symbols_first_pass(
     set_id(serializer.symbol_table().declare(
             ident.get_data(), current_scope, 
             StorageType::Absolute, 0, get_size()));
-    serializer.add_to_container(get_id());
+    serializer.symbol_table().add_to_container(get_id());
 }
 
 void DeclarationNode::resolve_symbols_second_pass(
@@ -544,7 +544,7 @@ void DeclarationNode::resolve_symbols_second_pass(
     set_id(serializer.symbol_table().declare(
             ident.get_data(), current_scope, 
             StorageType::Relative, 0, get_size()));
-    serializer.add_to_container(get_id());
+    serializer.symbol_table().add_to_container(get_id());
 }
 
 void DeclarationNode::serialize(Serializer &serializer) const {

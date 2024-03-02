@@ -186,31 +186,6 @@ SymbolId Serializer::declare_callable(std::string const &name,
             scope, StorageType::Label);
 }
 
-void Serializer::open_container() {
-    m_containers.push(std::vector<SymbolId>());
-}
-
-void Serializer::add_to_container(SymbolId id) {
-    m_containers.top().push_back(id);
-}
-
-uint32_t Serializer::get_container_size() const {
-    uint32_t size = 0;
-    for (SymbolId const id : m_containers.top()) {
-        size += m_symbol_table.get(id).size;
-    }
-    return size;
-}
-
-void Serializer::resolve_local_container() {
-    uint32_t position = 0;
-    for (SymbolId const id : m_containers.top()) {
-        m_symbol_table.get(id).value = position;
-        position += m_symbol_table.get(id).size;
-    }
-    m_containers.pop();
-}
-
 void Serializer::call(SymbolId id, BaseNode *params) {
     CallableMap::const_iterator iter = m_callable_map.find(id);
     if (iter == m_callable_map.end()) {
@@ -278,7 +253,7 @@ void Serializer::serialize(BaseNode *root) {
     uint32_t i;
 
     m_symbol_table.load_predefined(global_scope);
-    open_container();
+    m_symbol_table.open_container();
 
     root->resolve_symbols_first_pass(*this, global_scope);
     for (JobEntry const &job : m_code_jobs) {
@@ -286,7 +261,7 @@ void Serializer::serialize(BaseNode *root) {
                 enclosing_scope, current_scope);
     }
     
-    uint32_t global_size = get_container_size();
+    uint32_t global_size = m_symbol_table.container_size();
     // Note that 'main' may not be a function name but could be another
     // global scope definition, this is intended behavior.
     auto iter = global_scope.find("main"); // TODO: variable entry point
@@ -306,7 +281,7 @@ void Serializer::serialize(BaseNode *root) {
     }
 
     uint32_t position = get_stack_size();
-    for (SymbolId const id : m_containers.top()) {
+    for (SymbolId const id : m_symbol_table.container()) {
         m_labels[id] = position;
         position += m_symbol_table.get(id).size;
     }

@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <stack>
 
 enum class StorageType {
     Invalid,
@@ -55,7 +56,6 @@ public:
     SymbolTable(SymbolId &counter);
 
     SymbolId next_id();
-    void add(SymbolEntry const &entry);
     SymbolEntry const &get(SymbolId id) const;
     SymbolEntry &get(SymbolId id) { return m_table[id]; } // TEMP
     SymbolId declare(std::string const &symbol, SymbolMap &scope, 
@@ -64,8 +64,16 @@ public:
     void load_predefined(SymbolMap &symbol_map);
     void dump() const;
 
+    void open_container();
+    void add_to_container(SymbolId id);
+    uint32_t container_size() const;
+    void resolve_local_container();
+    SymbolIdList const &container() const;
 private:
+    void add(SymbolEntry const &entry);
+
     std::vector<SymbolEntry> m_table;
+    std::stack<SymbolIdList> m_containers;
     SymbolId &m_counter;
 };
 

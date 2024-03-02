@@ -49,16 +49,6 @@ SymbolId SymbolTable::next_id() {
     return id;
 }
 
-void SymbolTable::add(SymbolEntry const &entry) {
-    if (entry.id != m_table.size()) {
-        throw std::runtime_error(
-                "Registered symbol ID does not match expected value: got "
-                + std::to_string(entry.id) + ", expected "
-                + std::to_string(m_table.size()));
-    }
-    m_table.push_back(entry);
-}
-
 SymbolEntry const &SymbolTable::get(SymbolId id) const {
     return m_table[id];
 }
@@ -95,4 +85,43 @@ void SymbolTable::dump() const {
                 << " with value " << static_cast<int32_t>(entry.value) 
                 << " (" << entry.usages << " usages)" << std::endl;
     }
+}
+
+void SymbolTable::open_container() {
+    m_containers.push(std::vector<SymbolId>());
+}
+
+void SymbolTable::add_to_container(SymbolId id) {
+    m_containers.top().push_back(id);
+}
+
+uint32_t SymbolTable::container_size() const {
+    uint32_t size = 0;
+    for (SymbolId const id : m_containers.top()) {
+        size += m_table[id].size;
+    }
+    return size;
+}
+
+void SymbolTable::resolve_local_container() {
+    uint32_t position = 0;
+    for (SymbolId const id : m_containers.top()) {
+        m_table[id].value = position;
+        position += m_table[id].size;
+    }
+    m_containers.pop();
+}
+
+SymbolIdList const &SymbolTable::container() const {
+    return m_containers.top();
+}
+
+void SymbolTable::add(SymbolEntry const &entry) {
+    if (entry.id != m_table.size()) {
+        throw std::runtime_error(
+                "Registered symbol ID does not match expected value: got "
+                + std::to_string(entry.id) + ", expected "
+                + std::to_string(m_table.size()));
+    }
+    m_table.push_back(entry);
 }

@@ -67,18 +67,8 @@ class Serializer {
 public:
     Serializer();
 
-    SymbolId get_symbol_id();
     SymbolId declare_callable(std::string const &name, SymbolMap &scope, 
             CallableNode *node);
-
-    // Opens new storage container
-    void open_container();
-    // Adds id to container
-    void add_to_container(SymbolId id);
-    uint32_t get_container_size() const;
-    // Resolves every symbol in the current container and closes it
-    // Returns size of resolved container
-    void resolve_local_container();
 
     void call(SymbolId id, BaseNode *params);
     void push_callable_addr(SymbolId id);
@@ -113,7 +103,6 @@ private:
     // 1 -> entry point id
     uint32_t m_counter;
     std::vector<StackEntry> m_stack;
-    std::stack<std::vector<SymbolId>> m_containers;
     CallableMap m_callable_map;
 };
 
