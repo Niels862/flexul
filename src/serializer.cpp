@@ -4,6 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <unordered_set>
+#include <optional>
 
 StackEntry::StackEntry()
         : m_type(EntryType::Instruction), m_opcode(OpCode::Nop), 
@@ -48,11 +49,33 @@ StackEntry StackEntry::label(Label label) {
 }
 
 bool StackEntry::has_no_effect() const {
-    if (m_opcode == OpCode::Nop) {
-        return true;
-    }
-    if (m_opcode == OpCode::AddSp && m_has_immediate && m_data == 0) {
-        return true;
+    switch (m_opcode) {
+        case OpCode::Nop:
+            return true;
+        case OpCode::AddSp:
+            return m_has_immediate && m_data == 0;
+        case OpCode::Unary:
+            switch (m_funccode) {
+                case FuncCode::Neg:
+                    return m_has_immediate && m_data == 0;
+                default:
+                    break;
+            }
+            break;
+        case OpCode::Binary:
+            switch (m_funccode) {
+                case FuncCode::Add:
+                case FuncCode::Sub:
+                    return m_has_immediate && m_data == 0;
+                case FuncCode::Mul:
+                case FuncCode::Div:
+                    return m_has_immediate && m_data == 1;
+                default:
+                    break; 
+            }
+            break;
+        default:
+            break;
     }
     return false;
 }
@@ -95,6 +118,48 @@ bool StackEntry::combine(StackEntry const &right, StackEntry &combined) const {
         combined = StackEntry::instr(right.m_opcode, right.m_funccode, 
                 m_data, m_references_label);
         return true;
+    }
+    if (m_opcode == OpCode::LoadAddrRel && m_has_immediate 
+            && !m_references_label && right.m_opcode == OpCode::LoadAbs 
+            && !right.m_has_immediate) {
+        combined = StackEntry::instr(OpCode::LoadRel, m_data, false);
+        return true;
+    }
+    if (m_opcode == OpCode::Push && m_has_immediate && !m_references_label) {
+        std::optional<uint32_t> value;
+        int32_t left_value = m_data;
+        if (right.m_opcode == OpCode::Unary) {
+            if (right.m_funccode == FuncCode::Neg) {
+                value = -left_value;
+            }
+        }
+        if (right.m_opcode == OpCode::Binary && right.m_has_immediate 
+                && !right.m_references_label) {
+            int32_t right_value = right.m_data;
+            switch (right.m_funccode) {
+                case FuncCode::Add:
+                    value = left_value + right_value;
+                    break;
+                case FuncCode::Sub:
+                    value = left_value + right_value;
+                    break;
+                case FuncCode::Mul:
+                    value = left_value + right_value;
+                    break;
+                case FuncCode::Div:
+                    value = left_value / right_value;
+                    break;
+                case FuncCode::Mod:
+                    value = left_value % right_value;
+                    break;
+                default:
+                    break;
+            }
+        }
+        if (value.has_value()) {
+            combined = StackEntry::instr(OpCode::Push, value.value());
+            return true;
+        }
     }
     return false;
 }

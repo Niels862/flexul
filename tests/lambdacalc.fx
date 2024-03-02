@@ -7,7 +7,7 @@ var token;
 
 fn setup() {
     var i;
-    for (i = 0; i < 256; i = i + 1) {
+    for (i = 0; i < 256; i++) {
         used[i] = 0;
     }
     min_free = 0;
@@ -15,7 +15,7 @@ fn setup() {
 
 fn alloc() {
     var i;
-    for (i = min_free; i < 256; i = i + 1) {
+    for (i = min_free; i < 256; i++) {
         if (used[i] == 0) {
             used[i] = 1;
             min_free = i + 1;

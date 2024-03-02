@@ -30,6 +30,7 @@ private:
     Token expect_token(Token const &other);
     Token accept_data(std::string const &data);
     Token accept_type(TokenType type);
+    Token check_data(std::string const &data) const;
     Token check_type(TokenType type) const;
 
     BaseNode *parse_filebody();

@@ -137,6 +137,13 @@ Token Parser::accept_type(TokenType type) {
     return token;
 }
 
+Token Parser::check_data(std::string const &data) const {
+    if (m_curr_token.data() != data) {
+        return Token::null();
+    }
+    return m_curr_token;
+}
+
 Token Parser::check_type(TokenType type) const {
     if (m_curr_token.type() != type) {
         return Token::null();
@@ -492,24 +499,26 @@ BaseNode *Parser::parse_postfix(BaseNode *value) {
         {"%%", "%"}
     };
 
-    Token token = m_curr_token;
-    if (accept_data("(")) {
-        BaseNode *param_list = parse_param_list(
-        Token(TokenType::Separator, ")"));
-        return add(new CallNode(parse_postfix(value), param_list));
+    while (true) {
+        Token token = m_curr_token;
+        if (accept_data("(")) {
+            BaseNode *param_list = parse_param_list(
+            Token(TokenType::Separator, ")"));
+            value = add(new CallNode(value, param_list));
+        } else if (accept_data("[")) {
+            BaseNode *subscript = parse_expression();
+            expect_data("]");
+            value = add(new SubscriptNode(value, subscript));
+        } else {
+            auto iter = assignments.find(token.data());
+            if (iter == assignments.end()) {
+                return value;
+            }
+            get_token();
+            return add(new AssignNode(token, value, add_binary(
+                    Token::synthetic(iter->second),
+                    add_link(value),
+                    add(new IntLitNode(Token::synthetic("1"))))));
+        }
     }
-    if (accept_data("[")) {
-        BaseNode *subscript = parse_expression();
-        expect_data("]");
-        return add(new SubscriptNode(parse_postfix(value), subscript));
-    }
-    auto iter = assignments.find(token.data());
-    if (iter != assignments.end()) {
-        get_token();
-        return add(new AssignNode(token, value, add_binary(
-                Token::synthetic(iter->second),
-                add_link(value),
-                add(new IntLitNode(Token::synthetic("1"))))));
-    }
-    return value;
 }
