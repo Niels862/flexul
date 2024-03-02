@@ -317,19 +317,4 @@ private:
     size_t const Expr = 0;
 };
 
-class AliasNode : public BaseNode {
-public:
-    AliasNode(Token token, Token alias, Token source);
-
-    void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &global_scope, 
-            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
-    void serialize(Serializer &serializer) const override;
-
-    std::string get_label() const;
-private:
-    Token alias;
-    Token source;
-};
-
 #endif

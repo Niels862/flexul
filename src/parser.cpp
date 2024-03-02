@@ -268,8 +268,6 @@ BaseNode *Parser::parse_statement() {
             node = add(new ReturnNode(token, {parse_expression()}));
         } else if (check_type(TokenType::Var)) {
             node = parse_var_declaration();
-        } else if (check_type(TokenType::Alias)) {
-            node = parse_alias();
         } else {
             node = add(new ExpressionStatementNode(parse_expression()));
         }
@@ -331,23 +329,6 @@ BaseNode *Parser::parse_var_declaration() {
         }
         nodes.push_back(add(new DeclarationNode(
                 token, ident, size, init_value)));
-    } while (accept_data(","));
-
-    if (nodes.size() == 1) {
-        return nodes[0];
-    }
-    return add(new BlockNode(nodes));
-}
-
-BaseNode *Parser::parse_alias() {
-    std::vector<BaseNode *> nodes;
-    Token token = expect_type(TokenType::Alias);
-
-    do {
-        Token alias = expect_type(TokenType::Identifier);
-        expect_type(TokenType::For);
-        Token source = expect_type(TokenType::Identifier);
-        nodes.push_back(add(new AliasNode(token, alias, source)));
     } while (accept_data(","));
 
     if (nodes.size() == 1) {

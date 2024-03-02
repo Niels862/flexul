@@ -117,7 +117,7 @@ void VariableNode::resolve_symbols_second_pass(
 }
 
 void VariableNode::serialize(Serializer &serializer) const {
-    SymbolEntry entry = serializer.get_symbol_entry(get_id());
+    SymbolEntry entry = serializer.symbol_table().get(get_id());
     if (entry.storage_type == StorageType::Label) {
         serializer.add_instr(OpCode::Push, entry.id, true);
     } else if (entry.storage_type == StorageType::Relative) {
@@ -127,7 +127,7 @@ void VariableNode::serialize(Serializer &serializer) const {
     } else if (entry.storage_type == StorageType::Callable) {
         serializer.push_callable_addr(entry.id);
     } else if (entry.storage_type == StorageType::InlineReference) {
-        serializer.use_inline_param(entry.id);
+        serializer.inline_frames().get(entry.id)->serialize(serializer);
     } else {
         throw std::runtime_error(
                 "Invalid storage type: " 
@@ -136,7 +136,7 @@ void VariableNode::serialize(Serializer &serializer) const {
 }
 
 void VariableNode::serialize_load_address(Serializer &serializer) const {
-    SymbolEntry entry = serializer.get_symbol_entry(get_id());
+    SymbolEntry entry = serializer.symbol_table().get(get_id());
     if (entry.storage_type == StorageType::Label) {
         throw std::runtime_error("Cannot load address of label");
     } else if (entry.storage_type == StorageType::Relative) {
@@ -249,7 +249,7 @@ CallNode::CallNode(BaseNode *func, BaseNode *args)
 
 void CallNode::serialize(Serializer &serializer) const {
     SymbolId id = get(Func)->get_id();
-    SymbolEntry entry = serializer.get_symbol_entry(id);
+    SymbolEntry entry = serializer.symbol_table().get(id);
     if (entry.storage_type == StorageType::Intrinsic) {
         IntrinsicEntry intrinsic = intrinsics[entry.value];
         if (get(Args)->get_children().size() != intrinsic.n_args) {
@@ -364,7 +364,7 @@ void FunctionNode::resolve_symbols_second_pass(
     SymbolMap function_scope;
     uint32_t position = -3 - get_n_params();
     for (Token const &param : get_params()) {
-        serializer.declare_symbol(param.get_data(), function_scope, 
+        serializer.symbol_table().declare(param.get_data(), function_scope, 
                 StorageType::Relative, position);
         position++;
     }
@@ -419,7 +419,7 @@ void InlineNode::resolve_symbols_second_pass(
     uint32_t position = 0;
     for (Token const &param : get_params()) {
 
-        SymbolId id = serializer.declare_symbol(param.get_data(), 
+        SymbolId id = serializer.symbol_table().declare(param.get_data(), 
                 function_scope, StorageType::InlineReference, position);
         m_param_ids.push_back(id);
         position++;
@@ -432,9 +432,9 @@ void InlineNode::serialize(Serializer &) const {}
 
 void InlineNode::serialize_call(Serializer &serializer, 
         BaseNode *params) const {
-    serializer.open_inline_call(params, m_param_ids);
+    serializer.inline_frames().open_call(params, m_param_ids);
     get(Body)->serialize(serializer);
-    serializer.close_inline_call(m_param_ids);
+    serializer.inline_frames().close_call(m_param_ids);
 }
 
 std::string InlineNode::get_label() const {
@@ -452,7 +452,7 @@ void LambdaNode::resolve_symbols_second_pass(
     SymbolMap lambda_scope;
     uint32_t position = -3 - params.size();
     for (Token const &param : params) {
-        serializer.declare_symbol(param.get_data(), lambda_scope, 
+        serializer.symbol_table().declare(param.get_data(), lambda_scope, 
                 StorageType::Relative, position);
         position++;
     }
@@ -528,7 +528,7 @@ void DeclarationNode::resolve_symbols_first_pass(
     if (get(InitValue) != nullptr) {
         throw std::runtime_error("not implemented");
     }
-    set_id(serializer.declare_symbol(
+    set_id(serializer.symbol_table().declare(
             ident.get_data(), current_scope, 
             StorageType::Absolute, 0, get_size()));
     serializer.add_to_container(get_id());
@@ -541,7 +541,7 @@ void DeclarationNode::resolve_symbols_second_pass(
         get(InitValue)->resolve_symbols_second_pass(serializer, global_scope, 
                 enclosing_scope, current_scope);
     }
-    set_id(serializer.declare_symbol(
+    set_id(serializer.symbol_table().declare(
             ident.get_data(), current_scope, 
             StorageType::Relative, 0, get_size()));
     serializer.add_to_container(get_id());
@@ -549,7 +549,7 @@ void DeclarationNode::resolve_symbols_second_pass(
 
 void DeclarationNode::serialize(Serializer &serializer) const {
     if (get(InitValue) != nullptr) {
-        SymbolEntry entry = serializer.get_symbol_entry(get_id());
+        SymbolEntry entry = serializer.symbol_table().get(get_id());
         serializer.add_instr(OpCode::LoadAddrRel, entry.value);
         get(InitValue)->serialize(serializer);
         serializer.add_instr(OpCode::Binary, FuncCode::Assign);
@@ -578,23 +578,4 @@ ExpressionStatementNode::ExpressionStatementNode(BaseNode *child)
 void ExpressionStatementNode::serialize(Serializer &serializer) const {
     get(Expr)->serialize(serializer);
     serializer.add_instr(OpCode::Pop);
-}
-
-AliasNode::AliasNode(Token token, Token alias, Token source)
-        : BaseNode(token, {}), alias(alias), source(source) {}
-
-void AliasNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &global_scope, 
-        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
-    SymbolId source_id = lookup_symbol(source.get_data(), global_scope, 
-            enclosing_scope, current_scope);
-    set_id(serializer.declare_symbol(alias.get_data(), current_scope, 
-            StorageType::Alias, source_id));
-}
-
-void AliasNode::serialize(Serializer &) const {}
-
-std::string AliasNode::get_label() const {
-    return get_token().get_data() + " " + alias.get_data() 
-            + " for " + source.get_data();
 }

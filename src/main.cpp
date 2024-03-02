@@ -42,7 +42,7 @@ std::vector<uint32_t> compile(ArgParser const &args) {
     serializer.serialize(root);
     if (args.get_bool("symbols")) {
         std::cerr << "Symbol Table:" << std::endl;
-        serializer.dump_symbol_table();
+        serializer.symbol_table().dump();
     }
     if (args.get_bool("dis")) {
         std::cerr << "Assembly:" << std::endl;

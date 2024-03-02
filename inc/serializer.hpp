@@ -29,15 +29,6 @@ struct JobEntry {
     bool no_serialize;
 };
 
-struct IntrinsicEntry {
-    std::string symbol;
-    size_t n_args;
-    OpCode opcode;
-    FuncCode funccode;
-};
-
-extern std::vector<IntrinsicEntry> const intrinsics;
-
 enum class EntryType {
     Invalid, Instruction, Data, Label
 };
@@ -77,11 +68,6 @@ public:
     Serializer();
 
     SymbolId get_symbol_id();
-    void register_symbol(SymbolEntry const &entry);
-    SymbolEntry const &get_symbol_entry(SymbolId id);
-    SymbolId declare_symbol(std::string const &symbol, SymbolMap &scope, 
-            StorageType storage_type, uint32_t value = 0, 
-            uint32_t size = 1);
     SymbolId declare_callable(std::string const &name, SymbolMap &scope, 
             CallableNode *node);
 
@@ -94,15 +80,8 @@ public:
     // Returns size of resolved container
     void resolve_local_container();
 
-    void open_inline_call(BaseNode *params, 
-            std::vector<SymbolId> const &param_ids);
-    void use_inline_param(uint32_t index);
-    void close_inline_call(std::vector<SymbolId> const &param_ids);
-
     void call(SymbolId id, BaseNode *params);
     void push_callable_addr(SymbolId id);
-
-    void dump_symbol_table() const;
 
     void add_instr(OpCode opcode, FuncCode funccode = FuncCode::Nop);
     void add_instr(OpCode opcode, uint32_t data, bool references_label = false);
@@ -114,14 +93,18 @@ public:
     uint32_t get_label();
     uint32_t get_stack_size() const;
 
-    void load_predefined(SymbolMap &symbol_map);
-
     void serialize(BaseNode *root);
     std::vector<uint32_t> assemble();
     void disassemble() const;
+
+    SymbolTable &symbol_table();
+    InlineFrames &inline_frames();
 private:
     void add_entry(StackEntry const &entry);
-    std::vector<SymbolEntry> m_symbol_table;
+
+    SymbolTable m_symbol_table;
+    InlineFrames m_inline_frames;
+
     std::vector<JobEntry> m_code_jobs;
     LabelMap m_labels;
     // First used to give each symbol a unique id, then to attach labels
@@ -131,8 +114,7 @@ private:
     uint32_t m_counter;
     std::vector<StackEntry> m_stack;
     std::stack<std::vector<SymbolId>> m_containers;
-    std::stack<std::pair<SymbolId, BaseNode *>> m_inline_params;
-    CallableMap m_callables;
+    CallableMap m_callable_map;
 };
 
 #endif

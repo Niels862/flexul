@@ -122,8 +122,6 @@ std::string Token::type_string(TokenType type) {
             return "lambda";
         case TokenType::Var:
             return "var";
-        case TokenType::Alias:
-            return "alias";
         default:
             return "errortype";
     }

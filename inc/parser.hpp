@@ -41,7 +41,6 @@ private:
     BaseNode *parse_for();
     BaseNode *parse_while();
     BaseNode *parse_var_declaration();
-    BaseNode *parse_alias();
     BaseNode *parse_expression();
     BaseNode *parse_assignment();
     BaseNode *parse_lambda();

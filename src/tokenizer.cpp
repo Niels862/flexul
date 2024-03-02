@@ -16,8 +16,7 @@ SyntaxMap const &default_syntax_map = {
     {"while", TokenType::While},
     {"for", TokenType::For},
     {"lambda", TokenType::Lambda},
-    {"var", TokenType::Var},
-    {"alias", TokenType::Alias}
+    {"var", TokenType::Var}
 };
 
 Tokenizer::Tokenizer()
