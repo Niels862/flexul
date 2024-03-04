@@ -193,9 +193,9 @@ BaseNode *Parser::parse_function_declaration() {
     if (!ident) {
         ident = expect_type(TokenType::Operator);
     }
-    std::vector<Token> param_list = parse_param_declaration();
+    CallableSignature signature = parse_param_declaration();
     BaseNode *body = parse_braced_block(false);
-    return add(new FunctionNode(fn_token, ident, param_list, body));
+    return add(new FunctionNode(fn_token, ident, signature.params, body));
 }
 
 BaseNode *Parser::parse_inline_declaration() {
@@ -204,25 +204,24 @@ BaseNode *Parser::parse_inline_declaration() {
     if (!ident) {
         ident = expect_type(TokenType::Operator);
     }
-    std::vector<Token> param_list = parse_param_declaration();
+    CallableSignature signature = parse_param_declaration();
     expect_data(":");
     BaseNode *body = parse_expression();
     expect_data(";");
-    return add(new InlineNode(inline_token, ident, param_list, body));
+    return add(new InlineNode(inline_token, ident, signature.params, body));
 }
 
-BaseNode *Parser::parse_param_list(Token const &end_token) {
+BaseNode *Parser::parse_param_list() {
     std::vector<BaseNode *> params;
 
-    if (m_curr_token == end_token) {
-        get_token();
-    } else {
+    expect_data("(");
+    if (!accept_data(")")) {
         while (true) {
             params.push_back(parse_expression());
             if (m_curr_token.data() == ",") {
                 get_token();
             } else {
-                expect_token(end_token);
+                expect_data(")");
                 break;
             }
         }
@@ -230,20 +229,28 @@ BaseNode *Parser::parse_param_list(Token const &end_token) {
     return add(new ExpressionListNode(Token::synthetic("<params>"), params));
 }
 
-std::vector<Token> Parser::parse_param_declaration() {
-    std::vector<Token> params;
+CallableSignature Parser::parse_param_declaration() {
+    CallableSignature signature;
 
     expect_data("(");
     if (!accept_data(")")) {
         while (true) {
-            params.push_back(expect_type(TokenType::Identifier));
+            signature.params.push_back(expect_type(TokenType::Identifier));
+            if (accept_data(":")) {
+                expect_type(TokenType::Identifier);
+            }
+            signature.param_types.push_back(nullptr);
             if (!accept_data(",")) {
                 expect_data(")");
                 break;
             }
         }
     }
-    return params;
+    if (accept_data("->")) {
+        expect_type(TokenType::Identifier);
+    }
+    signature.return_type = nullptr;
+    return signature;
 }
 
 BaseNode *Parser::parse_braced_block(bool is_scope) {
@@ -388,9 +395,10 @@ BaseNode *Parser::parse_assignment() {
 
 BaseNode *Parser::parse_lambda() {
     Token token = expect_type(TokenType::Lambda);
-    std::vector<Token> params = parse_param_declaration();
+    CallableSignature signature = parse_param_declaration();
+    expect_data(":");
     BaseNode *body = parse_expression();
-    return add(new LambdaNode(token, params, 
+    return add(new LambdaNode(token, signature.params, 
             add(new ReturnNode(Token::synthetic("<lambda-return>"), body))));
 }
 
@@ -504,9 +512,8 @@ BaseNode *Parser::parse_postfix(BaseNode *value) {
 
     while (true) {
         Token token = m_curr_token;
-        if (accept_data("(")) {
-            BaseNode *param_list = parse_param_list(
-            Token(TokenType::Separator, ")"));
+        if (check_data("(")) {
+            BaseNode *param_list = parse_param_list();
             value = add(new CallNode(value, param_list));
         } else if (accept_data("[")) {
             BaseNode *subscript = parse_expression();

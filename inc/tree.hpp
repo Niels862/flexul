@@ -8,6 +8,12 @@
 #include <unordered_map>
 #include <optional>
 
+struct CallableSignature {
+    std::vector<Token> params;
+    std::vector<TypeNode *> param_types;
+    TypeNode *return_type;
+};
+
 class Serializer; 
 
 class TypeNode;
@@ -230,6 +236,8 @@ public:
 private:
     Token m_ident;
     std::vector<Token> m_params;
+
+    CallableSignature m_signature;
 };
 
 class FunctionNode : public CallableNode {

@@ -6,5 +6,5 @@ fn func(f, x) {
 }
 
 fn main() {
-    return func(lambda a, b: a + b, 2);
+    return func(lambda(a, b): a + b, 2);
 }
