@@ -41,6 +41,7 @@ private:
     CallableSignature parse_param_declaration();
     BaseNode *parse_braced_block(bool is_scope);
     BaseNode *parse_type_declaration();
+    TypeNode *parse_type();
     BaseNode *parse_statement();
     BaseNode *parse_if_else();
     BaseNode *parse_for();

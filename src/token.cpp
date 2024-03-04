@@ -106,8 +106,8 @@ std::string Token::type_string(TokenType type) {
             return "function";
         case TokenType::Inline:
             return "inline";
-        case TokenType::Type:
-            return "type";
+        case TokenType::TypeDef:
+            return "typedef";
         case TokenType::Return:
             return "return";
         case TokenType::Include:

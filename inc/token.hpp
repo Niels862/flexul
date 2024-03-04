@@ -6,7 +6,7 @@
 
 enum class TokenType {
     Null, Identifier, IntLit, Keyword, Operator, Separator, 
-    Function, Inline, Type, Return, Include, If, Else, While, For, Lambda, Var,
+    Function, Inline, TypeDef, Return, Include, If, Else, While, For, Lambda, Var,
     Synthetic, EndOfFile
 };
 

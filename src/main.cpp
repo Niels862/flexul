@@ -33,6 +33,7 @@ std::vector<uint32_t> compile(ArgParser const &args) {
         std::cerr << "Syntax Tree:" << std::endl;
         BaseNode::print(root);
     }
+    delete root;
     if (args.get("symbols")) {
         std::cerr << "Symbol Table:" << std::endl;
         serializer.symbol_table().dump();

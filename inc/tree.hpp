@@ -8,16 +8,9 @@
 #include <unordered_map>
 #include <optional>
 
-
 class Serializer; 
 
 class TypeNode;
-
-struct CallableSignature {
-    std::vector<Token> params;
-    std::vector<TypeNode *> param_types;
-    TypeNode *return_type;
-};
 
 class BaseNode {
 public:
@@ -64,16 +57,27 @@ public:
 class NamedTypeNode : public TypeNode {
 public:
     NamedTypeNode(Token ident);
+};
+
+class TypeListNode : public TypeNode {
+public:
+    TypeListNode(std::vector<TypeNode *> type_list);
 private:
-    Token m_ident;
+    std::vector<TypeNode *> m_type_list;
 };
 
 class CallableTypeNode : public TypeNode {
 public:
-    CallableTypeNode(TypeNode *param_types, TypeNode *return_type);
+    CallableTypeNode(Token token, TypeListNode *param_types, 
+            TypeNode *return_type);
 private:
-    std::vector<TypeNode *> m_param_types;
-    TypeNode *return_type;
+    TypeListNode *m_param_types;
+    TypeNode *m_return_type;
+};
+
+struct CallableSignature {
+    std::vector<Token> params;
+    CallableTypeNode *type;
 };
 
 class EmptyNode : public BaseNode {

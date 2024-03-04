@@ -1,4 +1,5 @@
 #include "tree.hpp"
+#include "utils.hpp"
 #include <iostream>
 
 BaseNode::BaseNode(Token token, std::vector<BaseNode *> children)
@@ -20,6 +21,9 @@ void BaseNode::resolve_symbols_second_pass(
         Serializer &serializer, SymbolMap &global_scope, 
         SymbolMap &enclosing_scope, SymbolMap &current_scope) {
     for (BaseNode *child : children()) {
+        if (child == nullptr) {
+            continue; // todo fix better
+        }
         child->resolve_symbols_second_pass(serializer, global_scope, 
                 enclosing_scope, current_scope);
     }
@@ -90,12 +94,15 @@ TypeNode::TypeNode(Token token, std::vector<BaseNode *> children)
 void TypeNode::serialize(Serializer &) const {}
 
 NamedTypeNode::NamedTypeNode(Token ident)
-        : TypeNode(ident, {}), m_ident(ident) {}
+        : TypeNode(ident, {}) {}
 
-CallableTypeNode::CallableTypeNode(TypeNode *param_types, 
+TypeListNode::TypeListNode(std::vector<TypeNode *> type_list)
+        : TypeNode(Token::synthetic("<type-list>"), 
+        derive_vector<BaseNode *>(type_list)), m_type_list(type_list) {}
+
+CallableTypeNode::CallableTypeNode(Token token, TypeListNode *param_types, 
         TypeNode *return_type)
-        : TypeNode(Token::synthetic("<call-type>"), 
-                {param_types, return_type}) {}
+        : TypeNode(token, {param_types, return_type}) {}
 
 EmptyNode::EmptyNode()
         : BaseNode(Token::synthetic("<empty>"), {}) {}
@@ -369,7 +376,7 @@ void ScopedBlockNode::serialize(Serializer &serializer) const {
 
 CallableNode::CallableNode(Token token, Token ident, 
         CallableSignature signature, BaseNode *body)
-        : BaseNode(token, {body}), m_ident(ident), 
+        : BaseNode(token, {signature.type, body}), m_ident(ident), 
         m_signature(signature) {}
 
 bool CallableNode::is_matching_call(BaseNode *params) const {
@@ -460,7 +467,6 @@ void InlineNode::resolve_symbols_second_pass(
     SymbolMap function_scope;
     uint32_t position = 0;
     for (Token const &param : params()) {
-
         SymbolId id = serializer.symbol_table().declare(param.data(), 
                 function_scope, StorageType::InlineReference, position);
         m_param_ids.push_back(id);
@@ -542,7 +548,6 @@ void ExpressionListNode::serialize(Serializer &serializer) const {
         child->serialize(serializer);
     }
 }
-
 
 IfNode::IfNode(Token token, BaseNode *cond, BaseNode *case_true)
         : BaseNode(token, {cond, case_true}) {}
