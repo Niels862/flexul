@@ -8,15 +8,16 @@
 #include <unordered_map>
 #include <optional>
 
+
+class Serializer; 
+
+class TypeNode;
+
 struct CallableSignature {
     std::vector<Token> params;
     std::vector<TypeNode *> param_types;
     TypeNode *return_type;
 };
-
-class Serializer; 
-
-class TypeNode;
 
 class BaseNode {
 public:
@@ -221,8 +222,8 @@ private:
 
 class CallableNode : public BaseNode {
 public:
-    CallableNode(Token token, Token name, std::vector<Token> params, 
-            BaseNode *body);
+    CallableNode(Token token, Token ident, 
+            CallableSignature signature, BaseNode *body);
     
     bool is_matching_call(BaseNode *params) const;
     virtual void serialize_call(Serializer &serializer, 
@@ -235,15 +236,13 @@ public:
     size_t const Body = 0;
 private:
     Token m_ident;
-    std::vector<Token> m_params;
-
     CallableSignature m_signature;
 };
 
 class FunctionNode : public CallableNode {
 public:
-    FunctionNode(Token token, Token ident, std::vector<Token> params, 
-            BaseNode *body);
+    FunctionNode(Token token, Token ident, 
+            CallableSignature signature, BaseNode *body);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
@@ -251,18 +250,18 @@ public:
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
-    void serialize_call(Serializer &serializer, BaseNode *params) const;
+    void serialize_call(Serializer &serializer, 
+            BaseNode *params) const override;
 
     std::string label() const;
-
 private:
     uint32_t m_frame_size;
 };
 
 class InlineNode : public CallableNode {
 public:
-    InlineNode(Token token, Token ident, std::vector<Token> params, 
-            BaseNode *body);
+    InlineNode(Token token, Token ident, 
+            CallableSignature signature, BaseNode *body);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
@@ -270,27 +269,29 @@ public:
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
-    void serialize_call(Serializer &serializer, BaseNode *params) const;
+    void serialize_call(Serializer &serializer, 
+            BaseNode *params) const override;
 
     std::string get_label() const;
 private:
     std::vector<SymbolId> m_param_ids;
 };
 
-class LambdaNode : public BaseNode {
+class LambdaNode : public CallableNode {
 public:
-    LambdaNode(Token token, std::vector<Token>, BaseNode *body);
+    LambdaNode(Token token, 
+            CallableSignature signature, BaseNode *body);
 
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
+    // Note: lambda call is serialized upon call to serialize,
+    // body is also added as new code job
+    void serialize_call(Serializer &serializer, 
+            BaseNode *params) const override;
 
     std::string label() const;
-private:
-    size_t const Body = 0;
-
-    std::vector<Token> m_params;
 };
 
 class TypeDeclarationNode : public BaseNode {

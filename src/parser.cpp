@@ -195,7 +195,7 @@ BaseNode *Parser::parse_function_declaration() {
     }
     CallableSignature signature = parse_param_declaration();
     BaseNode *body = parse_braced_block(false);
-    return add(new FunctionNode(fn_token, ident, signature.params, body));
+    return add(new FunctionNode(fn_token, ident, signature, body));
 }
 
 BaseNode *Parser::parse_inline_declaration() {
@@ -208,7 +208,7 @@ BaseNode *Parser::parse_inline_declaration() {
     expect_data(":");
     BaseNode *body = parse_expression();
     expect_data(";");
-    return add(new InlineNode(inline_token, ident, signature.params, body));
+    return add(new InlineNode(inline_token, ident, signature, body));
 }
 
 BaseNode *Parser::parse_param_list() {
@@ -398,7 +398,7 @@ BaseNode *Parser::parse_lambda() {
     CallableSignature signature = parse_param_declaration();
     expect_data(":");
     BaseNode *body = parse_expression();
-    return add(new LambdaNode(token, signature.params, 
+    return add(new LambdaNode(token, signature, 
             add(new ReturnNode(Token::synthetic("<lambda-return>"), body))));
 }
 

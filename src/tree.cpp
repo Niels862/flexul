@@ -367,9 +367,10 @@ void ScopedBlockNode::serialize(Serializer &serializer) const {
     }
 }
 
-CallableNode::CallableNode(Token token, Token ident, std::vector<Token> params, 
-        BaseNode *body)
-        : BaseNode(token, {body}), m_ident(ident), m_params(params) {}
+CallableNode::CallableNode(Token token, Token ident, 
+        CallableSignature signature, BaseNode *body)
+        : BaseNode(token, {body}), m_ident(ident), 
+        m_signature(signature) {}
 
 bool CallableNode::is_matching_call(BaseNode *params) const {
     return params->children().size() == n_params();
@@ -379,16 +380,16 @@ Token const &CallableNode::ident() const {
     return m_ident;
 }
 std::vector<Token> const &CallableNode::params() const {
-    return m_params;
+    return m_signature.params;
 }
 
 uint32_t CallableNode::n_params() const {
-    return m_params.size();
+    return m_signature.params.size();
 }
 
-FunctionNode::FunctionNode(Token token, Token ident, std::vector<Token> params, 
-        BaseNode *body)
-        : CallableNode(token, ident, params, body) {}
+FunctionNode::FunctionNode(Token token, Token ident, 
+        CallableSignature signature, BaseNode *body)
+        : CallableNode(token, ident, signature, body) {}
 
 void FunctionNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
@@ -441,9 +442,9 @@ std::string FunctionNode::label() const {
             + tokenlist_to_string(params()) + ")";
 }
 
-InlineNode::InlineNode(Token token, Token ident, std::vector<Token> params, 
-        BaseNode *body)
-        : CallableNode(token, ident, params, body), m_param_ids() {}
+InlineNode::InlineNode(Token token, Token ident, 
+        CallableSignature signature, BaseNode *body)
+        : CallableNode(token, ident, signature, body), m_param_ids() {}
 
 void InlineNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
@@ -483,16 +484,19 @@ std::string InlineNode::get_label() const {
             + tokenlist_to_string(params()) + ")";
 }
 
-LambdaNode::LambdaNode(Token token, std::vector<Token> params, BaseNode *expr)
-        : BaseNode(token, {expr}), m_params(params) {}
+LambdaNode::LambdaNode(Token token, 
+        CallableSignature signature, BaseNode *expr)
+        : CallableNode(
+            token, Token::synthetic("<anonymous>"), 
+            signature, {expr}) {}
 
 void LambdaNode::resolve_symbols_second_pass(
         Serializer &serializer, SymbolMap &global_scope, 
         SymbolMap &, SymbolMap &) {
     SymbolMap empty_scope;
     SymbolMap lambda_scope;
-    uint32_t position = -3 - m_params.size();
-    for (Token const &param : m_params) {
+    uint32_t position = -3 - n_params();
+    for (Token const &param : params()) {
         serializer.symbol_table().declare(param.data(), lambda_scope, 
                 StorageType::Relative, position);
         position++;
@@ -507,8 +511,10 @@ void LambdaNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Push, id, true);
 }
 
+void LambdaNode::serialize_call(Serializer &, BaseNode *) const {}
+
 std::string LambdaNode::label() const {
-    return token().data() + " (" + tokenlist_to_string(m_params) + ")";
+    return token().data() + " (" + tokenlist_to_string(params()) + ")";
 }
 
 TypeDeclarationNode::TypeDeclarationNode(
