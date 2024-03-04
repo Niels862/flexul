@@ -8,7 +8,9 @@
 #include <unordered_map>
 #include <optional>
 
-class Serializer;
+class Serializer; 
+
+class TypeNode;
 
 class BaseNode {
 public:
@@ -35,12 +37,36 @@ public:
     void set_id(SymbolId id);
     SymbolId id() const;
 
-    static void print(BaseNode *node, std::string const labelPrefix = "", 
-            std::string const branchPrefix = "");
+    static void print(BaseNode *node,
+            std::string const &label_prefix = "", 
+            std::string const &branch_prefix = "");
 private:
     Token m_token;
     std::vector<BaseNode *> m_children;
+    TypeNode *m_type;
     SymbolId m_id;
+};
+
+class TypeNode : public BaseNode {
+public:
+    TypeNode(Token token, std::vector<BaseNode *> children);
+
+    void serialize(Serializer &serializer) const override;
+};
+
+class NamedTypeNode : public TypeNode {
+public:
+    NamedTypeNode(Token ident);
+private:
+    Token m_ident;
+};
+
+class CallableTypeNode : public TypeNode {
+public:
+    CallableTypeNode(TypeNode *param_types, TypeNode *return_type);
+private:
+    std::vector<TypeNode *> m_param_types;
+    TypeNode *return_type;
 };
 
 class EmptyNode : public BaseNode {
@@ -196,9 +222,9 @@ public:
     virtual void serialize_call(Serializer &serializer, 
             BaseNode *params) const = 0;
 
-    Token const &get_ident() const;
-    std::vector<Token> const &get_params() const;
-    uint32_t get_n_params() const;
+    Token const &ident() const;
+    std::vector<Token> const &params() const;
+    uint32_t n_params() const;
 
     size_t const Body = 0;
 private:
@@ -219,7 +245,7 @@ public:
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, BaseNode *params) const;
 
-    std::string get_label() const;
+    std::string label() const;
 
 private:
     uint32_t m_frame_size;
@@ -259,6 +285,19 @@ private:
     std::vector<Token> m_params;
 };
 
+class TypeDeclarationNode : public BaseNode {
+public:
+    TypeDeclarationNode(Token token, Token ident);
+
+    void resolve_symbols_first_pass(
+            Serializer &serializer, SymbolMap &symbol_map) override;
+    void serialize(Serializer &serializer) const override;
+
+    std::string label() const override;
+private:
+    Token m_ident;
+};
+
 class ExpressionListNode : public BaseNode {
 public:
     ExpressionListNode(Token token, std::vector<BaseNode *> children);
@@ -294,9 +333,9 @@ private:
     size_t const RetValue = 0;
 };
 
-class DeclarationNode : public BaseNode {
+class VarDeclarationNode : public BaseNode {
 public:
-    DeclarationNode(Token token, Token ident, BaseNode *size, 
+    VarDeclarationNode(Token token, Token ident, BaseNode *size, 
             BaseNode *init_value);
 
     void resolve_symbols_first_pass(
@@ -306,7 +345,7 @@ public:
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 
-    std::string label() const;
+    std::string label() const override;
 private:
     size_t const Size = 0, InitValue = 1;
 

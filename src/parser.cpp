@@ -162,6 +162,8 @@ BaseNode *Parser::parse_filebody() {
             node = parse_function_declaration();
         } else if (check_type(TokenType::Inline)) {
             node = parse_inline_declaration();
+        } else if (check_type(TokenType::Type)) {
+            node = parse_type_declaration();
         } else if (check_type(TokenType::Var)) {
             node = parse_var_declaration();
             expect_data(";");
@@ -191,9 +193,7 @@ BaseNode *Parser::parse_function_declaration() {
     if (!ident) {
         ident = expect_type(TokenType::Operator);
     }
-    expect_data("(");
-    std::vector<Token> param_list = parse_param_declaration(
-            Token(TokenType::Separator, ")"));
+    std::vector<Token> param_list = parse_param_declaration();
     BaseNode *body = parse_braced_block(false);
     return add(new FunctionNode(fn_token, ident, param_list, body));
 }
@@ -204,9 +204,7 @@ BaseNode *Parser::parse_inline_declaration() {
     if (!ident) {
         ident = expect_type(TokenType::Operator);
     }
-    expect_data("(");
-    std::vector<Token> param_list = parse_param_declaration(
-            Token(TokenType::Separator, ")"));
+    std::vector<Token> param_list = parse_param_declaration();
     expect_data(":");
     BaseNode *body = parse_expression();
     expect_data(";");
@@ -232,16 +230,15 @@ BaseNode *Parser::parse_param_list(Token const &end_token) {
     return add(new ExpressionListNode(Token::synthetic("<params>"), params));
 }
 
-std::vector<Token> Parser::parse_param_declaration(Token const &end_token) {
+std::vector<Token> Parser::parse_param_declaration() {
     std::vector<Token> params;
 
-    if (m_curr_token == end_token) {
-        get_token();
-    } else {
+    expect_data("(");
+    if (!accept_data(")")) {
         while (true) {
             params.push_back(expect_type(TokenType::Identifier));
             if (!accept_data(",")) {
-                expect_token(end_token);
+                expect_data(")");
                 break;
             }
         }
@@ -260,6 +257,13 @@ BaseNode *Parser::parse_braced_block(bool is_scope) {
         return add(new ScopedBlockNode(statements));
     }
     return add(new BlockNode(statements));
+}
+
+BaseNode *Parser::parse_type_declaration() {
+    Token token = expect_type(TokenType::Type);
+    Token ident = expect_type(TokenType::Identifier);
+    expect_data(";");
+    return add(new TypeDeclarationNode(token, ident));
 }
 
 BaseNode *Parser::parse_statement() {
@@ -340,7 +344,7 @@ BaseNode *Parser::parse_var_declaration() {
         if (accept_data("=")) {
             init_value = parse_expression();
         }
-        nodes.push_back(add(new DeclarationNode(
+        nodes.push_back(add(new VarDeclarationNode(
                 token, ident, size, init_value)));
     } while (accept_data(","));
 
@@ -384,8 +388,7 @@ BaseNode *Parser::parse_assignment() {
 
 BaseNode *Parser::parse_lambda() {
     Token token = expect_type(TokenType::Lambda);
-    std::vector<Token> params = parse_param_declaration(
-            Token(TokenType::Operator, ":"));
+    std::vector<Token> params = parse_param_declaration();
     BaseNode *body = parse_expression();
     return add(new LambdaNode(token, params, 
             add(new ReturnNode(Token::synthetic("<lambda-return>"), body))));

@@ -141,10 +141,10 @@ bool StackEntry::combine(StackEntry const &right, StackEntry &combined) const {
                     value = left_value + right_value;
                     break;
                 case FuncCode::Sub:
-                    value = left_value + right_value;
+                    value = left_value - right_value;
                     break;
                 case FuncCode::Mul:
-                    value = left_value + right_value;
+                    value = left_value * right_value;
                     break;
                 case FuncCode::Div:
                     value = left_value / right_value;

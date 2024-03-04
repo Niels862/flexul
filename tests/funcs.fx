@@ -1,3 +1,5 @@
+include core;
+
 fn f() {
     return g(1, 2) + g(3, 4);
 }

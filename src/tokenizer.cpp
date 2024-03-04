@@ -9,6 +9,7 @@
 SyntaxMap const &default_syntax_map = {
     {"fn", TokenType::Function},
     {"inline", TokenType::Inline},
+    {"type", TokenType::Type},
     {"return", TokenType::Return},
     {"include", TokenType::Include},
     {"if", TokenType::If},

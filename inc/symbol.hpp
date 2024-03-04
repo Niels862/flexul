@@ -17,7 +17,8 @@ enum class StorageType {
     Relative,
     Intrinsic,
     Callable,
-    InlineReference
+    InlineReference,
+    Type
 };
 
 using SymbolId = uint32_t;
@@ -55,7 +56,6 @@ public:
 
     SymbolId next_id();
     SymbolEntry const &get(SymbolId id) const;
-    SymbolEntry &get(SymbolId id) { return m_table[id]; } // TEMP
     SymbolId declare(std::string const &symbol, SymbolMap &scope, 
             StorageType storage_type, uint32_t value = 0, 
             uint32_t size = 1);

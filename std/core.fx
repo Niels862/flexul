@@ -11,3 +11,5 @@ inline <(x, y): __ilt__(x, y);
 inline <=(x, y): __ile__(x, y);
 inline >(x, y): __ilt__(y, x);
 inline >=(x, y): __ile__(y, x);
+
+inline exit(x): __exit__(x);

@@ -1,12 +1,12 @@
 include core;
 
 inline putc(x): __putc__(x);
-inline getc(x): __getc__(x);
+inline getc(): __getc__();
 
-fn print_string(s) {
+fn print_string(str) {
     var i = 0;
     while (1) {
-        var c = (*s)[i];
+        var c = str[i];
         if (c) {
             putc(c);
         } else {
@@ -17,7 +17,7 @@ fn print_string(s) {
 }
 
 fn print_number(x) {
-    var string[12];
+    var str[12];
     if (x == 0) {
         putc('0');
         putc('\n');
@@ -27,14 +27,14 @@ fn print_number(x) {
         putc('-');
         x = -x;
     }
-    string[11] = '\0';
+    str[11] = '\0';
     var i = 10;
     while (x) {
         var d = x % 10;
         x = x / 10;
-        string[i] = 48 + d;
+        str[i] = 48 + d;
         i = i - 1;
     }
-    print_string(&string + i + 1);
+    print_string(str + i + 1);
     putc('\n');
 }

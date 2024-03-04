@@ -1,4 +1,5 @@
 include core;
+include io;
 
 var pool[1024];
 var used[256];
@@ -22,13 +23,13 @@ fn alloc() {
             return pool + 4 * i;
         }
     }
-    __exit__(1);
+    exit(1);
 }
 
 fn free(p) {
     var i = (p - pool) / 4;
     if (i < 0 || i >= 256) {
-        __exit__(1);
+        exit(1);
     }
     used[i] = 0;
     if (i < min_free) {
@@ -36,21 +37,13 @@ fn free(p) {
     }
 }
 
-fn tree_type(node) {
-    return *node;
-}
+inline tree_type(node): *node;
 
-fn tree_data(node) {
-    return *(node + 1);
-}
+inline tree_data(node): *(node + 1);
 
-fn tree_left(node) {
-    return *(node + 2);
-}
+inline tree_left(node): *(node + 2);
 
-fn tree_right(node) {
-    return *(node + 3);
-}
+inline tree_right(node): *(node + 3);
 
 fn tree_new(type, data, left, right) {
     var node = alloc();
@@ -61,43 +54,37 @@ fn tree_new(type, data, left, right) {
     return node;
 }
 
-fn tree_abstraction(ident, body) {
-    return tree_new(0, 0, tree_new(2, ident, 0, 0), body);
-}
+inline tree_abstraction(ident, body): tree_new(0, 0, tree_new(2, ident, 0, 0), body);
 
-fn tree_application(left, right) {
-    return tree_new(1, 0, left, right);
-}
+inline tree_application(left, right): tree_new(1, 0, left, right);
 
-fn tree_variable(ident) {
-    return tree_new(2, ident, 0, 0);
-}
+inline tree_variable(ident): tree_new(2, ident, 0, 0);
 
 fn tree_print_rec(node) {
     var type = tree_type(node);
     if (type == 0) {
-        __putc__('(');
-        __putc__('\\');
+        putc('(');
+        putc('\\');
         tree_print_rec(tree_left(node));
-        __putc__(' ');
+        putc(' ');
         tree_print_rec(tree_right(node));
-        __putc__(')');
+        putc(')');
         return 0;
     }
     if (type == 1) {
-        __putc__('(');
+        putc('(');
         tree_print_rec(tree_left(node));
-        __putc__(' ');
+        putc(' ');
         tree_print_rec(tree_right(node));
-        __putc__(')');
+        putc(')');
         return 0;
     }
-    __putc__(tree_data(node));    
+    putc(tree_data(node));    
 }
 
 fn tree_print(node) {
     tree_print_rec(node);
-    __putc__('\n');
+    putc('\n');
 }
 
 fn tree_destruct(node) {
@@ -105,15 +92,15 @@ fn tree_destruct(node) {
         return 0;
     }
     free(node);
-    tree_destruct(*(node + 2));
-    tree_destruct(*(node + 3));
+    tree_destruct(tree_left(node));
+    tree_destruct(tree_right(node));
 }
 
 fn check_leaks() {
     var i;
     for (i = 0; i < 256; i = i + 1) {
         if (used[i]) {
-            __exit__(2);
+            exit(2);
         }
     }
 }
@@ -126,9 +113,9 @@ fn next_token() {
     if (token == '\n') {
         return '\n';
     }
-    token = __getc__();
+    token = getc();
     while (token == ' ') {
-        token = __getc__();
+        token = getc();
     }
     return token;
 }
@@ -139,7 +126,7 @@ fn expect_token(expected) {
         next_token();
         return saved;
     }
-    __exit__(1);
+    exit(1);
 }
 
 fn accept_token(accepted) {
@@ -157,7 +144,7 @@ fn assert_token(f) {
         next_token();
         return saved;
     }
-    __exit__(1);
+    exit(1);
 }
 
 fn parse_application() {
@@ -200,8 +187,8 @@ fn parse() {
 
 fn main() {
     setup();
-    __putc__('>');
-    __putc__(' ');
+    putc('>');
+    putc(' ');
     var node = parse();
     tree_print(node);
     tree_destruct(node);

@@ -58,31 +58,44 @@ SymbolId BaseNode::id() const {
     return m_id;
 }
 
-void BaseNode::print(BaseNode *node, std::string const labelPrefix, 
-        std::string const branchPrefix) {
+void BaseNode::print(BaseNode *node,
+        std::string const &label_prefix, 
+        std::string const &branch_prefix) {
     size_t i;
     if (node == nullptr) {
-        std::cerr << labelPrefix << "(null)" << std::endl;
+        std::cerr << label_prefix << "(null)" << std::endl;
         return;
     }
-    std::cerr << labelPrefix << node->label();
+    std::cerr << label_prefix << node->label();
     if (node->id() != 0) {
-        std::cerr << " (" << node->id() << ")" << std::endl;
-    } else {
-        std::cerr << std::endl;
+        std::cerr << " (" << node->id() << ")";
     }
+    std::cerr << std::endl;
     if (node->children().empty()) {
         return;
     }
     for (i = 0; i < node->children().size() - 1; i++) {
-        BaseNode::print(node->children()[i], 
-                branchPrefix + "\u251C\u2500", 
-                branchPrefix + "\u2502 ");
+        BaseNode::print(node->children()[i],
+                branch_prefix + "\u251C\u2500", 
+                branch_prefix + "\u2502 ");
     }
-    BaseNode::print(node->children()[i], 
-            branchPrefix + "\u2570\u2500", 
-            branchPrefix + "  ");
+    BaseNode::print(node->children()[i],
+            branch_prefix + "\u2570\u2500", 
+            branch_prefix + "  ");
 }
+
+TypeNode::TypeNode(Token token, std::vector<BaseNode *> children)
+        : BaseNode(token, children) {}
+
+void TypeNode::serialize(Serializer &) const {}
+
+NamedTypeNode::NamedTypeNode(Token ident)
+        : TypeNode(ident, {}), m_ident(ident) {}
+
+CallableTypeNode::CallableTypeNode(TypeNode *param_types, 
+        TypeNode *return_type)
+        : TypeNode(Token::synthetic("<call-type>"), 
+                {param_types, return_type}) {}
 
 EmptyNode::EmptyNode()
         : BaseNode(Token::synthetic("<empty>"), {}) {}
@@ -359,17 +372,17 @@ CallableNode::CallableNode(Token token, Token ident, std::vector<Token> params,
         : BaseNode(token, {body}), m_ident(ident), m_params(params) {}
 
 bool CallableNode::is_matching_call(BaseNode *params) const {
-    return params->children().size() == get_n_params();
+    return params->children().size() == n_params();
 }
 
-Token const &CallableNode::get_ident() const {
+Token const &CallableNode::ident() const {
     return m_ident;
 }
-std::vector<Token> const &CallableNode::get_params() const {
+std::vector<Token> const &CallableNode::params() const {
     return m_params;
 }
 
-uint32_t CallableNode::get_n_params() const {
+uint32_t CallableNode::n_params() const {
     return m_params.size();
 }
 
@@ -379,7 +392,7 @@ FunctionNode::FunctionNode(Token token, Token ident, std::vector<Token> params,
 
 void FunctionNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
-    set_id(serializer.declare_callable(get_ident().data(), 
+    set_id(serializer.declare_callable(ident().data(), 
             symbol_map, this));
     serializer.add_job(id(), this, false);
 }
@@ -391,8 +404,8 @@ void FunctionNode::resolve_symbols_second_pass(
     // for function
     SymbolMap empty_scope;
     SymbolMap function_scope;
-    uint32_t position = -3 - get_n_params();
-    for (Token const &param : get_params()) {
+    uint32_t position = -3 - n_params();
+    for (Token const &param : params()) {
         serializer.symbol_table().declare(param.data(), function_scope, 
                 StorageType::Relative, position);
         position++;
@@ -418,14 +431,14 @@ void FunctionNode::serialize_call(Serializer &serializer,
     if (params != nullptr) {
         params->serialize(serializer);
     }
-    serializer.add_instr(OpCode::Push, get_n_params());
+    serializer.add_instr(OpCode::Push, n_params());
     serializer.add_instr(OpCode::Push, id(), true);
     serializer.add_instr(OpCode::Call);
 }
 
-std::string FunctionNode::get_label() const {
-    return token().data() + " " + get_ident().data() + "(" 
-            + tokenlist_to_string(get_params()) + ")";
+std::string FunctionNode::label() const {
+    return token().data() + " " + ident().data() + "(" 
+            + tokenlist_to_string(params()) + ")";
 }
 
 InlineNode::InlineNode(Token token, Token ident, std::vector<Token> params, 
@@ -434,7 +447,7 @@ InlineNode::InlineNode(Token token, Token ident, std::vector<Token> params,
 
 void InlineNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
-    set_id(serializer.declare_callable(get_ident().data(), 
+    set_id(serializer.declare_callable(ident().data(), 
             symbol_map, this));
     serializer.add_job(id(), this, true);
 }
@@ -445,7 +458,7 @@ void InlineNode::resolve_symbols_second_pass(
     SymbolMap empty_scope;
     SymbolMap function_scope;
     uint32_t position = 0;
-    for (Token const &param : get_params()) {
+    for (Token const &param : params()) {
 
         SymbolId id = serializer.symbol_table().declare(param.data(), 
                 function_scope, StorageType::InlineReference, position);
@@ -466,8 +479,8 @@ void InlineNode::serialize_call(Serializer &serializer,
 }
 
 std::string InlineNode::get_label() const {
-    return token().data() + " " + get_ident().data() + "(" 
-            + tokenlist_to_string(get_params()) + ")";
+    return token().data() + " " + ident().data() + "(" 
+            + tokenlist_to_string(params()) + ")";
 }
 
 LambdaNode::LambdaNode(Token token, std::vector<Token> params, BaseNode *expr)
@@ -498,6 +511,22 @@ std::string LambdaNode::label() const {
     return token().data() + " (" + tokenlist_to_string(m_params) + ")";
 }
 
+TypeDeclarationNode::TypeDeclarationNode(
+        Token token, Token ident)
+        : BaseNode(token, {}), m_ident(ident) {}
+
+void TypeDeclarationNode::resolve_symbols_first_pass(
+        Serializer &serializer, SymbolMap &symbol_map) {
+    set_id(serializer.symbol_table().declare(
+            m_ident.data(), symbol_map, StorageType::Type));
+}
+
+void TypeDeclarationNode::serialize(Serializer &) const {}
+
+std::string TypeDeclarationNode::label() const {
+    return token().data() + " " + m_ident.data();
+}
+
 ExpressionListNode::ExpressionListNode(
         Token token, std::vector<BaseNode *> children)
         : BaseNode(token, children) {}
@@ -507,6 +536,7 @@ void ExpressionListNode::serialize(Serializer &serializer) const {
         child->serialize(serializer);
     }
 }
+
 
 IfNode::IfNode(Token token, BaseNode *cond, BaseNode *case_true)
         : BaseNode(token, {cond, case_true}) {}
@@ -547,11 +577,11 @@ void ReturnNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Ret);
 }
 
-DeclarationNode::DeclarationNode(Token token, Token ident, BaseNode *size, 
+VarDeclarationNode::VarDeclarationNode(Token token, Token ident, BaseNode *size, 
         BaseNode *init_value)
         : BaseNode(token, {size, init_value}), m_ident(ident) {}
 
-void DeclarationNode::resolve_symbols_first_pass(
+void VarDeclarationNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &current_scope) {
     if (get(InitValue) != nullptr) {
         throw std::runtime_error("not implemented");
@@ -564,7 +594,7 @@ void DeclarationNode::resolve_symbols_first_pass(
     serializer.symbol_table().add_to_container(id());
 }
 
-void DeclarationNode::resolve_symbols_second_pass(
+void VarDeclarationNode::resolve_symbols_second_pass(
         Serializer &serializer, SymbolMap &global_scope, 
         SymbolMap &enclosing_scope, SymbolMap &current_scope) {
     if (get(InitValue) != nullptr) {
@@ -579,7 +609,7 @@ void DeclarationNode::resolve_symbols_second_pass(
     serializer.symbol_table().add_to_container(id());
 }
 
-void DeclarationNode::serialize(Serializer &serializer) const {
+void VarDeclarationNode::serialize(Serializer &serializer) const {
     if (get(InitValue) != nullptr) {
         SymbolEntry entry = serializer.symbol_table().get(id());
         serializer.add_instr(OpCode::LoadAddrRel, entry.value);
@@ -589,11 +619,11 @@ void DeclarationNode::serialize(Serializer &serializer) const {
     }
 }
 
-std::string DeclarationNode::label() const {
+std::string VarDeclarationNode::label() const {
     return token().data() + " " + m_ident.data();
 }
 
-uint32_t DeclarationNode::declared_size() const {
+uint32_t VarDeclarationNode::declared_size() const {
     if (get(Size) == nullptr) {
         return 1;
     }

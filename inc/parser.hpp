@@ -38,8 +38,9 @@ private:
     BaseNode *parse_function_declaration();
     BaseNode *parse_inline_declaration();
     BaseNode *parse_param_list(Token const &end_token);
-    std::vector<Token> parse_param_declaration(Token const &end_token);
+    std::vector<Token> parse_param_declaration();
     BaseNode *parse_braced_block(bool is_scope);
+    BaseNode *parse_type_declaration();
     BaseNode *parse_statement();
     BaseNode *parse_if_else();
     BaseNode *parse_for();

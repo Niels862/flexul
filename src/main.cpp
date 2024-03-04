@@ -28,11 +28,11 @@ std::vector<uint32_t> compile(ArgParser const &args) {
     Serializer serializer;
 
     BaseNode *root = parser.parse();
+    serializer.serialize(root);
     if (args.get("tree")) {
         std::cerr << "Syntax Tree:" << std::endl;
         BaseNode::print(root);
     }
-    serializer.serialize(root);
     if (args.get("symbols")) {
         std::cerr << "Symbol Table:" << std::endl;
         serializer.symbol_table().dump();
