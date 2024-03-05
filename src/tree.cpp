@@ -109,17 +109,6 @@ EmptyNode::EmptyNode()
 
 void EmptyNode::serialize(Serializer &) const {}
 
-LinkNode::LinkNode(BaseNode *link)
-        : BaseNode(Token::synthetic("<link>"), {}), link({link}) {}
-
-void LinkNode::serialize(Serializer &serializer) const {
-    link[0]->serialize(serializer);
-}
-
-std::vector<BaseNode *> const &LinkNode::children() const {
-    return link;
-}
-
 IntLitNode::IntLitNode(Token token)
         : BaseNode(token, {}), m_value(token.to_int()) {
 }
@@ -296,6 +285,29 @@ void IfElseNode::serialize(Serializer &serializer) const {
 CallNode::CallNode(BaseNode *func, BaseNode *args)
         : BaseNode(Token::synthetic("<call>"), {func, args}) {}
 
+std::unique_ptr<BaseNode> CallNode::make_call(Token ident, 
+        std::vector<std::unique_ptr<BaseNode>> params) {
+    return std::make_unique<CallNode>(
+            std::make_unique<VariableNode>(token), 
+            std::make_unique<ExpressionListNode>(
+                Token::synthetic("<params>"), params));
+}
+
+std::unique_ptr<BaseNode> CallNode::make_unary_call(Token ident, 
+        std::unique_ptr<BaseNode> param) {
+    std::vector<std::unique_ptr<BaseNode>> params = 
+            {std::move(param)};
+    return CallNode::make_call(ident, params);
+}
+
+std::unique_ptr<BaseNode> CallNode::make_binary_call(Token ident, 
+        std::unique_ptr<BaseNode> left, 
+        std::unique_ptr<BaseNode> right) {
+    std::vector<std::unique_ptr<BaseNode>> params = 
+            {std::move(left), std::move(right)};
+    return CallNode::make_call(ident, params);
+}
+
 void CallNode::serialize(Serializer &serializer) const {
     SymbolId id = get(Func)->id();
     SymbolEntry entry = serializer.symbol_table().get(id);
@@ -376,8 +388,9 @@ void ScopedBlockNode::serialize(Serializer &serializer) const {
 
 CallableNode::CallableNode(Token token, Token ident, 
         CallableSignature signature, BaseNode *body)
-        : BaseNode(token, {signature.type, body}), m_ident(ident), 
-        m_signature(signature) {}
+        : BaseNode(token, std::vector<BaseNode *>(
+            {&*signature.type, body})), m_ident(ident), 
+        m_signature(std::move(signature)) {}
 
 bool CallableNode::is_matching_call(BaseNode *params) const {
     return params->children().size() == n_params();
@@ -396,7 +409,7 @@ uint32_t CallableNode::n_params() const {
 
 FunctionNode::FunctionNode(Token token, Token ident, 
         CallableSignature signature, BaseNode *body)
-        : CallableNode(token, ident, signature, body) {}
+        : CallableNode(token, ident, std::move(signature), body) {}
 
 void FunctionNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
@@ -451,7 +464,7 @@ std::string FunctionNode::label() const {
 
 InlineNode::InlineNode(Token token, Token ident, 
         CallableSignature signature, BaseNode *body)
-        : CallableNode(token, ident, signature, body), m_param_ids() {}
+        : CallableNode(token, ident, std::move(signature), body), m_param_ids() {}
 
 void InlineNode::resolve_symbols_first_pass(
         Serializer &serializer, SymbolMap &symbol_map) {
@@ -494,7 +507,7 @@ LambdaNode::LambdaNode(Token token,
         CallableSignature signature, BaseNode *expr)
         : CallableNode(
             token, Token::synthetic("<anonymous>"), 
-            signature, {expr}) {}
+            std::move(signature), {expr}) {}
 
 void LambdaNode::resolve_symbols_second_pass(
         Serializer &serializer, SymbolMap &global_scope, 

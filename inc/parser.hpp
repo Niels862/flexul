@@ -11,18 +11,11 @@ class Parser {
 public:
     Parser();
     Parser(std::string const &filename);
-    ~Parser();
-    BaseNode *parse();
+    std::unique_ptr<BaseNode> parse();
 private:
     // Overrides curr_token
     void include_file(std::string const &filename);
 
-    template <typename T>
-    T add(T node);
-    BaseNode *add_unary(Token const &op, BaseNode *operand);
-    BaseNode *add_binary(Token const &op, BaseNode *left, BaseNode *right);
-    BaseNode *add_link(BaseNode *link);
-    void adopt(BaseNode *BaseNode);
     Token get_token();
     
     Token expect_data(std::string const &data);
@@ -33,34 +26,33 @@ private:
     Token check_data(std::string const &data) const;
     Token check_type(TokenType type) const;
 
-    BaseNode *parse_filebody();
+    std::unique_ptr<BaseNode> parse_filebody();
     void parse_include();
-    BaseNode *parse_function_declaration();
-    BaseNode *parse_inline_declaration();
-    BaseNode *parse_param_list();
+    std::unique_ptr<BaseNode> parse_function_declaration();
+    std::unique_ptr<BaseNode> parse_inline_declaration();
+    std::unique_ptr<BaseNode> parse_param_list();
     CallableSignature parse_param_declaration();
-    BaseNode *parse_braced_block(bool is_scope);
-    BaseNode *parse_type_declaration();
-    TypeNode *parse_type();
-    BaseNode *parse_statement();
-    BaseNode *parse_if_else();
-    BaseNode *parse_for();
-    BaseNode *parse_while();
-    BaseNode *parse_var_declaration();
-    BaseNode *parse_expression();
-    BaseNode *parse_assignment();
-    BaseNode *parse_lambda();
-    BaseNode *parse_ternary();
-    BaseNode *parse_or();
-    BaseNode *parse_and();
-    BaseNode *parse_equality_1();
-    BaseNode *parse_equality_2();
-    BaseNode *parse_sum();
-    BaseNode *parse_term();
-    BaseNode *parse_value();
-    BaseNode *parse_postfix(BaseNode *value);
+    std::unique_ptr<BaseNode> parse_braced_block(bool is_scope);
+    std::unique_ptr<BaseNode> parse_type_declaration();
+    std::unique_ptr<TypeNode> parse_type();
+    std::unique_ptr<BaseNode> parse_statement();
+    std::unique_ptr<BaseNode> parse_if_else();
+    std::unique_ptr<BaseNode> parse_for();
+    std::unique_ptr<BaseNode> parse_while();
+    std::unique_ptr<BaseNode> parse_var_declaration();
+    std::unique_ptr<BaseNode> parse_expression();
+    std::unique_ptr<BaseNode> parse_assignment();
+    std::unique_ptr<BaseNode> parse_lambda();
+    std::unique_ptr<BaseNode> parse_ternary();
+    std::unique_ptr<BaseNode> parse_or();
+    std::unique_ptr<BaseNode> parse_and();
+    std::unique_ptr<BaseNode> parse_equality_1();
+    std::unique_ptr<BaseNode> parse_equality_2();
+    std::unique_ptr<BaseNode> parse_sum();
+    std::unique_ptr<BaseNode> parse_term();
+    std::unique_ptr<BaseNode> parse_value();
+    std::unique_ptr<BaseNode> parse_postfix(std::unique_ptr<BaseNode> value);
     
-    std::unordered_set<BaseNode *> m_trees;
     std::stack<Tokenizer> m_tokenizers;
     Token m_curr_token;
     std::unordered_set<std::string> m_included_files;

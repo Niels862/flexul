@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <optional>
+#include <memory>
 
 class Serializer; 
 
@@ -77,7 +78,7 @@ private:
 
 struct CallableSignature {
     std::vector<Token> params;
-    CallableTypeNode *type;
+    std::unique_ptr<CallableTypeNode> type;
 };
 
 class EmptyNode : public BaseNode {
@@ -85,18 +86,6 @@ public:
     EmptyNode();
 
     void serialize(Serializer &serializer) const override;
-};
-
-class LinkNode : public BaseNode {
-public:
-    LinkNode(BaseNode *link);
-
-    void serialize(Serializer &serializer) const override;
-
-    std::vector<BaseNode *> const &children() const override;
-private:
-    std::vector<BaseNode *> link;
-    size_t const Link = 0;
 };
 
 class IntLitNode : public BaseNode {
@@ -181,6 +170,14 @@ private:
 class CallNode : public BaseNode {
 public:
     CallNode(BaseNode *func, BaseNode *args);
+
+    static std::unique_ptr<BaseNode> make_call(Token ident, 
+            std::vector<std::unique_ptr<BaseNode>> params);
+    static std::unique_ptr<BaseNode> make_unary_call(Token ident, 
+            std::unique_ptr<BaseNode> param);
+    static std::unique_ptr<BaseNode> make_binary_call(Token ident, 
+            std::unique_ptr<BaseNode> left, 
+            std::unique_ptr<BaseNode> right);
 
     void serialize(Serializer &serializer) const override;
 private:

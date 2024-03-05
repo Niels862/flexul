@@ -27,7 +27,7 @@ std::vector<uint32_t> compile(ArgParser const &args) {
     Parser parser(infilename);
     Serializer serializer;
 
-    BaseNode *root = parser.parse();
+    BaseNode *root = &*parser.parse();
     serializer.serialize(root);
     if (args.get("tree")) {
         std::cerr << "Syntax Tree:" << std::endl;
