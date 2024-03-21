@@ -15,8 +15,7 @@ class TypeNode;
 
 class BaseNode {
 public:
-    BaseNode(Token token, std::vector<BaseNode *> children);
-    virtual ~BaseNode();
+    BaseNode(Token token);
 
     virtual bool is_lvalue() const;
     // First pass: collects symbols which can be referenced before declaration:
@@ -33,24 +32,17 @@ public:
 
     virtual std::string label() const;
     Token token() const;
-    virtual std::vector<BaseNode *> const &children() const;
-    BaseNode *get(size_t n) const;
     void set_id(SymbolId id);
     SymbolId id() const;
-
-    static void print(BaseNode *node,
-            std::string const &label_prefix = "", 
-            std::string const &branch_prefix = "");
 private:
     Token m_token;
-    std::vector<BaseNode *> m_children;
-    TypeNode *m_type;
+    std::unique_ptr<TypeNode> m_type;
     SymbolId m_id;
 };
 
 class TypeNode : public BaseNode {
 public:
-    TypeNode(Token token, std::vector<BaseNode *> children);
+    TypeNode(Token token);
 
     void serialize(Serializer &serializer) const override;
 };
@@ -62,18 +54,18 @@ public:
 
 class TypeListNode : public TypeNode {
 public:
-    TypeListNode(std::vector<TypeNode *> type_list);
+    TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list);
 private:
-    std::vector<TypeNode *> m_type_list;
+    std::vector<std::unique_ptr<TypeNode>> m_type_list;
 };
 
 class CallableTypeNode : public TypeNode {
 public:
-    CallableTypeNode(Token token, TypeListNode *param_types, 
-            TypeNode *return_type);
+    CallableTypeNode(Token token, std::unique_ptr<TypeListNode> param_types, 
+            std::unique_ptr<TypeNode> return_type);
 private:
-    TypeListNode *m_param_types;
-    TypeNode *m_return_type;
+    std::unique_ptr<TypeListNode> m_param_types;
+    std::unique_ptr<TypeNode> m_return_type;
 };
 
 struct CallableSignature {
@@ -112,64 +104,73 @@ public:
 
 class AssignNode : public BaseNode {
 public:
-    AssignNode(Token token, BaseNode *target, BaseNode *expr);
+    AssignNode(Token token, std::unique_ptr<BaseNode> target, 
+            std::unique_ptr<BaseNode> expr);
 
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const Target = 0, Expr = 1;
+    std::unique_ptr<BaseNode> m_target;
+    std::unique_ptr<BaseNode> m_expr;
 };
 
 class AndNode : public BaseNode {
 public:
-    AndNode(Token token, BaseNode *left, BaseNode *right);
+    AndNode(Token token, std::unique_ptr<BaseNode> left, 
+            std::unique_ptr<BaseNode> right);
 
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const Left = 0, Right = 1;
+    std::unique_ptr<BaseNode> m_left;
+    std::unique_ptr<BaseNode> m_right;
 };
 
 class OrNode : public BaseNode {
 public:
-    OrNode(Token token, BaseNode *left, BaseNode *right);
+    OrNode(Token token, std::unique_ptr<BaseNode> left, 
+            std::unique_ptr<BaseNode> right);
 
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const Left = 0, Right = 1;
+    std::unique_ptr<BaseNode> m_left;
+    std::unique_ptr<BaseNode> m_right;
 };
 
 class AddressOfNode : public BaseNode {
 public:
-    AddressOfNode(Token token, BaseNode *operand);
+    AddressOfNode(Token token, std::unique_ptr<BaseNode> operand);
 
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const Operand = 0;
+    std::unique_ptr<BaseNode> m_operand;
 };
 
 class DereferenceNode : public BaseNode {
 public:
-    DereferenceNode(Token token, BaseNode *operand);
+    DereferenceNode(Token token, std::unique_ptr<BaseNode> operand);
 
     bool is_lvalue() const override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 private:
-    size_t const Operand = 0;
+    std::unique_ptr<BaseNode> m_operand;
 };
 
 class IfElseNode : public BaseNode {
 public:
-    IfElseNode(Token token, BaseNode *cond, BaseNode *case_true, 
-            BaseNode *case_false);
+    IfElseNode(Token token, std::unique_ptr<BaseNode> cond, 
+            std::unique_ptr<BaseNode> case_true, 
+            std::unique_ptr<BaseNode> case_false);
 
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const Cond = 0, CaseTrue = 1, CaseFalse = 2;
+    std::unique_ptr<BaseNode> m_cond;
+    std::unique_ptr<BaseNode> m_case_true;
+    std::unique_ptr<BaseNode> m_case_false;
 };
 
 class CallNode : public BaseNode {
 public:
-    CallNode(BaseNode *func, BaseNode *args);
+    CallNode(std::unique_ptr<BaseNode> func, std::unique_ptr<BaseNode> args);
 
     static std::unique_ptr<BaseNode> make_call(Token ident, 
             std::vector<std::unique_ptr<BaseNode>> params);
@@ -181,60 +182,65 @@ public:
 
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const Func = 0, Args = 1;
+    std::unique_ptr<BaseNode> m_func;
+    std::unique_ptr<BaseNode> m_args;
 };
 
 class SubscriptNode : public BaseNode {
 public:
-    SubscriptNode(BaseNode *array, BaseNode *subscript);
+    SubscriptNode(std::unique_ptr<BaseNode> array, 
+            std::unique_ptr<BaseNode> subscript);
 
     bool is_lvalue() const override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 private:
-    size_t const Array = 0, Subscript = 1;
+    std::unique_ptr<BaseNode> m_array;
+    std::unique_ptr<BaseNode> m_subscript;
 };
 
 // Block without attached scope, scope managed by outside node:
 // primitve collection of statements like function body or file body
 class BlockNode : public BaseNode {
 public:
-    BlockNode(std::vector<BaseNode *> children);
+    BlockNode(std::vector<std::unique_ptr<BaseNode>> children);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
     void serialize(Serializer &serializer) const override;
 private:
+    std::vector<std::unique_ptr<BaseNode>> m_statements;
     SymbolMap m_scope_map;
 };
 
 // Block which introduces a new scope: statement blocks
 class ScopedBlockNode : public BaseNode {
 public:
-    ScopedBlockNode(std::vector<BaseNode *> children);
+    ScopedBlockNode(std::vector<std::unique_ptr<BaseNode>> children);
 
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
 private:
+    std::vector<std::unique_ptr<BaseNode>> m_statements;
     SymbolMap m_scope_map;
 };
 
 class CallableNode : public BaseNode {
 public:
     CallableNode(Token token, Token ident, 
-            CallableSignature signature, BaseNode *body);
+            CallableSignature signature, std::unique_ptr<BaseNode> body);
     
-    bool is_matching_call(BaseNode *params) const;
+    bool is_matching_call(std::unique_ptr<ExpressionListNode> params) const;
     virtual void serialize_call(Serializer &serializer, 
-            BaseNode *params) const = 0;
+            std::unique_ptr<ExpressionListNode> params) const = 0;
 
     Token const &ident() const;
     std::vector<Token> const &params() const;
     uint32_t n_params() const;
-
-    size_t const Body = 0;
+protected:
+    std::unique_ptr<BaseNode> m_body;
 private:
     Token m_ident;
     CallableSignature m_signature;
@@ -243,7 +249,7 @@ private:
 class FunctionNode : public CallableNode {
 public:
     FunctionNode(Token token, Token ident, 
-            CallableSignature signature, BaseNode *body);
+            CallableSignature signature, std::unique_ptr<BaseNode> body);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
@@ -252,7 +258,7 @@ public:
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, 
-            BaseNode *params) const override;
+            std::unique_ptr<ExpressionListNode> params) const override;
 
     std::string label() const;
 private:
@@ -262,7 +268,7 @@ private:
 class InlineNode : public CallableNode {
 public:
     InlineNode(Token token, Token ident, 
-            CallableSignature signature, BaseNode *body);
+            CallableSignature signature, std::unique_ptr<BaseNode> body);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &symbol_map) override;
@@ -271,7 +277,7 @@ public:
             SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, 
-            BaseNode *params) const override;
+            std::unique_ptr<ExpressionListNode> params) const override;
 
     std::string get_label() const;
 private:
@@ -281,7 +287,7 @@ private:
 class LambdaNode : public CallableNode {
 public:
     LambdaNode(Token token, 
-            CallableSignature signature, BaseNode *body);
+            CallableSignature signature, std::unique_ptr<BaseNode> body);
 
     void resolve_symbols_second_pass(
             Serializer &serializer, SymbolMap &global_scope, 
@@ -290,7 +296,7 @@ public:
     // Note: lambda call is serialized upon call to serialize,
     // body is also added as new code job
     void serialize_call(Serializer &serializer, 
-            BaseNode *params) const override;
+            std::unique_ptr<ExpressionListNode> params) const override;
 
     std::string label() const;
 };
@@ -310,43 +316,55 @@ private:
 
 class ExpressionListNode : public BaseNode {
 public:
-    ExpressionListNode(Token token, std::vector<BaseNode *> children);
+    ExpressionListNode(Token token, 
+            std::vector<std::unique_ptr<BaseNode>> children);
 
     void serialize(Serializer &serializer) const override;
+
+    std::vector<std::unique_ptr<BaseNode>> &exprs();
+private:
+    std::vector<std::unique_ptr<BaseNode>> m_exprs;
 };
 
 class IfNode : public BaseNode {
 public:
-    IfNode(Token token, BaseNode *cond, BaseNode *case_true);
+    IfNode(Token token, std::unique_ptr<BaseNode> cond, 
+            std::unique_ptr<BaseNode> case_true);
 
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const Cond = 0, CaseTrue = 1;
+    std::unique_ptr<BaseNode> m_cond;
+    std::unique_ptr<BaseNode> m_case_true;
 };
 
 class ForLoopNode : public BaseNode {
 public:
-    ForLoopNode(Token token, BaseNode *init, BaseNode *cond, BaseNode *post, 
-            BaseNode *body);
+    ForLoopNode(Token token, 
+            std::unique_ptr<BaseNode> init, std::unique_ptr<BaseNode> cond, 
+            std::unique_ptr<BaseNode> post, std::unique_ptr<BaseNode> body);
 
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const Init = 0, Cond = 1, Post = 2, Body = 3;
+    std::unique_ptr<BaseNode> m_init;
+    std::unique_ptr<BaseNode> m_cond;
+    std::unique_ptr<BaseNode> m_post;
+    std::unique_ptr<BaseNode> m_body;
 };
 
 class ReturnNode : public BaseNode {
 public:
-    ReturnNode(Token token, BaseNode *child);
+    ReturnNode(Token token, std::unique_ptr<BaseNode> operand);
 
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const RetValue = 0;
+    std::unique_ptr<BaseNode> m_operand;
 };
 
 class VarDeclarationNode : public BaseNode {
 public:
-    VarDeclarationNode(Token token, Token ident, BaseNode *size, 
-            BaseNode *init_value);
+    VarDeclarationNode(Token token, Token ident, 
+            std::unique_ptr<BaseNode> size, 
+            std::unique_ptr<BaseNode> init_value);
 
     void resolve_symbols_first_pass(
             Serializer &serializer, SymbolMap &current_scope);
@@ -357,7 +375,8 @@ public:
 
     std::string label() const override;
 private:
-    size_t const Size = 0, InitValue = 1;
+    std::unique_ptr<BaseNode> m_size;
+    std::unique_ptr<BaseNode> m_init_value;
 
     uint32_t declared_size() const;
 
@@ -366,11 +385,11 @@ private:
 
 class ExpressionStatementNode : public BaseNode {
 public:
-    ExpressionStatementNode(BaseNode *child);
+    ExpressionStatementNode(std::unique_ptr<BaseNode> child);
     
     void serialize(Serializer &serializer) const override;
 private:
-    size_t const Expr = 0;
+    std::unique_ptr<BaseNode> m_expr;
 };
 
 #endif

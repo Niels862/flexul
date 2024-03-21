@@ -18,7 +18,8 @@ public:
 
     void add_overload(CallableNode *overload);
 
-    void call(Serializer &serializer, BaseNode *params) const;
+    void call(Serializer &serializer, 
+            std::unique_ptr<ExpressionListNode> params) const;
     void push_callable_addr(Serializer &serializer) const;
 private:
     std::vector<CallableNode *> m_overloads;
@@ -37,7 +38,7 @@ class InlineFrames {
 public:
     InlineFrames();
 
-    void open_call(BaseNode *params, 
+    void open_call(std::unique_ptr<ExpressionListNode> params, 
             std::vector<SymbolId> const &param_ids);
     BaseNode *get(SymbolId id);
     void close_call(std::vector<SymbolId> const &param_ids);

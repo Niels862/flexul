@@ -45,13 +45,13 @@ void CallableEntry::push_callable_addr(Serializer &serializer) const {
 InlineFrames::InlineFrames()
         : m_params(), m_records() {}
 
-void InlineFrames::open_call(BaseNode *params, 
+void InlineFrames::open_call(std::unique_ptr<ExpressionListNode> params, 
         std::vector<SymbolId> const &param_ids) {
     for (std::size_t i = 0; i < param_ids.size(); i++) {
         SymbolId id = param_ids[i];
         InlineParamMap::const_iterator iter = m_params.find(id);
         m_records.push({id, iter == m_params.end() ? nullptr : iter->second});
-        m_params[id] = params->children()[i];
+        m_params[id] = params->exprs()[i];
     }
 }
 
