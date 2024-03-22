@@ -18,20 +18,26 @@ std::vector<IntrinsicEntry> const intrinsics = {
     {"__ile__", 2, OpCode::Binary, FuncCode::LessEquals},
 };
 
-SymbolId lookup_symbol(std::string const &symbol, SymbolMap const &global_scope, 
-        SymbolMap const &enclosing_scope, SymbolMap const &current_scope) {
+ScopeTracker::ScopeTracker()
+        : global(), enclosing(), current() {}
+
+ScopeTracker::ScopeTracker(SymbolMap global, SymbolMap enclosing, 
+        SymbolMap current)
+        : global(global), enclosing(enclosing), current(current) {}
+
+SymbolId lookup_symbol(std::string const &symbol, ScopeTracker const &scopes) {
     SymbolMap::const_iterator iter;
 
-    iter = current_scope.find(symbol);
-    if (iter != current_scope.end()) {
+    iter = scopes.current.find(symbol);
+    if (iter != scopes.current.end()) {
         return iter->second;
     }
-    iter = enclosing_scope.find(symbol);
-    if (iter != enclosing_scope.end()) {
+    iter = scopes.enclosing.find(symbol);
+    if (iter != scopes.enclosing.end()) {
         return iter->second;
     }
-    iter = global_scope.find(symbol);
-    if (iter != global_scope.end()) {
+    iter = scopes.global.find(symbol);
+    if (iter != scopes.global.end()) {
         return iter->second;
     }
     throw std::runtime_error("Undeclared symbol: " + symbol);

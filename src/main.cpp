@@ -27,12 +27,11 @@ std::vector<uint32_t> compile(ArgParser const &args) {
     Parser parser(infilename);
     Serializer serializer;
 
-    BaseNode *root = &*parser.parse();
+    std::unique_ptr<BaseNode> root = parser.parse();
     serializer.serialize(root);
     if (args.get("tree")) {
         std::cerr << "Syntax Tree: todo" << std::endl;
     }
-    delete root;
     if (args.get("symbols")) {
         std::cerr << "Symbol Table:" << std::endl;
         serializer.symbol_table().dump();

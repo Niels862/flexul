@@ -9,11 +9,9 @@ bool BaseNode::is_lvalue() const {
     return false;
 }
 
-void BaseNode::resolve_symbols_first_pass(Serializer &, SymbolMap &) {}
+void BaseNode::resolve_globals(Serializer &, SymbolMap &) {}
 
-void BaseNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &global_scope, 
-        SymbolMap &enclosing_scope, SymbolMap &current_scope) {}
+void BaseNode::resolve_locals(Serializer &, ScopeTracker &) {}
 
 void BaseNode::serialize_load_address(Serializer &) const {}
 
@@ -46,13 +44,18 @@ NamedTypeNode::NamedTypeNode(Token ident)
         : TypeNode(ident) {}
 
 TypeListNode::TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list)
-        : TypeNode(Token::synthetic("<type-list>")), m_type_list(type_list) {}
+        : TypeNode(Token::synthetic("<type-list>")), 
+        m_type_list(std::move(type_list)) {}
 
 CallableTypeNode::CallableTypeNode(Token token, 
         std::unique_ptr<TypeListNode> param_types, 
         std::unique_ptr<TypeNode> return_type)
         : TypeNode(token), m_param_types(std::move(param_types)), 
         m_return_type(std::move(return_type)) {}
+
+CallableSignature::CallableSignature(std::vector<Token> params, 
+        std::unique_ptr<CallableTypeNode> type)
+        : params(params), type(std::move(type)) {}
 
 EmptyNode::EmptyNode()
         : BaseNode(Token::synthetic("<empty>")) {}
@@ -78,11 +81,8 @@ bool VariableNode::is_lvalue() const {
     return true;
 }
 
-void VariableNode::resolve_symbols_second_pass(
-        Serializer &, SymbolMap &global_scope, 
-        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
-    SymbolId id = lookup_symbol(token().data(), global_scope, 
-            enclosing_scope, current_scope);
+void VariableNode::resolve_locals(Serializer &, ScopeTracker &scopes) {
+    SymbolId id = lookup_symbol(token().data(), scopes);
     set_id(id);
 }
 
@@ -136,10 +136,15 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
 
 AssignNode::AssignNode(Token token, std::unique_ptr<BaseNode> left, 
         std::unique_ptr<BaseNode> right)
-        : BaseNode(token) {
-    if (!left->is_lvalue()) {
+        : BaseNode(token), m_target(std::move(left)), m_expr(std::move(right)) {
+    if (!m_target->is_lvalue()) {
         throw std::runtime_error("Expected lvalue as assignment target");
     }
+}
+
+void AssignNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
+    m_target->resolve_locals(serializer, scopes);
+    m_expr->resolve_locals(serializer, scopes);
 }
 
 void AssignNode::serialize(Serializer &serializer) const {
@@ -152,6 +157,11 @@ AndNode::AndNode(Token token, std::unique_ptr<BaseNode> left,
         std::unique_ptr<BaseNode> right)
         : BaseNode(token), m_left(std::move(left)), 
         m_right(std::move(right)) {}
+
+void AndNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
+    m_left->resolve_locals(serializer, scopes);
+    m_right->resolve_locals(serializer, scopes);
+}
 
 void AndNode::serialize(Serializer &serializer) const {
     Label label_false = serializer.get_label();
@@ -176,6 +186,11 @@ OrNode::OrNode(Token token, std::unique_ptr<BaseNode> left,
         : BaseNode(token), m_left(std::move(left)), 
         m_right(std::move(right)) {}
 
+void OrNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
+    m_left->resolve_locals(serializer, scopes);
+    m_right->resolve_locals(serializer, scopes);
+}
+
 void OrNode::serialize(Serializer &serializer) const {
     Label label_true = serializer.get_label();
     Label label_end = serializer.get_label();
@@ -197,6 +212,11 @@ void OrNode::serialize(Serializer &serializer) const {
 AddressOfNode::AddressOfNode(Token token, std::unique_ptr<BaseNode> operand)
         : BaseNode(token), m_operand(std::move(operand)) {}
 
+void AddressOfNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_operand->resolve_locals(serializer, scopes);
+}
+
 void AddressOfNode::serialize(Serializer &serializer) const {
     m_operand->serialize_load_address(serializer);
 }
@@ -207,6 +227,11 @@ DereferenceNode::DereferenceNode(Token token,
 
 bool DereferenceNode::is_lvalue() const {
     return true;
+}
+
+void DereferenceNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_operand->resolve_locals(serializer, scopes);
 }
 
 void DereferenceNode::serialize(Serializer &serializer) const {
@@ -225,6 +250,13 @@ IfElseNode::IfElseNode(Token token, std::unique_ptr<BaseNode> cond,
         m_case_true(std::move(case_true)), 
         m_case_false(std::move(case_false)) {}
 
+void IfElseNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_cond->resolve_locals(serializer, scopes);
+    m_case_true->resolve_locals(serializer, scopes);
+    m_case_false->resolve_locals(serializer, scopes);
+}
+
 void IfElseNode::serialize(Serializer &serializer) const {
     Label label_false = serializer.get_label();
     Label label_end = serializer.get_label();
@@ -242,31 +274,38 @@ void IfElseNode::serialize(Serializer &serializer) const {
 }
 
 CallNode::CallNode(std::unique_ptr<BaseNode> func, 
-        std::unique_ptr<BaseNode> args)
+        std::unique_ptr<ExpressionListNode> args)
         : BaseNode(Token::synthetic("<call>")), m_func(std::move(func)), 
         m_args(std::move(args)) {}
 
 std::unique_ptr<BaseNode> CallNode::make_call(Token ident, 
         std::vector<std::unique_ptr<BaseNode>> params) {
     return std::make_unique<CallNode>(
-            std::make_unique<VariableNode>(token), 
+            std::make_unique<VariableNode>(ident), 
             std::make_unique<ExpressionListNode>(
-                Token::synthetic("<params>"), params));
+                Token::synthetic("<params>"), std::move(params)));
 }
 
 std::unique_ptr<BaseNode> CallNode::make_unary_call(Token ident, 
         std::unique_ptr<BaseNode> param) {
-    std::vector<std::unique_ptr<BaseNode>> params = 
-            {std::move(param)};
-    return CallNode::make_call(ident, params);
+    std::vector<std::unique_ptr<BaseNode>> params;
+    params.push_back(std::move(param));
+    return CallNode::make_call(ident, std::move(params));
 }
 
 std::unique_ptr<BaseNode> CallNode::make_binary_call(Token ident, 
         std::unique_ptr<BaseNode> left, 
         std::unique_ptr<BaseNode> right) {
-    std::vector<std::unique_ptr<BaseNode>> params = 
-            {std::move(left), std::move(right)};
-    return CallNode::make_call(ident, params);
+    std::vector<std::unique_ptr<BaseNode>> params;
+    params.push_back(std::move(left));
+    params.push_back(std::move(right));
+    return CallNode::make_call(ident, std::move(params));
+}
+
+void CallNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_func->resolve_locals(serializer, scopes);
+    m_args->resolve_locals(serializer, scopes);
 }
 
 void CallNode::serialize(Serializer &serializer) const {
@@ -274,7 +313,7 @@ void CallNode::serialize(Serializer &serializer) const {
     SymbolEntry entry = serializer.symbol_table().get(id);
     if (entry.storage_type == StorageType::Intrinsic) {
         IntrinsicEntry intrinsic = intrinsics[entry.value];
-        if (m_args->children().size() != intrinsic.n_args) {
+        if (m_args->exprs().size() != intrinsic.n_args) {
             throw std::runtime_error(
                     "Invalid intrinsic invocation of " + intrinsic.symbol);
         }
@@ -284,7 +323,7 @@ void CallNode::serialize(Serializer &serializer) const {
         serializer.call(id, m_args);
     } else {
         m_args->serialize(serializer);
-        serializer.add_instr(OpCode::Push, m_args->children().size());
+        serializer.add_instr(OpCode::Push, m_args->exprs().size());
         m_func->serialize(serializer);
         serializer.add_instr(OpCode::Call);
     }
@@ -299,6 +338,12 @@ bool SubscriptNode::is_lvalue() const {
     return true;
 }
 
+void SubscriptNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_array->resolve_locals(serializer, scopes);
+    m_subscript->resolve_locals(serializer, scopes);
+}
+
 void SubscriptNode::serialize(Serializer &serializer) const {
     serialize_load_address(serializer);
     serializer.add_instr(OpCode::LoadAbs);
@@ -311,13 +356,20 @@ void SubscriptNode::serialize_load_address(Serializer &serializer) const {
 }
 
 BlockNode::BlockNode(std::vector<std::unique_ptr<BaseNode>> statements)
-        : BaseNode(Token::synthetic("<block>")), m_scope_map(), 
-        m_statements(std::move(statements)) {}
+        : BaseNode(Token::synthetic("<block>")), 
+        m_statements(std::move(statements)), m_scope_map() {}
 
-void BlockNode::resolve_symbols_first_pass(
+void BlockNode::resolve_globals(
         Serializer &serializer, SymbolMap &symbol_map) {
     for (std::unique_ptr<BaseNode> const &stmt : m_statements) {
-        stmt->resolve_symbols_first_pass(serializer, symbol_map);
+        stmt->resolve_globals(serializer, symbol_map);
+    }
+}
+
+void BlockNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    for (std::unique_ptr<BaseNode> const &stmt : m_statements) {
+        stmt->resolve_locals(serializer, scopes);
     }
 }
 
@@ -329,20 +381,17 @@ void BlockNode::serialize(Serializer &serializer) const {
 
 ScopedBlockNode::ScopedBlockNode(
         std::vector<std::unique_ptr<BaseNode>> statements)
-        : BaseNode(Token::synthetic("<scoped-block>")), m_scope_map(), 
-        m_statements(std::move(statements)) {}
+        : BaseNode(Token::synthetic("<scoped-block>")), 
+        m_statements(std::move(statements)), m_scope_map() {}
 
-void ScopedBlockNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &global_scope, 
-        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
-    SymbolMap block_scope;
-    SymbolMap block_enclosing_scope = enclosing_scope;
-    for (auto const &key_value : current_scope) {
-        block_enclosing_scope[key_value.first] = key_value.second;
+void ScopedBlockNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
+    for (auto const &entry : scopes.current) {
+        block_scopes.enclosing[entry.first] = entry.second;
     }
     for (std::unique_ptr<BaseNode> const &stmt : m_statements) {
-        stmt->resolve_symbols_second_pass(serializer, global_scope, 
-                block_enclosing_scope, block_scope);
+        stmt->resolve_locals(serializer, block_scopes);
     }
 }
 
@@ -354,12 +403,12 @@ void ScopedBlockNode::serialize(Serializer &serializer) const {
 
 CallableNode::CallableNode(Token token, Token ident, 
         CallableSignature signature, std::unique_ptr<BaseNode> body)
-        : BaseNode(token), m_ident(ident), 
-        m_signature(std::move(signature)), m_body(std::move(body)) {}
+        : BaseNode(token), m_body(std::move(body)), m_ident(ident),
+        m_signature(std::move(signature)) {}
 
 bool CallableNode::is_matching_call(
-        std::unique_ptr<ExpressionListNode> params) const {
-    return params->children().size() == n_params();
+        std::unique_ptr<ExpressionListNode> const &params) const {
+    return params->exprs().size() == n_params();
 }
 
 Token const &CallableNode::ident() const {
@@ -377,29 +426,25 @@ FunctionNode::FunctionNode(Token token, Token ident,
         CallableSignature signature, std::unique_ptr<BaseNode> body)
         : CallableNode(token, ident, std::move(signature), std::move(body)) {}
 
-void FunctionNode::resolve_symbols_first_pass(
+void FunctionNode::resolve_globals(
         Serializer &serializer, SymbolMap &symbol_map) {
     set_id(serializer.declare_callable(ident().data(), 
             symbol_map, this));
     serializer.add_job(id(), this, false);
 }
 
-void FunctionNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &global_scope, 
-        SymbolMap &, SymbolMap &) {
-    // used as enclosing scope which is empty
-    // for function
-    SymbolMap empty_scope;
-    SymbolMap function_scope;
+void FunctionNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    // todo replace by block: -> {{ fn (...) {...} }}
+    ScopeTracker block_scopes(scopes.global, scopes.enclosing, {}); 
     uint32_t position = -3 - n_params();
     for (Token const &param : params()) {
-        serializer.symbol_table().declare(param.data(), function_scope, 
+        serializer.symbol_table().declare(param.data(), block_scopes.current, 
                 StorageType::Relative, position);
         position++;
     }
     serializer.symbol_table().open_container();
-    m_body->resolve_symbols_second_pass(serializer, global_scope, 
-            empty_scope, function_scope);
+    m_body->resolve_locals(serializer, block_scopes);
     m_frame_size = serializer.symbol_table().container_size();
     serializer.symbol_table().resolve_local_container();
 }
@@ -414,7 +459,7 @@ void FunctionNode::serialize(Serializer &serializer) const {
 }
 
 void FunctionNode::serialize_call(Serializer &serializer, 
-        std::unique_ptr<ExpressionListNode> params) const {
+        std::unique_ptr<ExpressionListNode> const &params) const {
     if (params != nullptr) {
         params->serialize(serializer);
     }
@@ -433,33 +478,29 @@ InlineNode::InlineNode(Token token, Token ident,
         : CallableNode(token, ident, std::move(signature), std::move(body)), 
         m_param_ids() {}
 
-void InlineNode::resolve_symbols_first_pass(
+void InlineNode::resolve_globals(
         Serializer &serializer, SymbolMap &symbol_map) {
     set_id(serializer.declare_callable(ident().data(), 
             symbol_map, this));
     serializer.add_job(id(), this, true);
 }
 
-void InlineNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &global_scope, 
-        SymbolMap &, SymbolMap &) {
-    SymbolMap empty_scope;
-    SymbolMap function_scope;
+void InlineNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
+    ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
     uint32_t position = 0;
     for (Token const &param : params()) {
         SymbolId id = serializer.symbol_table().declare(param.data(), 
-                function_scope, StorageType::InlineReference, position);
+                block_scopes.current, StorageType::InlineReference, position);
         m_param_ids.push_back(id);
         position++;
     }
-    m_body->resolve_symbols_second_pass(serializer, global_scope, 
-            empty_scope, function_scope);
+    m_body->resolve_locals(serializer, block_scopes);
 }
 
 void InlineNode::serialize(Serializer &) const {}
 
 void InlineNode::serialize_call(Serializer &serializer, 
-        std::unique_ptr<ExpressionListNode> params) const {
+        std::unique_ptr<ExpressionListNode> const &params) const {
     serializer.inline_frames().open_call(params, m_param_ids);
     m_body->serialize(serializer);
     serializer.inline_frames().close_call(m_param_ids);
@@ -476,29 +517,25 @@ LambdaNode::LambdaNode(Token token, CallableSignature signature,
             token, Token::synthetic("<anonymous>"), 
             std::move(signature), std::move(expr)) {}
 
-void LambdaNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &global_scope, 
-        SymbolMap &, SymbolMap &) {
-    SymbolMap empty_scope;
-    SymbolMap lambda_scope;
+void LambdaNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
+    ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
     uint32_t position = -3 - n_params();
     for (Token const &param : params()) {
-        serializer.symbol_table().declare(param.data(), lambda_scope, 
+        serializer.symbol_table().declare(param.data(), block_scopes.current, 
                 StorageType::Relative, position);
         position++;
     }
-    m_body->resolve_symbols_second_pass(serializer, global_scope, 
-            empty_scope, lambda_scope);
+    m_body->resolve_locals(serializer, block_scopes);
 }
 
 void LambdaNode::serialize(Serializer &serializer) const {
     SymbolId id = serializer.get_label();
-    serializer.add_job(id, m_body, false);
+    serializer.add_job(id, m_body.get(), false);
     serializer.add_instr(OpCode::Push, id, true);
 }
 
 void LambdaNode::serialize_call(Serializer &, 
-        std::unique_ptr<ExpressionListNode>) const {}
+        std::unique_ptr<ExpressionListNode> const &) const {}
 
 std::string LambdaNode::label() const {
     return token().data() + " (" + tokenlist_to_string(params()) + ")";
@@ -508,7 +545,7 @@ TypeDeclarationNode::TypeDeclarationNode(
         Token token, Token ident)
         : BaseNode(token), m_ident(ident) {}
 
-void TypeDeclarationNode::resolve_symbols_first_pass(
+void TypeDeclarationNode::resolve_globals(
         Serializer &serializer, SymbolMap &symbol_map) {
     set_id(serializer.symbol_table().declare(
             m_ident.data(), symbol_map, StorageType::Type));
@@ -522,7 +559,14 @@ std::string TypeDeclarationNode::label() const {
 
 ExpressionListNode::ExpressionListNode(
         Token token, std::vector<std::unique_ptr<BaseNode>> exprs)
-        : BaseNode(token), m_exprs(exprs) {}
+        : BaseNode(token), m_exprs(std::move(exprs)) {}
+
+void ExpressionListNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    for (std::unique_ptr<BaseNode> const &expr : m_exprs) {
+        expr->resolve_locals(serializer, scopes);
+    }
+}
 
 void ExpressionListNode::serialize(Serializer &serializer) const {
     for (std::unique_ptr<BaseNode> const &expr : m_exprs) {
@@ -530,7 +574,7 @@ void ExpressionListNode::serialize(Serializer &serializer) const {
     }
 }
 
-std::vector<std::unique_ptr<BaseNode>> &ExpressionListNode::exprs() {
+std::vector<std::unique_ptr<BaseNode>> const &ExpressionListNode::exprs() {
     return m_exprs;
 }
 
@@ -538,6 +582,12 @@ IfNode::IfNode(Token token, std::unique_ptr<BaseNode> cond,
         std::unique_ptr<BaseNode> case_true)
         : BaseNode(token), m_cond(std::move(cond)), 
         m_case_true(std::move(case_true)) {}
+
+void IfNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_cond->resolve_locals(serializer, scopes);
+    m_case_true->resolve_locals(serializer, scopes);
+}
 
 void IfNode::serialize(Serializer &serializer) const {
     Label label_end = serializer.get_label();
@@ -552,6 +602,14 @@ ForLoopNode::ForLoopNode(Token token,
         std::unique_ptr<BaseNode> post, std::unique_ptr<BaseNode> body)
         : BaseNode(token), m_init(std::move(init)), m_cond(std::move(cond)), 
         m_post(std::move(post)), m_body(std::move(body)) {}
+
+void ForLoopNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_init->resolve_locals(serializer, scopes);
+    m_cond->resolve_locals(serializer, scopes);
+    m_post->resolve_locals(serializer, scopes);
+    m_body->resolve_locals(serializer, scopes);
+}
 
 void ForLoopNode::serialize(Serializer &serializer) const {
     Label loop_body_label = serializer.get_label();
@@ -572,6 +630,11 @@ void ForLoopNode::serialize(Serializer &serializer) const {
 ReturnNode::ReturnNode(Token token, std::unique_ptr<BaseNode> operand)
         : BaseNode(token), m_operand(std::move(operand)) {}
 
+void ReturnNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_operand->resolve_locals(serializer, scopes);
+}
+
 void ReturnNode::serialize(Serializer &serializer) const {
     m_operand->serialize(serializer);
     serializer.add_instr(OpCode::Ret);
@@ -583,28 +646,26 @@ VarDeclarationNode::VarDeclarationNode(Token token, Token ident,
         : BaseNode(token), m_ident(ident), m_size(std::move(size)), 
         m_init_value(std::move(init_value)) {}
 
-void VarDeclarationNode::resolve_symbols_first_pass(
-        Serializer &serializer, SymbolMap &current_scope) {
+void VarDeclarationNode::resolve_globals(
+        Serializer &serializer, SymbolMap &current) {
     if (m_init_value != nullptr) {
         throw std::runtime_error("not implemented");
     }
     set_id(serializer.symbol_table().declare(
-            m_ident.data(), current_scope, 
+            m_ident.data(), current, 
             m_size == nullptr ? 
                 StorageType::Absolute : StorageType::AbsoluteRef, 
             0, declared_size()));
     serializer.symbol_table().add_to_container(id());
 }
 
-void VarDeclarationNode::resolve_symbols_second_pass(
-        Serializer &serializer, SymbolMap &global_scope, 
-        SymbolMap &enclosing_scope, SymbolMap &current_scope) {
+void VarDeclarationNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
     if (m_init_value != nullptr) {
-        m_init_value->resolve_symbols_second_pass(serializer, global_scope, 
-                enclosing_scope, current_scope);
+        m_init_value->resolve_locals(serializer, scopes);
     }
     set_id(serializer.symbol_table().declare(
-            m_ident.data(), current_scope, 
+            m_ident.data(), scopes.current, 
             m_size == nullptr ? 
                 StorageType::Relative : StorageType::RelativeRef, 
             0, declared_size()));
@@ -638,6 +699,11 @@ uint32_t VarDeclarationNode::declared_size() const {
 
 ExpressionStatementNode::ExpressionStatementNode(std::unique_ptr<BaseNode> expr)
         : BaseNode(Token::synthetic("<expr-stmt>")), m_expr(std::move(expr)) {}
+
+void ExpressionStatementNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_expr->resolve_locals(serializer, scopes);
+}
 
 void ExpressionStatementNode::serialize(Serializer &serializer) const {
     m_expr->serialize(serializer);

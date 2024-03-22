@@ -30,7 +30,7 @@ private:
     void parse_include();
     std::unique_ptr<BaseNode> parse_function_declaration();
     std::unique_ptr<BaseNode> parse_inline_declaration();
-    std::unique_ptr<BaseNode> parse_param_list();
+    std::unique_ptr<ExpressionListNode> parse_param_list();
     CallableSignature parse_param_declaration();
     std::unique_ptr<BaseNode> parse_braced_block(bool is_scope);
     std::unique_ptr<BaseNode> parse_type_declaration();

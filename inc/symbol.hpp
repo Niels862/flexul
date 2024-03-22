@@ -47,8 +47,16 @@ struct SymbolEntry {
 
 using SymbolMap = std::unordered_map<std::string, SymbolId>;
 
-SymbolId lookup_symbol(std::string const &symbol, SymbolMap const &global_scope, 
-        SymbolMap const &enclosing_scope, SymbolMap const &current_scope);
+struct ScopeTracker {
+    ScopeTracker();
+    ScopeTracker(SymbolMap global, SymbolMap enclosing, SymbolMap current);
+
+    SymbolMap global;
+    SymbolMap enclosing;
+    SymbolMap current;
+};
+
+SymbolId lookup_symbol(std::string const &symbol, ScopeTracker const &scopes);
 
 class SymbolTable {
 public:

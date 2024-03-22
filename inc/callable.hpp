@@ -5,12 +5,15 @@
 #include <vector>
 #include <unordered_map>
 #include <stack>
+#include <memory>
 
 class Serializer;
 
 class BaseNode;
 
 class CallableNode;
+
+class ExpressionListNode;
 
 class CallableEntry {
 public:
@@ -19,7 +22,7 @@ public:
     void add_overload(CallableNode *overload);
 
     void call(Serializer &serializer, 
-            std::unique_ptr<ExpressionListNode> params) const;
+            std::unique_ptr<ExpressionListNode> const &params) const;
     void push_callable_addr(Serializer &serializer) const;
 private:
     std::vector<CallableNode *> m_overloads;
@@ -38,7 +41,7 @@ class InlineFrames {
 public:
     InlineFrames();
 
-    void open_call(std::unique_ptr<ExpressionListNode> params, 
+    void open_call(std::unique_ptr<ExpressionListNode> const &params, 
             std::vector<SymbolId> const &param_ids);
     BaseNode *get(SymbolId id);
     void close_call(std::vector<SymbolId> const &param_ids);

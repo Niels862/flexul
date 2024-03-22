@@ -1,11 +1,12 @@
 #!/home/niels/proj/flexul/fx
 
 include core;
-
-inline exit(): exit(0);
+include io;
 
 fn main() {
     var x = 5;
-    x//;
-    return x;
+    while (x > 3) {
+        x = 2;
+    }
+    return x + 3;
 }

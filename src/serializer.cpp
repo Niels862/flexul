@@ -251,7 +251,8 @@ SymbolId Serializer::declare_callable(std::string const &name,
             scope, StorageType::AbsoluteRef);
 }
 
-void Serializer::call(SymbolId id, BaseNode *params) {
+void Serializer::call(SymbolId id, 
+        std::unique_ptr<ExpressionListNode> const &params) {
     CallableMap::const_iterator iter = m_callable_map.find(id);
     if (iter == m_callable_map.end()) {
         throw std::runtime_error("Oh no");
@@ -311,26 +312,23 @@ uint32_t Serializer::get_stack_size() const {
     return size;
 }
 
-void Serializer::serialize(BaseNode *root) {
-    SymbolMap global_scope;
-    SymbolMap enclosing_scope;
-    SymbolMap current_scope;
+void Serializer::serialize(std::unique_ptr<BaseNode> &root) {
+    ScopeTracker scopes;
     uint32_t i;
 
-    m_symbol_table.load_predefined(global_scope);
+    m_symbol_table.load_predefined(scopes.global);
     m_symbol_table.open_container();
 
-    root->resolve_symbols_first_pass(*this, global_scope);
+    root->resolve_globals(*this, scopes.global);
     for (JobEntry const &job : m_code_jobs) {
-        job.node->resolve_symbols_second_pass(*this, global_scope, 
-                enclosing_scope, current_scope);
+        job.node->resolve_locals(*this, scopes);
     }
     
     uint32_t global_size = m_symbol_table.container_size();
     // Note that 'main' may not be a function name but could be another
     // global scope definition, this is intended behavior.
-    auto iter = global_scope.find("main"); // TODO: variable entry point
-    if (iter == global_scope.end()) {
+    auto iter = scopes.global.find("main"); // TODO: variable entry point
+    if (iter == scopes.global.end()) {
         throw std::runtime_error("Entry point 'main' was not defined");
     }
 

@@ -128,10 +128,10 @@ std::unique_ptr<BaseNode> Parser::parse_filebody() {
             throw std::runtime_error("Expected declaration");
         }
         if (node != nullptr) {
-            nodes.push_back(node);
+            nodes.push_back(std::move(node));
         }
     }
-    return std::make_unique<BlockNode>(nodes);
+    return std::make_unique<BlockNode>(std::move(nodes));
 }
 
 void Parser::parse_include() {
@@ -152,7 +152,8 @@ std::unique_ptr<BaseNode> Parser::parse_function_declaration() {
     }
     CallableSignature signature = parse_param_declaration();
     std::unique_ptr<BaseNode> body = parse_braced_block(false);
-    return std::make_unique<FunctionNode>(fn_token, ident, signature, body);
+    return std::make_unique<FunctionNode>(fn_token, ident, 
+            std::move(signature), std::move(body));
 }
 
 std::unique_ptr<BaseNode> Parser::parse_inline_declaration() {
@@ -165,10 +166,11 @@ std::unique_ptr<BaseNode> Parser::parse_inline_declaration() {
     expect_data(":");
     std::unique_ptr<BaseNode> body = parse_expression();
     expect_data(";");
-    return std::make_unique<InlineNode>(inline_token, ident, signature, body);
+    return std::make_unique<InlineNode>(inline_token, ident, 
+            std::move(signature), std::move(body));
 }
 
-std::unique_ptr<BaseNode> Parser::parse_param_list() {
+std::unique_ptr<ExpressionListNode> Parser::parse_param_list() {
     std::vector<std::unique_ptr<BaseNode>> params;
 
     expect_data("(");
@@ -184,7 +186,7 @@ std::unique_ptr<BaseNode> Parser::parse_param_list() {
         }
     }
     return std::make_unique<ExpressionListNode>(
-            Token::synthetic("<params>"), params);
+            Token::synthetic("<params>"), std::move(params));
 }
 
 CallableSignature Parser::parse_param_declaration() {
@@ -201,7 +203,7 @@ CallableSignature Parser::parse_param_declaration() {
             } else {
                 param_type = nullptr;
             }
-            type_list.push_back(param_type);
+            type_list.push_back(std::move(param_type));
             if (!accept_data(",")) {
                 expect_data(")");
                 break;
@@ -213,9 +215,10 @@ CallableSignature Parser::parse_param_declaration() {
     } else {
         return_type = nullptr;
     }
-    return {params, std::make_unique<CallableTypeNode>(
+    return CallableSignature(params, std::make_unique<CallableTypeNode>(
             Token::synthetic("->"), 
-            std::make_unique<TypeListNode>(type_list), return_type)};
+            std::make_unique<TypeListNode>(std::move(type_list)), 
+            std::move(return_type)));
 }
 
 std::unique_ptr<BaseNode> Parser::parse_braced_block(bool is_scope) {
@@ -226,9 +229,9 @@ std::unique_ptr<BaseNode> Parser::parse_braced_block(bool is_scope) {
     }
     get_token();
     if (is_scope) {
-        return std::make_unique<ScopedBlockNode>(statements);
+        return std::make_unique<ScopedBlockNode>(std::move(statements));
     }
-    return std::make_unique<BlockNode>(statements);
+    return std::make_unique<BlockNode>(std::move(statements));
 }
 
 std::unique_ptr<BaseNode> Parser::parse_type_declaration() {
@@ -244,7 +247,7 @@ std::unique_ptr<TypeNode> Parser::parse_type() {
     if (ident = accept_type(TokenType::Identifier)) {
         std::unique_ptr<TypeNode> node = std::make_unique<NamedTypeNode>(ident);
         if (check_data("->")) {
-            type_list = {std::move(node)};
+            type_list.push_back(std::move(node));
         } else {
             return node;
         }
@@ -261,7 +264,8 @@ std::unique_ptr<TypeNode> Parser::parse_type() {
     }
     Token token = expect_data("->");
     return std::make_unique<CallableTypeNode>(
-            token, std::make_unique<TypeListNode>(type_list), parse_type());
+            token, std::make_unique<TypeListNode>(std::move(type_list)), 
+            parse_type());
 }
 
 std::unique_ptr<BaseNode> Parser::parse_statement() {
@@ -300,9 +304,11 @@ std::unique_ptr<BaseNode> Parser::parse_if_else() {
     std::unique_ptr<BaseNode> body_true = parse_statement();
     if (accept_type(TokenType::Else)) {
         std::unique_ptr<BaseNode> body_false = parse_statement();
-        return std::make_unique<IfElseNode>(token, cond, body_true, body_false);
+        return std::make_unique<IfElseNode>(token, 
+                std::move(cond), std::move(body_true), std::move(body_false));
     }
-    return std::make_unique<IfNode>(token, cond, body_true);
+    return std::make_unique<IfNode>(token, 
+            std::move(cond), std::move(body_true));
 }
 
 std::unique_ptr<BaseNode> Parser::parse_for() {
@@ -317,7 +323,9 @@ std::unique_ptr<BaseNode> Parser::parse_for() {
             std::make_unique<ExpressionStatementNode>(parse_expression());
     expect_data(")");
     std::unique_ptr<BaseNode> body = parse_statement();
-    return std::make_unique<ForLoopNode>(token, init, cond, post, body);
+    return std::make_unique<ForLoopNode>(token, 
+            std::move(init), std::move(cond), 
+            std::move(post), std::move(body));
 }
 
 std::unique_ptr<BaseNode> Parser::parse_while() {
@@ -328,9 +336,9 @@ std::unique_ptr<BaseNode> Parser::parse_while() {
     std::unique_ptr<BaseNode> body = parse_statement();
     return std::make_unique<ForLoopNode>(token, 
             std::make_unique<EmptyNode>(),
-            cond,
+            std::move(cond),
             std::make_unique<EmptyNode>(),
-            body);
+            std::move(body));
 }
 
 std::unique_ptr<BaseNode> Parser::parse_var_declaration() {
@@ -349,13 +357,13 @@ std::unique_ptr<BaseNode> Parser::parse_var_declaration() {
             init_value = parse_expression();
         }
         nodes.push_back(std::make_unique<VarDeclarationNode>(
-                token, ident, size, init_value));
+                token, ident, std::move(size), std::move(init_value)));
     } while (accept_data(","));
 
     if (nodes.size() == 1) {
         return std::move(nodes[0]);
     }
-    return std::make_unique<BlockNode>(nodes);
+    return std::make_unique<BlockNode>(std::move(nodes));
 }
 
 std::unique_ptr<BaseNode> Parser::parse_expression() {
@@ -377,7 +385,8 @@ std::unique_ptr<BaseNode> Parser::parse_assignment() {
     std::unique_ptr<BaseNode> left = parse_ternary();
     Token token = m_curr_token;
     if (accept_data("=")) {
-        return std::make_unique<AssignNode>(token, left, parse_expression());
+        return std::make_unique<AssignNode>(token, 
+                std::move(left), parse_expression());
     } else {
         auto iter = assignments.find(token.data());
         if (iter != assignments.end()) {
@@ -393,9 +402,9 @@ std::unique_ptr<BaseNode> Parser::parse_lambda() {
     expect_data(":");
     std::unique_ptr<BaseNode> body = parse_expression();
     return std::make_unique<LambdaNode>(
-            token, signature,
+            token, std::move(signature),
             std::make_unique<ReturnNode>(
-                Token::synthetic("<lambda-return>"), body));
+                Token::synthetic("<lambda-return>"), std::move(body)));
 }
 
 std::unique_ptr<BaseNode> Parser::parse_ternary() {
@@ -405,7 +414,8 @@ std::unique_ptr<BaseNode> Parser::parse_ternary() {
         std::unique_ptr<BaseNode> expr_true = parse_ternary();
         expect_data(":");
         std::unique_ptr<BaseNode> expr_false = parse_ternary();
-        return std::make_unique<IfElseNode>(token, cond, expr_true, expr_false);
+        return std::make_unique<IfElseNode>(token, 
+                std::move(cond), std::move(expr_true), std::move(expr_false));
     }
     return cond;
 }
@@ -414,7 +424,7 @@ std::unique_ptr<BaseNode> Parser::parse_or() {
     std::unique_ptr<BaseNode> left = parse_and();
     Token token = m_curr_token;
     while (accept_data("||")) {
-        left = std::make_unique<OrNode>(token, left, parse_and());
+        left = std::make_unique<OrNode>(token, std::move(left), parse_and());
         token = m_curr_token;
     }
     return left;
@@ -424,7 +434,7 @@ std::unique_ptr<BaseNode> Parser::parse_and() {
     std::unique_ptr<BaseNode> left = parse_equality_1();
     Token token = m_curr_token;
     while (accept_data("&&")) {
-        left = std::make_unique<AndNode>(token, left, parse_equality_1());
+        left = std::make_unique<AndNode>(token, std::move(left), parse_equality_1());
         token = m_curr_token;
     }
     return left;
@@ -485,7 +495,7 @@ std::unique_ptr<BaseNode> Parser::parse_value() {
         if (token.data() == "&" && !value->is_lvalue()) {
             throw std::runtime_error("Expected lvalue");
         }
-        value = std::make_unique<AddressOfNode>(token, value);
+        value = std::make_unique<AddressOfNode>(token, std::move(value));
     } else if (accept_data("*")) {
         value = std::make_unique<DereferenceNode>(token, parse_value());
     } else if (accept_type(TokenType::IntLit)) {
@@ -513,12 +523,13 @@ std::unique_ptr<BaseNode> Parser::parse_postfix(std::unique_ptr<BaseNode> value)
     while (true) {
         Token token = m_curr_token;
         if (check_data("(")) {
-            std::unique_ptr<BaseNode> param_list = parse_param_list();
-            value = std::make_unique<CallNode>(value, param_list);
+            value = std::make_unique<CallNode>(
+                    std::move(value), parse_param_list());
         } else if (accept_data("[")) {
             std::unique_ptr<BaseNode> subscript = parse_expression();
             expect_data("]");
-            value = std::make_unique<SubscriptNode>(value, subscript);
+            value = std::make_unique<SubscriptNode>(
+                    std::move(value), std::move(subscript));
         } else {
             auto iter = assignments.find(token.data());
             if (iter == assignments.end()) {

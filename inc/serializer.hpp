@@ -70,7 +70,7 @@ public:
     SymbolId declare_callable(std::string const &name, SymbolMap &scope, 
             CallableNode *node);
 
-    void call(SymbolId id, BaseNode *params);
+    void call(SymbolId id, std::unique_ptr<ExpressionListNode> const &params);
     void push_callable_addr(SymbolId id);
 
     void add_instr(OpCode opcode, FuncCode funccode = FuncCode::Nop);
@@ -83,7 +83,7 @@ public:
     uint32_t get_label();
     uint32_t get_stack_size() const;
 
-    void serialize(BaseNode *root);
+    void serialize(std::unique_ptr<BaseNode> &root);
     std::vector<uint32_t> assemble();
     void disassemble() const;
 

@@ -13,6 +13,8 @@ class Serializer;
 
 class TypeNode;
 
+class ExpressionListNode;
+
 class BaseNode {
 public:
     BaseNode(Token token);
@@ -20,12 +22,9 @@ public:
     virtual bool is_lvalue() const;
     // First pass: collects symbols which can be referenced before declaration:
     // functions, global variables, definitions
-    virtual void resolve_symbols_first_pass(
-            Serializer &serializer, SymbolMap &current_scope);
+    virtual void resolve_globals(Serializer &serializer, SymbolMap &current);
     // Second pass: collects all other symbols and resolves occurences.
-    virtual void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &global_scope, 
-            SymbolMap &enclosing_scope, SymbolMap &current_scope);
+    virtual void resolve_locals(Serializer &serializer, ScopeTracker &scopes);
     virtual void serialize(Serializer &serializer) const = 0;
     virtual void serialize_load_address(Serializer &serializer) const;
     virtual std::optional<uint32_t> get_constant_value() const;
@@ -69,6 +68,9 @@ private:
 };
 
 struct CallableSignature {
+    CallableSignature(std::vector<Token> params, 
+            std::unique_ptr<CallableTypeNode> type);
+
     std::vector<Token> params;
     std::unique_ptr<CallableTypeNode> type;
 };
@@ -95,9 +97,7 @@ public:
     VariableNode(Token token);
 
     bool is_lvalue() const override;
-    void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &global_scope, 
-            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 };
@@ -107,6 +107,7 @@ public:
     AssignNode(Token token, std::unique_ptr<BaseNode> target, 
             std::unique_ptr<BaseNode> expr);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_target;
@@ -118,6 +119,7 @@ public:
     AndNode(Token token, std::unique_ptr<BaseNode> left, 
             std::unique_ptr<BaseNode> right);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_left;
@@ -129,6 +131,7 @@ public:
     OrNode(Token token, std::unique_ptr<BaseNode> left, 
             std::unique_ptr<BaseNode> right);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_left;
@@ -139,6 +142,7 @@ class AddressOfNode : public BaseNode {
 public:
     AddressOfNode(Token token, std::unique_ptr<BaseNode> operand);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_operand;
@@ -149,6 +153,7 @@ public:
     DereferenceNode(Token token, std::unique_ptr<BaseNode> operand);
 
     bool is_lvalue() const override;
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 private:
@@ -161,6 +166,7 @@ public:
             std::unique_ptr<BaseNode> case_true, 
             std::unique_ptr<BaseNode> case_false);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_cond;
@@ -170,7 +176,8 @@ private:
 
 class CallNode : public BaseNode {
 public:
-    CallNode(std::unique_ptr<BaseNode> func, std::unique_ptr<BaseNode> args);
+    CallNode(std::unique_ptr<BaseNode> func, 
+            std::unique_ptr<ExpressionListNode> args);
 
     static std::unique_ptr<BaseNode> make_call(Token ident, 
             std::vector<std::unique_ptr<BaseNode>> params);
@@ -180,10 +187,11 @@ public:
             std::unique_ptr<BaseNode> left, 
             std::unique_ptr<BaseNode> right);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_func;
-    std::unique_ptr<BaseNode> m_args;
+    std::unique_ptr<ExpressionListNode> m_args;
 };
 
 class SubscriptNode : public BaseNode {
@@ -192,6 +200,7 @@ public:
             std::unique_ptr<BaseNode> subscript);
 
     bool is_lvalue() const override;
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 private:
@@ -199,14 +208,13 @@ private:
     std::unique_ptr<BaseNode> m_subscript;
 };
 
-// Block without attached scope, scope managed by outside node:
-// primitve collection of statements like function body or file body
 class BlockNode : public BaseNode {
 public:
     BlockNode(std::vector<std::unique_ptr<BaseNode>> children);
 
-    void resolve_symbols_first_pass(
+    void resolve_globals(
             Serializer &serializer, SymbolMap &symbol_map) override;
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::vector<std::unique_ptr<BaseNode>> m_statements;
@@ -218,9 +226,7 @@ class ScopedBlockNode : public BaseNode {
 public:
     ScopedBlockNode(std::vector<std::unique_ptr<BaseNode>> children);
 
-    void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &global_scope, 
-            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::vector<std::unique_ptr<BaseNode>> m_statements;
@@ -232,9 +238,10 @@ public:
     CallableNode(Token token, Token ident, 
             CallableSignature signature, std::unique_ptr<BaseNode> body);
     
-    bool is_matching_call(std::unique_ptr<ExpressionListNode> params) const;
+    bool is_matching_call(
+            std::unique_ptr<ExpressionListNode> const &params) const;
     virtual void serialize_call(Serializer &serializer, 
-            std::unique_ptr<ExpressionListNode> params) const = 0;
+            std::unique_ptr<ExpressionListNode> const &params) const = 0;
 
     Token const &ident() const;
     std::vector<Token> const &params() const;
@@ -251,14 +258,12 @@ public:
     FunctionNode(Token token, Token ident, 
             CallableSignature signature, std::unique_ptr<BaseNode> body);
 
-    void resolve_symbols_first_pass(
+    void resolve_globals(
             Serializer &serializer, SymbolMap &symbol_map) override;
-    void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &global_scope, 
-            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, 
-            std::unique_ptr<ExpressionListNode> params) const override;
+            std::unique_ptr<ExpressionListNode> const &params) const override;
 
     std::string label() const;
 private:
@@ -270,14 +275,12 @@ public:
     InlineNode(Token token, Token ident, 
             CallableSignature signature, std::unique_ptr<BaseNode> body);
 
-    void resolve_symbols_first_pass(
+    void resolve_globals(
             Serializer &serializer, SymbolMap &symbol_map) override;
-    void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &global_scope, 
-            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, 
-            std::unique_ptr<ExpressionListNode> params) const override;
+            std::unique_ptr<ExpressionListNode> const &params) const override;
 
     std::string get_label() const;
 private:
@@ -289,14 +292,12 @@ public:
     LambdaNode(Token token, 
             CallableSignature signature, std::unique_ptr<BaseNode> body);
 
-    void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &global_scope, 
-            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     // Note: lambda call is serialized upon call to serialize,
     // body is also added as new code job
     void serialize_call(Serializer &serializer, 
-            std::unique_ptr<ExpressionListNode> params) const override;
+            std::unique_ptr<ExpressionListNode> const &params) const override;
 
     std::string label() const;
 };
@@ -305,7 +306,7 @@ class TypeDeclarationNode : public BaseNode {
 public:
     TypeDeclarationNode(Token token, Token ident);
 
-    void resolve_symbols_first_pass(
+    void resolve_globals(
             Serializer &serializer, SymbolMap &symbol_map) override;
     void serialize(Serializer &serializer) const override;
 
@@ -319,9 +320,10 @@ public:
     ExpressionListNode(Token token, 
             std::vector<std::unique_ptr<BaseNode>> children);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 
-    std::vector<std::unique_ptr<BaseNode>> &exprs();
+    std::vector<std::unique_ptr<BaseNode>> const &exprs();
 private:
     std::vector<std::unique_ptr<BaseNode>> m_exprs;
 };
@@ -331,6 +333,7 @@ public:
     IfNode(Token token, std::unique_ptr<BaseNode> cond, 
             std::unique_ptr<BaseNode> case_true);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_cond;
@@ -343,6 +346,7 @@ public:
             std::unique_ptr<BaseNode> init, std::unique_ptr<BaseNode> cond, 
             std::unique_ptr<BaseNode> post, std::unique_ptr<BaseNode> body);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_init;
@@ -355,6 +359,7 @@ class ReturnNode : public BaseNode {
 public:
     ReturnNode(Token token, std::unique_ptr<BaseNode> operand);
 
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_operand;
@@ -366,27 +371,25 @@ public:
             std::unique_ptr<BaseNode> size, 
             std::unique_ptr<BaseNode> init_value);
 
-    void resolve_symbols_first_pass(
-            Serializer &serializer, SymbolMap &current_scope);
-    void resolve_symbols_second_pass(
-            Serializer &serializer, SymbolMap &global_scope, 
-            SymbolMap &enclosing_scope, SymbolMap &current_scope) override;
+    void resolve_globals(
+            Serializer &serializer, SymbolMap &current);
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 
     std::string label() const override;
 private:
-    std::unique_ptr<BaseNode> m_size;
-    std::unique_ptr<BaseNode> m_init_value;
-
     uint32_t declared_size() const;
 
     Token m_ident;
+    std::unique_ptr<BaseNode> m_size;
+    std::unique_ptr<BaseNode> m_init_value;
 };
 
 class ExpressionStatementNode : public BaseNode {
 public:
     ExpressionStatementNode(std::unique_ptr<BaseNode> child);
     
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 private:
     std::unique_ptr<BaseNode> m_expr;

@@ -2,7 +2,7 @@ TARGET = fx
 CXX = g++
 INC_DIR = inc
 SRC_DIR = src
-CFLAGS = -Wall -Wextra -Wpedantic -Wfatal-errors -std=c++20 -O3 -g
+CFLAGS = -Wall -Wextra -Wpedantic -Werror -Wfatal-errors -std=c++20 -O3 -g
 
 CPPFLAGS = $(addprefix -I, $(INC_DIR))
 SOURCES = $(sort $(shell find $(SRC_DIR) -name '*.cpp'))
