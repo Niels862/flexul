@@ -18,6 +18,7 @@ class ExpressionListNode;
 class BaseNode {
 public:
     BaseNode(Token token);
+    virtual ~BaseNode();
 
     virtual bool is_lvalue() const;
     // First pass: collects symbols which can be referenced before declaration:

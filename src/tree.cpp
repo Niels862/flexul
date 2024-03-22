@@ -5,6 +5,8 @@
 BaseNode::BaseNode(Token token)
         : m_token(token), m_id(0) {}
 
+BaseNode::~BaseNode() {}
+
 bool BaseNode::is_lvalue() const {
     return false;
 }
