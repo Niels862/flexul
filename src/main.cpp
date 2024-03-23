@@ -1,5 +1,6 @@
 #include "parser.hpp"
 #include "serializer.hpp"
+#include "treeprinter.hpp"
 #include "program.hpp"
 #include "argparser.hpp"
 #include <iostream>
@@ -30,7 +31,9 @@ std::vector<uint32_t> compile(ArgParser const &args) {
     std::unique_ptr<BaseNode> root = parser.parse();
     serializer.serialize(root);
     if (args.get("tree")) {
-        std::cerr << "Syntax Tree: todo" << std::endl;
+        std::cerr << "Syntax Tree:" << std::endl;
+        TreePrinter printer;
+        root->print(printer);
     }
     if (args.get("symbols")) {
         std::cerr << "Symbol Table:" << std::endl;

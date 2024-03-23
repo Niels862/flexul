@@ -1,4 +1,5 @@
 #include "tree.hpp"
+#include "treeprinter.hpp"
 #include "utils.hpp"
 #include <iostream>
 
@@ -45,15 +46,27 @@ void TypeNode::serialize(Serializer &) const {}
 NamedTypeNode::NamedTypeNode(Token ident)
         : TypeNode(ident) {}
 
+void NamedTypeNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+}
+
 TypeListNode::TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list)
         : TypeNode(Token::synthetic("<type-list>")), 
         m_type_list(std::move(type_list)) {}
+
+void TypeListNode::print(TreePrinter &printer) const {
+    printer.print_label("todo");
+}
 
 CallableTypeNode::CallableTypeNode(Token token, 
         std::unique_ptr<TypeListNode> param_types, 
         std::unique_ptr<TypeNode> return_type)
         : TypeNode(token), m_param_types(std::move(param_types)), 
         m_return_type(std::move(return_type)) {}
+
+void CallableTypeNode::print(TreePrinter &printer) const {
+    printer.print_label("todo");
+}
 
 CallableSignature::CallableSignature(std::vector<Token> params, 
         std::unique_ptr<CallableTypeNode> type)
@@ -63,6 +76,10 @@ EmptyNode::EmptyNode()
         : BaseNode(Token::synthetic("<empty>")) {}
 
 void EmptyNode::serialize(Serializer &) const {}
+
+void EmptyNode::print(TreePrinter &printer) const {
+    printer.print_label("(empty)");
+}
 
 IntLitNode::IntLitNode(Token token)
         : BaseNode(token), m_value(token.to_int()) {
@@ -74,6 +91,10 @@ void IntLitNode::serialize(Serializer &serializer) const {
 
 std::optional<uint32_t> IntLitNode::get_constant_value() const {
     return m_value;
+}
+
+void IntLitNode::print(TreePrinter &printer) const {
+    printer.print_label(token().data());
 }
 
 VariableNode::VariableNode(Token token)
@@ -136,6 +157,10 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
     }
 }
 
+void VariableNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+}
+
 AssignNode::AssignNode(Token token, std::unique_ptr<BaseNode> left, 
         std::unique_ptr<BaseNode> right)
         : BaseNode(token), m_target(std::move(left)), m_expr(std::move(right)) {
@@ -153,6 +178,12 @@ void AssignNode::serialize(Serializer &serializer) const {
     m_target->serialize_load_address(serializer);
     m_expr->serialize(serializer);
     serializer.add_instr(OpCode::Binary, FuncCode::Assign);
+}
+
+void AssignNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_target.get());
+    printer.last_child(m_expr.get());
 }
 
 AndNode::AndNode(Token token, std::unique_ptr<BaseNode> left, 
@@ -183,6 +214,12 @@ void AndNode::serialize(Serializer &serializer) const {
     serializer.add_label(label_end);
 }
 
+void AndNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_left.get());
+    printer.last_child(m_right.get());
+}
+
 OrNode::OrNode(Token token, std::unique_ptr<BaseNode> left, 
         std::unique_ptr<BaseNode> right)
         : BaseNode(token), m_left(std::move(left)), 
@@ -211,6 +248,12 @@ void OrNode::serialize(Serializer &serializer) const {
     serializer.add_label(label_end);
 }
 
+void OrNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_left.get());
+    printer.last_child(m_right.get());
+}
+
 AddressOfNode::AddressOfNode(Token token, std::unique_ptr<BaseNode> operand)
         : BaseNode(token), m_operand(std::move(operand)) {}
 
@@ -221,6 +264,11 @@ void AddressOfNode::resolve_locals(Serializer &serializer,
 
 void AddressOfNode::serialize(Serializer &serializer) const {
     m_operand->serialize_load_address(serializer);
+}
+
+void AddressOfNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.last_child(m_operand.get());
 }
 
 DereferenceNode::DereferenceNode(Token token, 
@@ -243,6 +291,11 @@ void DereferenceNode::serialize(Serializer &serializer) const {
 
 void DereferenceNode::serialize_load_address(Serializer &serializer) const {
     m_operand->serialize(serializer);
+}
+
+void DereferenceNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.last_child(m_operand.get());
 }
 
 IfElseNode::IfElseNode(Token token, std::unique_ptr<BaseNode> cond, 
@@ -273,6 +326,13 @@ void IfElseNode::serialize(Serializer &serializer) const {
     m_case_false->serialize(serializer);
 
     serializer.add_label(label_end);
+}
+
+void IfElseNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_cond.get());
+    printer.next_child(m_case_true.get());
+    printer.last_child(m_case_false.get());
 }
 
 CallNode::CallNode(std::unique_ptr<BaseNode> func, 
@@ -331,6 +391,12 @@ void CallNode::serialize(Serializer &serializer) const {
     }
 }
 
+void CallNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_func.get());
+    printer.last_child(m_args.get());
+}
+
 SubscriptNode::SubscriptNode(std::unique_ptr<BaseNode> array, 
         std::unique_ptr<BaseNode> subscript)
         : BaseNode(Token::synthetic("<subscript>")), m_array(std::move(array)),
@@ -357,6 +423,12 @@ void SubscriptNode::serialize_load_address(Serializer &serializer) const {
     serializer.add_instr(OpCode::Binary, FuncCode::Add);
 }
 
+void SubscriptNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_array.get());
+    printer.last_child(m_subscript.get());
+}
+
 BlockNode::BlockNode(std::vector<std::unique_ptr<BaseNode>> statements)
         : BaseNode(Token::synthetic("<block>")), 
         m_statements(std::move(statements)), m_scope_map() {}
@@ -381,6 +453,17 @@ void BlockNode::serialize(Serializer &serializer) const {
     }
 }
 
+void BlockNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    for (std::size_t i = 0; i < m_statements.size(); i++) {
+        if (i == m_statements.size() - 1) {
+            printer.last_child(m_statements[i].get());
+        } else {
+            printer.next_child(m_statements[i].get());
+        }
+    }
+}
+
 ScopedBlockNode::ScopedBlockNode(
         std::vector<std::unique_ptr<BaseNode>> statements)
         : BaseNode(Token::synthetic("<scoped-block>")), 
@@ -400,6 +483,17 @@ void ScopedBlockNode::resolve_locals(Serializer &serializer,
 void ScopedBlockNode::serialize(Serializer &serializer) const {
     for (std::unique_ptr<BaseNode> const &stmt : m_statements) {
         stmt->serialize(serializer);
+    }
+}
+
+void ScopedBlockNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    for (std::size_t i = 0; i < m_statements.size(); i++) {
+        if (i == m_statements.size() - 1) {
+            printer.last_child(m_statements[i].get());
+        } else {
+            printer.next_child(m_statements[i].get());
+        }
     }
 }
 
@@ -470,6 +564,11 @@ void FunctionNode::serialize_call(Serializer &serializer,
     serializer.add_instr(OpCode::Call);
 }
 
+void FunctionNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.last_child(m_body.get());
+}
+
 std::string FunctionNode::label() const {
     return token().data() + " " + ident().data() + "(" 
             + tokenlist_to_string(params()) + ")";
@@ -508,6 +607,11 @@ void InlineNode::serialize_call(Serializer &serializer,
     serializer.inline_frames().close_call(m_param_ids);
 }
 
+void InlineNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.last_child(m_body.get());
+}
+
 std::string InlineNode::get_label() const {
     return token().data() + " " + ident().data() + "(" 
             + tokenlist_to_string(params()) + ")";
@@ -539,6 +643,11 @@ void LambdaNode::serialize(Serializer &serializer) const {
 void LambdaNode::serialize_call(Serializer &, 
         std::unique_ptr<ExpressionListNode> const &) const {}
 
+void LambdaNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.last_child(m_body.get());
+}
+
 std::string LambdaNode::label() const {
     return token().data() + " (" + tokenlist_to_string(params()) + ")";
 }
@@ -554,6 +663,10 @@ void TypeDeclarationNode::resolve_globals(
 }
 
 void TypeDeclarationNode::serialize(Serializer &) const {}
+
+void TypeDeclarationNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+}
 
 std::string TypeDeclarationNode::label() const {
     return token().data() + " " + m_ident.data();
@@ -573,6 +686,17 @@ void ExpressionListNode::resolve_locals(Serializer &serializer,
 void ExpressionListNode::serialize(Serializer &serializer) const {
     for (std::unique_ptr<BaseNode> const &expr : m_exprs) {
         expr->serialize(serializer);
+    }
+}
+
+void ExpressionListNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    for (std::size_t i = 0; i < m_exprs.size(); i++) {
+        if (i == m_exprs.size() - 1) {
+            printer.last_child(m_exprs[i].get());
+        } else {
+            printer.next_child(m_exprs[i].get());
+        }
     }
 }
 
@@ -597,6 +721,12 @@ void IfNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::BrFalse, label_end, true);
     m_case_true->serialize(serializer);
     serializer.add_label(label_end);
+}
+
+void IfNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_cond.get());
+    printer.last_child(m_case_true.get());
 }
 
 ForLoopNode::ForLoopNode(Token token, 
@@ -629,6 +759,14 @@ void ForLoopNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::BrTrue, loop_body_label, true);
 }
 
+void ForLoopNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_init.get());
+    printer.next_child(m_cond.get());
+    printer.next_child(m_post.get());
+    printer.last_child(m_body.get());
+}
+
 ReturnNode::ReturnNode(Token token, std::unique_ptr<BaseNode> operand)
         : BaseNode(token), m_operand(std::move(operand)) {}
 
@@ -640,6 +778,11 @@ void ReturnNode::resolve_locals(Serializer &serializer,
 void ReturnNode::serialize(Serializer &serializer) const {
     m_operand->serialize(serializer);
     serializer.add_instr(OpCode::Ret);
+}
+
+void ReturnNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.last_child(m_operand.get());
 }
 
 VarDeclarationNode::VarDeclarationNode(Token token, Token ident, 
@@ -684,6 +827,12 @@ void VarDeclarationNode::serialize(Serializer &serializer) const {
     }
 }
 
+void VarDeclarationNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_size.get());
+    printer.last_child(m_init_value.get());
+}
+
 std::string VarDeclarationNode::label() const {
     return token().data() + " " + m_ident.data();
 }
@@ -710,4 +859,9 @@ void ExpressionStatementNode::resolve_locals(Serializer &serializer,
 void ExpressionStatementNode::serialize(Serializer &serializer) const {
     m_expr->serialize(serializer);
     serializer.add_instr(OpCode::Pop);
+}
+
+void ExpressionStatementNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.last_child(m_expr.get());
 }

@@ -11,6 +11,8 @@
 
 class Serializer; 
 
+class TreePrinter;
+
 class TypeNode;
 
 class ExpressionListNode;
@@ -29,6 +31,8 @@ public:
     virtual void serialize(Serializer &serializer) const = 0;
     virtual void serialize_load_address(Serializer &serializer) const;
     virtual std::optional<uint32_t> get_constant_value() const;
+
+    virtual void print(TreePrinter &printer) const = 0;
 
     virtual std::string label() const;
     Token token() const;
@@ -50,11 +54,15 @@ public:
 class NamedTypeNode : public TypeNode {
 public:
     NamedTypeNode(Token ident);
+
+    void print(TreePrinter &printer) const override;
 };
 
 class TypeListNode : public TypeNode {
 public:
     TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list);
+
+    void print(TreePrinter &printer) const override;
 private:
     std::vector<std::unique_ptr<TypeNode>> m_type_list;
 };
@@ -63,6 +71,8 @@ class CallableTypeNode : public TypeNode {
 public:
     CallableTypeNode(Token token, std::unique_ptr<TypeListNode> param_types, 
             std::unique_ptr<TypeNode> return_type);
+    
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<TypeListNode> m_param_types;
     std::unique_ptr<TypeNode> m_return_type;
@@ -81,6 +91,8 @@ public:
     EmptyNode();
 
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 };
 
 class IntLitNode : public BaseNode {
@@ -89,6 +101,8 @@ public:
 
     void serialize(Serializer &serializer) const override;
     std::optional<uint32_t> get_constant_value() const;
+
+    void print(TreePrinter &printer) const override;
 private:
     uint32_t m_value;
 };
@@ -101,6 +115,8 @@ public:
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 };
 
 class AssignNode : public BaseNode {
@@ -110,6 +126,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_target;
     std::unique_ptr<BaseNode> m_expr;
@@ -122,6 +140,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_left;
     std::unique_ptr<BaseNode> m_right;
@@ -134,6 +154,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_left;
     std::unique_ptr<BaseNode> m_right;
@@ -145,6 +167,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_operand;
 };
@@ -157,6 +181,8 @@ public:
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_operand;
 };
@@ -169,6 +195,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_cond;
     std::unique_ptr<BaseNode> m_case_true;
@@ -190,6 +218,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_func;
     std::unique_ptr<ExpressionListNode> m_args;
@@ -204,6 +234,8 @@ public:
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_array;
     std::unique_ptr<BaseNode> m_subscript;
@@ -217,6 +249,8 @@ public:
             Serializer &serializer, SymbolMap &symbol_map) override;
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::vector<std::unique_ptr<BaseNode>> m_statements;
     SymbolMap m_scope_map;
@@ -229,6 +263,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::vector<std::unique_ptr<BaseNode>> m_statements;
     SymbolMap m_scope_map;
@@ -266,6 +302,8 @@ public:
     void serialize_call(Serializer &serializer, 
             std::unique_ptr<ExpressionListNode> const &params) const override;
 
+    void print(TreePrinter &printer) const override;
+
     std::string label() const;
 private:
     uint32_t m_frame_size;
@@ -282,6 +320,8 @@ public:
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, 
             std::unique_ptr<ExpressionListNode> const &params) const override;
+
+    void print(TreePrinter &printer) const override;
 
     std::string get_label() const;
 private:
@@ -300,6 +340,8 @@ public:
     void serialize_call(Serializer &serializer, 
             std::unique_ptr<ExpressionListNode> const &params) const override;
 
+    void print(TreePrinter &printer) const override;
+
     std::string label() const;
 };
 
@@ -310,6 +352,8 @@ public:
     void resolve_globals(
             Serializer &serializer, SymbolMap &symbol_map) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 
     std::string label() const override;
 private:
@@ -324,6 +368,8 @@ public:
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
 
+    void print(TreePrinter &printer) const override;
+
     std::vector<std::unique_ptr<BaseNode>> const &exprs();
 private:
     std::vector<std::unique_ptr<BaseNode>> m_exprs;
@@ -336,6 +382,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_cond;
     std::unique_ptr<BaseNode> m_case_true;
@@ -349,6 +397,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_init;
     std::unique_ptr<BaseNode> m_cond;
@@ -362,6 +412,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_operand;
 };
@@ -376,6 +428,8 @@ public:
             Serializer &serializer, SymbolMap &current);
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 
     std::string label() const override;
 private:
@@ -392,6 +446,8 @@ public:
     
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
 private:
     std::unique_ptr<BaseNode> m_expr;
 };
