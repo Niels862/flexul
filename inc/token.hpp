@@ -6,15 +6,15 @@
 
 enum class TokenType {
     Null, Identifier, IntLit, Keyword, Operator, Separator, 
-    Function, Inline, TypeDef, Return, Include, If, Else, While, For, Lambda, Var,
-    Synthetic, EndOfFile
+    Function, Inline, TypeDef, Return, Include, If, Else, While, 
+    For, Lambda, Var, EndOfFile, Synthetic
 };
 
 class Token {
 public:
     Token();
-    Token(TokenType type);
-    Token(TokenType type, std::string data);
+    Token(TokenType type, std::size_t row, std::size_t col);
+    Token(TokenType type, std::string data, std::size_t row, std::size_t col);
     static Token synthetic(std::string data);
     static Token null();
     TokenType type() const;
@@ -29,6 +29,9 @@ public:
 private:
     TokenType m_type;
     std::string m_data;
+    // todo: make point at start instead of end of token
+    std::size_t row;
+    std::size_t col;
 };
 
 std::string tokenlist_to_string(std::vector<Token> const &tokens, 

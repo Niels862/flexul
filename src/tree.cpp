@@ -38,10 +38,131 @@ SymbolId BaseNode::id() const {
     return m_id;
 }
 
+ExpressionNode::ExpressionNode(Token token)
+        : BaseNode(token) {}
+
+StatementNode::StatementNode(Token token)
+        : BaseNode(token) {}
+
 TypeNode::TypeNode(Token token)
         : BaseNode(token) {}
 
 void TypeNode::serialize(Serializer &) const {}
+
+UnaryExpressionNode::UnaryExpressionNode(Token token, 
+        std::unique_ptr<BaseNode> operand)
+        : ExpressionNode(token), 
+        m_operand(std::move(operand)) {}
+
+void UnaryExpressionNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.last_child(m_operand.get());
+}
+
+void UnaryExpressionNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_operand->resolve_locals(serializer, scopes);
+}
+
+AddressOfNode::AddressOfNode(Token token, std::unique_ptr<BaseNode> operand)
+        : UnaryExpressionNode(token, std::move(operand)) {}
+
+void AddressOfNode::serialize(Serializer &serializer) const {
+    m_operand->serialize_load_address(serializer);
+}
+
+DereferenceNode::DereferenceNode(Token token, 
+        std::unique_ptr<BaseNode> operand)
+        : UnaryExpressionNode(token, std::move(operand)) {}
+
+bool DereferenceNode::is_lvalue() const {
+    return true;
+}
+
+void DereferenceNode::serialize(Serializer &serializer) const {
+    m_operand->serialize(serializer);
+    serializer.add_instr(OpCode::LoadAbs);
+}
+
+void DereferenceNode::serialize_load_address(Serializer &serializer) const {
+    m_operand->serialize(serializer);
+}
+
+BinaryExpressionNode::BinaryExpressionNode(Token token, 
+        std::unique_ptr<BaseNode> left, std::unique_ptr<BaseNode> right)
+        : ExpressionNode(token), 
+        m_left(std::move(left)), m_right(std::move(right)) {}
+
+void BinaryExpressionNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_left->resolve_locals(serializer, scopes);
+    m_right->resolve_locals(serializer, scopes);
+}
+
+void BinaryExpressionNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_left.get());
+    printer.last_child(m_right.get());
+}
+
+AssignNode::AssignNode(Token token, std::unique_ptr<BaseNode> left, 
+        std::unique_ptr<BaseNode> right)
+        : BinaryExpressionNode(token, std::move(left), std::move(right)) {
+    if (!m_left->is_lvalue()) {
+        throw std::runtime_error("Expected lvalue as assignment target");
+    }
+}
+
+void AssignNode::serialize(Serializer &serializer) const {
+    m_left->serialize_load_address(serializer);
+    m_right->serialize(serializer);
+    serializer.add_instr(OpCode::Binary, FuncCode::Assign);
+}
+
+AndNode::AndNode(Token token, std::unique_ptr<BaseNode> left, 
+        std::unique_ptr<BaseNode> right)
+        : BinaryExpressionNode(token, std::move(left), std::move(right)) {}
+
+
+void AndNode::serialize(Serializer &serializer) const {
+    Label label_false = serializer.get_label();
+    Label label_end = serializer.get_label();
+
+    m_left->serialize(serializer);
+    serializer.add_instr(OpCode::BrFalse, label_false, true);
+
+    m_right->serialize(serializer);
+    serializer.add_instr(OpCode::BrFalse, label_false, true);
+    serializer.add_instr(OpCode::Push, 1);
+    serializer.add_instr(OpCode::Jump, label_end, true);
+
+    serializer.add_label(label_false);
+    serializer.add_instr(OpCode::Push, 0);
+
+    serializer.add_label(label_end);
+}
+
+OrNode::OrNode(Token token, std::unique_ptr<BaseNode> left, 
+        std::unique_ptr<BaseNode> right)
+        : BinaryExpressionNode(token, std::move(left), std::move(right)) {}
+
+void OrNode::serialize(Serializer &serializer) const {
+    Label label_true = serializer.get_label();
+    Label label_end = serializer.get_label();
+
+    m_left->serialize(serializer);
+    serializer.add_instr(OpCode::BrTrue, label_true, true);
+
+    m_right->serialize(serializer);
+    serializer.add_instr(OpCode::BrTrue, label_true, true);
+    serializer.add_instr(OpCode::Push, 0);
+    serializer.add_instr(OpCode::Jump, label_end, true);
+
+    serializer.add_label(label_true);
+    serializer.add_instr(OpCode::Push, 1);
+
+    serializer.add_label(label_end);
+}
 
 NamedTypeNode::NamedTypeNode(Token ident)
         : TypeNode(ident) {}
@@ -131,6 +252,7 @@ void VariableNode::serialize(Serializer &serializer) const {
             serializer.inline_frames().get(entry.id)->serialize(serializer);
             break;
         default:
+            std::cout << token().to_string() << std::endl;
             throw std::runtime_error("Invalid storage type");
     }
 }
@@ -159,143 +281,6 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
 
 void VariableNode::print(TreePrinter &printer) const {
     printer.print_label(label().data());
-}
-
-AssignNode::AssignNode(Token token, std::unique_ptr<BaseNode> left, 
-        std::unique_ptr<BaseNode> right)
-        : BaseNode(token), m_target(std::move(left)), m_expr(std::move(right)) {
-    if (!m_target->is_lvalue()) {
-        throw std::runtime_error("Expected lvalue as assignment target");
-    }
-}
-
-void AssignNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
-    m_target->resolve_locals(serializer, scopes);
-    m_expr->resolve_locals(serializer, scopes);
-}
-
-void AssignNode::serialize(Serializer &serializer) const {
-    m_target->serialize_load_address(serializer);
-    m_expr->serialize(serializer);
-    serializer.add_instr(OpCode::Binary, FuncCode::Assign);
-}
-
-void AssignNode::print(TreePrinter &printer) const {
-    printer.print_label(label().data());
-    printer.next_child(m_target.get());
-    printer.last_child(m_expr.get());
-}
-
-AndNode::AndNode(Token token, std::unique_ptr<BaseNode> left, 
-        std::unique_ptr<BaseNode> right)
-        : BaseNode(token), m_left(std::move(left)), 
-        m_right(std::move(right)) {}
-
-void AndNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
-    m_left->resolve_locals(serializer, scopes);
-    m_right->resolve_locals(serializer, scopes);
-}
-
-void AndNode::serialize(Serializer &serializer) const {
-    Label label_false = serializer.get_label();
-    Label label_end = serializer.get_label();
-
-    m_left->serialize(serializer);
-    serializer.add_instr(OpCode::BrFalse, label_false, true);
-
-    m_right->serialize(serializer);
-    serializer.add_instr(OpCode::BrFalse, label_false, true);
-    serializer.add_instr(OpCode::Push, 1);
-    serializer.add_instr(OpCode::Jump, label_end, true);
-
-    serializer.add_label(label_false);
-    serializer.add_instr(OpCode::Push, 0);
-
-    serializer.add_label(label_end);
-}
-
-void AndNode::print(TreePrinter &printer) const {
-    printer.print_label(label().data());
-    printer.next_child(m_left.get());
-    printer.last_child(m_right.get());
-}
-
-OrNode::OrNode(Token token, std::unique_ptr<BaseNode> left, 
-        std::unique_ptr<BaseNode> right)
-        : BaseNode(token), m_left(std::move(left)), 
-        m_right(std::move(right)) {}
-
-void OrNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
-    m_left->resolve_locals(serializer, scopes);
-    m_right->resolve_locals(serializer, scopes);
-}
-
-void OrNode::serialize(Serializer &serializer) const {
-    Label label_true = serializer.get_label();
-    Label label_end = serializer.get_label();
-
-    m_left->serialize(serializer);
-    serializer.add_instr(OpCode::BrTrue, label_true, true);
-
-    m_right->serialize(serializer);
-    serializer.add_instr(OpCode::BrTrue, label_true, true);
-    serializer.add_instr(OpCode::Push, 0);
-    serializer.add_instr(OpCode::Jump, label_end, true);
-
-    serializer.add_label(label_true);
-    serializer.add_instr(OpCode::Push, 1);
-
-    serializer.add_label(label_end);
-}
-
-void OrNode::print(TreePrinter &printer) const {
-    printer.print_label(label().data());
-    printer.next_child(m_left.get());
-    printer.last_child(m_right.get());
-}
-
-AddressOfNode::AddressOfNode(Token token, std::unique_ptr<BaseNode> operand)
-        : BaseNode(token), m_operand(std::move(operand)) {}
-
-void AddressOfNode::resolve_locals(Serializer &serializer, 
-        ScopeTracker &scopes) {
-    m_operand->resolve_locals(serializer, scopes);
-}
-
-void AddressOfNode::serialize(Serializer &serializer) const {
-    m_operand->serialize_load_address(serializer);
-}
-
-void AddressOfNode::print(TreePrinter &printer) const {
-    printer.print_label(label().data());
-    printer.last_child(m_operand.get());
-}
-
-DereferenceNode::DereferenceNode(Token token, 
-        std::unique_ptr<BaseNode> operand)
-        : BaseNode(token), m_operand(std::move(operand)) {}
-
-bool DereferenceNode::is_lvalue() const {
-    return true;
-}
-
-void DereferenceNode::resolve_locals(Serializer &serializer, 
-        ScopeTracker &scopes) {
-    m_operand->resolve_locals(serializer, scopes);
-}
-
-void DereferenceNode::serialize(Serializer &serializer) const {
-    m_operand->serialize(serializer);
-    serializer.add_instr(OpCode::LoadAbs);
-}
-
-void DereferenceNode::serialize_load_address(Serializer &serializer) const {
-    m_operand->serialize(serializer);
-}
-
-void DereferenceNode::print(TreePrinter &printer) const {
-    printer.print_label(label().data());
-    printer.last_child(m_operand.get());
 }
 
 IfElseNode::IfElseNode(Token token, std::unique_ptr<BaseNode> cond, 

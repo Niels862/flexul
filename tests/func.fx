@@ -1,12 +1,11 @@
 #!/home/niels/proj/flexul/fx
 
 include core;
-include io;
 
 fn main() {
-    var x = 5;
-    while (x > 3) {
-        x = 2;
+    var x = 1;
+    if (x == 1) {
+        return 3;
     }
-    return x + 3;
+    return 5;
 }

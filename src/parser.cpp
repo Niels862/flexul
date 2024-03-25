@@ -30,10 +30,10 @@ void Parser::include_file(std::string const &filename) {
 
 Token Parser::get_token() {
     if (m_tokenizers.empty()) {
-        return Token(TokenType::EndOfFile);
+        return Token(TokenType::EndOfFile, 0, 0);
     }
     m_curr_token = m_tokenizers.top().get_token();
-    while (m_curr_token == Token(TokenType::EndOfFile)) {
+    while (m_curr_token.type() == TokenType::EndOfFile) {
         m_tokenizers.pop();
         if (m_tokenizers.empty()) {
             return m_curr_token;

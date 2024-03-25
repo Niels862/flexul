@@ -2,20 +2,20 @@
 #include <stdexcept>
 
 Token::Token() 
-        : m_type(TokenType::Null), m_data("") {}
+        : m_type(TokenType::Null), m_data(""), row(0), col(0) {}
 
-Token::Token(TokenType type)
-        : m_type(type), m_data("") {}
+Token::Token(TokenType type, std::size_t row, std::size_t col)
+        : m_type(type), m_data(""), row(row), col(col) {}
 
-Token::Token(TokenType type, std::string data) 
-        : m_type(type), m_data(data) {}
+Token::Token(TokenType type, std::string data, std::size_t row, std::size_t col) 
+        : m_type(type), m_data(data), row(row), col(col) {}
 
 Token Token::synthetic(std::string data) {
-    return Token(TokenType::Synthetic, data);
+    return Token(TokenType::Synthetic, data, 0, 0);
 }
 
 Token Token::null() {
-    return Token(TokenType::Null);
+    return Token();
 }
 
 TokenType Token::type() const {
@@ -28,14 +28,13 @@ std::string Token::data() const {
 
 std::string Token::to_string() const {
     std::string type_string = Token::type_string(m_type);
-    if (m_data.empty()) {
-        return type_string;
-    }
-    return type_string + ": '" + m_data + "'";
+    return type_string + ": '" + m_data + "' (" 
+            + std::to_string(row) + ":" + std::to_string(col) + ")";
 }
 
 uint32_t Token::to_int() const {
-    if (m_data.size() >= 3 && m_data[0] == '\'' && m_data[m_data.size() - 1] == '\'') {
+    if (m_data.size() >= 3 && m_data[0] == '\'' 
+            && m_data[m_data.size() - 1] == '\'') {
         if (m_data.size() == 3) {
             return m_data[1];
         } else if (m_data.size() == 4 && m_data[1] == '\\') {

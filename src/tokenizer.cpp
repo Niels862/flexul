@@ -21,10 +21,11 @@ SyntaxMap const &default_syntax_map = {
 };
 
 Tokenizer::Tokenizer()
-        : m_syntax_map(), m_text(), m_i(0) {}
+        : m_syntax_map(), m_text(), m_i(0), m_row(1), m_col(1) {}
 
 Tokenizer::Tokenizer(std::string const &filename)
-        : m_syntax_map(default_syntax_map), m_text(), m_i(0) {
+        : m_syntax_map(default_syntax_map), m_text(), m_i(0), 
+        m_row(1), m_col(1) {
     std::string include_name = 
             filename + (endswith(filename, ".fx") ? "" : ".fx");
     std::ifstream file(filename);
@@ -44,7 +45,7 @@ Token Tokenizer::get_token() {
     char c;
     cleanup();
     if (eof()) {
-        return Token(TokenType::EndOfFile);
+        return Token(TokenType::EndOfFile, m_row, m_col);
     }
     c = m_text[m_i];
     if (std::isalpha(c) || c == '_') {
@@ -69,6 +70,18 @@ bool Tokenizer::eof() {
     return m_i >= m_text.length();
 }
 
+void Tokenizer::next_char() {
+    m_i++;
+    if (!eof()) {
+        if (m_text[m_i] == '\n') {
+            m_row++;
+            m_col = 1;
+        } else {
+            m_col++;
+        }
+    }
+}
+
 void Tokenizer::cleanup() {
     char c;
     while (!eof()) {
@@ -79,13 +92,13 @@ void Tokenizer::cleanup() {
                 if (c == '\n') {
                     break;
                 }
-                m_i++;
+                next_char();
             }
         }
         if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
             return;
         }
-        m_i++;
+        next_char();
     }
 }
 
@@ -99,45 +112,49 @@ Token Tokenizer::get_identifier() {
     size_t start = m_i;
     std::string identifier;
     do {
-        m_i++;
+        next_char();
     } while (std::isalpha(m_text[m_i]) || std::isdigit(m_text[m_i]) || m_text[m_i] == '_');
     identifier = m_text.substr(start, m_i - start);
     SyntaxMap::const_iterator iter = m_syntax_map.find(identifier);
     if (iter == m_syntax_map.end()) {
-        return Token(TokenType::Identifier, identifier);
+        return Token(TokenType::Identifier, identifier, m_row, m_col);
     }
-    return Token(iter->second, identifier);
+    return Token(iter->second, identifier, m_row, m_col);
 }
 
 Token Tokenizer::get_intlit() {
     size_t start = m_i;
     do {
-        m_i++;
+        next_char();
     } while (std::isdigit(m_text[m_i]));
-    return Token(TokenType::IntLit, m_text.substr(start, m_i - start));
+    return Token(TokenType::IntLit, 
+            m_text.substr(start, m_i - start), m_row, m_col);
 }
 
 Token Tokenizer::get_charlit() {
     size_t start = m_i;
     do {
-        m_i++;
+        next_char();
         assert_no_newline();
     } while (m_text[m_i] != '\'');
-    m_i++;
-    return Token(TokenType::IntLit, m_text.substr(start, m_i - start));
+    next_char();
+    return Token(TokenType::IntLit, 
+            m_text.substr(start, m_i - start), m_row, m_col);
 }
 
 Token Tokenizer::get_operator() {
     size_t start = m_i;
     do {
-        m_i++;
+        next_char();
     } while (is_op_char(m_text[m_i]));
-    return Token(TokenType::Operator, m_text.substr(start, m_i - start));
+    return Token(TokenType::Operator, 
+            m_text.substr(start, m_i - start), m_row, m_col);
 }
 
 Token Tokenizer::get_separator() {
-    Token token(TokenType::Separator, m_text.substr(m_i, 1));
-    m_i++;
+    Token token(TokenType::Separator, 
+            m_text.substr(m_i, 1), m_row, m_col);
+    next_char();
     return token;
 }
 
