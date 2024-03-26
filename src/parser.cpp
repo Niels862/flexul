@@ -499,7 +499,7 @@ std::unique_ptr<BaseNode> Parser::parse_value() {
     } else if (accept_data("*")) {
         value = std::make_unique<DereferenceNode>(token, parse_value());
     } else if (accept_type(TokenType::IntLit)) {
-        value = std::make_unique<IntLitNode>(token);
+        value = std::make_unique<IntegerLiteralNode>(token);
     } else if (accept_type(TokenType::Identifier)) {
         value = std::make_unique<VariableNode>(token);
     } else if (accept_data("(")) {

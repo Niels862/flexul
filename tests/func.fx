@@ -1,11 +1,11 @@
 #!/home/niels/proj/flexul/fx
 
-include core;
+fn +(x: IStream, y: Int) -> IStream {
+    __putc__(y);
+    return x;
+}
 
 fn main() {
-    var x = 1;
-    if (x == 1) {
-        return 3;
-    }
-    return 5;
+    0 + 'H' + 'e' + 'l' + 'l' + 'o' + '\n';
+    return ((lambda(): 5) - 1)();
 }

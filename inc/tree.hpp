@@ -61,6 +61,38 @@ public:
     void serialize(Serializer &serializer) const override;
 };
 
+class VariableNode : public ExpressionNode {
+public:
+    VariableNode(Token token);
+
+    bool is_lvalue() const override;
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void serialize(Serializer &serializer) const override;
+    void serialize_load_address(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
+};
+
+class LiteralNode : public ExpressionNode {
+public:
+    LiteralNode(Token token);
+
+    void resolve_locals(Serializer &serializer, 
+            ScopeTracker &scopes) override;
+
+    void print(TreePrinter &printer) const override;
+};
+
+class IntegerLiteralNode : public LiteralNode {
+public:
+    IntegerLiteralNode(Token token);
+
+    void serialize(Serializer &serializer) const override;
+    std::optional<uint32_t> get_constant_value() const;
+private:
+    uint32_t m_value;
+};
+
 class UnaryExpressionNode : public ExpressionNode {
 public:
     UnaryExpressionNode(Token token, std::unique_ptr<BaseNode> operand);
@@ -126,6 +158,38 @@ public:
     void serialize(Serializer &serializer) const override;
 };
 
+class SubscriptNode : public BinaryExpressionNode {
+public:
+    SubscriptNode(std::unique_ptr<BaseNode> array, 
+            std::unique_ptr<BaseNode> subscript);
+
+    bool is_lvalue() const override;
+    void serialize(Serializer &serializer) const override;
+    void serialize_load_address(Serializer &serializer) const override;
+};
+
+class CallNode : public ExpressionNode {
+public:
+    CallNode(std::unique_ptr<BaseNode> func, 
+            std::unique_ptr<ExpressionListNode> args);
+
+    static std::unique_ptr<BaseNode> make_call(Token ident, 
+            std::vector<std::unique_ptr<BaseNode>> params);
+    static std::unique_ptr<BaseNode> make_unary_call(Token ident, 
+            std::unique_ptr<BaseNode> param);
+    static std::unique_ptr<BaseNode> make_binary_call(Token ident, 
+            std::unique_ptr<BaseNode> left, 
+            std::unique_ptr<BaseNode> right);
+
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
+private:
+    std::unique_ptr<BaseNode> m_func;
+    std::unique_ptr<ExpressionListNode> m_args;
+};
+
 class NamedTypeNode : public TypeNode {
 public:
     NamedTypeNode(Token ident);
@@ -170,30 +234,6 @@ public:
     void print(TreePrinter &printer) const override;
 };
 
-class IntLitNode : public BaseNode {
-public:
-    IntLitNode(Token token);
-
-    void serialize(Serializer &serializer) const override;
-    std::optional<uint32_t> get_constant_value() const;
-
-    void print(TreePrinter &printer) const override;
-private:
-    uint32_t m_value;
-};
-
-class VariableNode : public BaseNode {
-public:
-    VariableNode(Token token);
-
-    bool is_lvalue() const override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void serialize(Serializer &serializer) const override;
-    void serialize_load_address(Serializer &serializer) const override;
-
-    void print(TreePrinter &printer) const override;
-};
-
 class IfElseNode : public BaseNode {
 public:
     IfElseNode(Token token, std::unique_ptr<BaseNode> cond, 
@@ -208,44 +248,6 @@ private:
     std::unique_ptr<BaseNode> m_cond;
     std::unique_ptr<BaseNode> m_case_true;
     std::unique_ptr<BaseNode> m_case_false;
-};
-
-class CallNode : public BaseNode {
-public:
-    CallNode(std::unique_ptr<BaseNode> func, 
-            std::unique_ptr<ExpressionListNode> args);
-
-    static std::unique_ptr<BaseNode> make_call(Token ident, 
-            std::vector<std::unique_ptr<BaseNode>> params);
-    static std::unique_ptr<BaseNode> make_unary_call(Token ident, 
-            std::unique_ptr<BaseNode> param);
-    static std::unique_ptr<BaseNode> make_binary_call(Token ident, 
-            std::unique_ptr<BaseNode> left, 
-            std::unique_ptr<BaseNode> right);
-
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void serialize(Serializer &serializer) const override;
-
-    void print(TreePrinter &printer) const override;
-private:
-    std::unique_ptr<BaseNode> m_func;
-    std::unique_ptr<ExpressionListNode> m_args;
-};
-
-class SubscriptNode : public BaseNode {
-public:
-    SubscriptNode(std::unique_ptr<BaseNode> array, 
-            std::unique_ptr<BaseNode> subscript);
-
-    bool is_lvalue() const override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void serialize(Serializer &serializer) const override;
-    void serialize_load_address(Serializer &serializer) const override;
-
-    void print(TreePrinter &printer) const override;
-private:
-    std::unique_ptr<BaseNode> m_array;
-    std::unique_ptr<BaseNode> m_subscript;
 };
 
 class BlockNode : public BaseNode {

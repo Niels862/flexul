@@ -49,6 +49,92 @@ TypeNode::TypeNode(Token token)
 
 void TypeNode::serialize(Serializer &) const {}
 
+VariableNode::VariableNode(Token token)
+        : ExpressionNode(token) {}
+
+bool VariableNode::is_lvalue() const {
+    return true;
+}
+
+void VariableNode::resolve_locals(Serializer &, ScopeTracker &scopes) {
+    SymbolId id = lookup_symbol(token().data(), scopes);
+    set_id(id);
+}
+
+void VariableNode::serialize(Serializer &serializer) const {
+    SymbolEntry entry = serializer.symbol_table().get(id());
+    switch (entry.storage_type) {
+        case StorageType::AbsoluteRef:
+            serializer.add_instr(OpCode::Push, entry.id, true);
+            break;
+        case StorageType::RelativeRef:
+            serializer.add_instr(OpCode::LoadAddrRel, entry.value);
+            break;
+        case StorageType::Absolute:
+            serializer.add_instr(OpCode::LoadAbs, entry.id, true);
+            break;
+        case StorageType::Relative:
+            serializer.add_instr(OpCode::LoadRel, entry.value);
+            break;
+        case StorageType::Callable:
+            serializer.push_callable_addr(entry.id);
+            break;
+        case StorageType::InlineReference:
+            serializer.inline_frames().get(entry.id)->serialize(serializer);
+            break;
+        default:
+            std::cout << token().to_string() << std::endl;
+            throw std::runtime_error("Invalid storage type");
+    }
+}
+
+void VariableNode::serialize_load_address(Serializer &serializer) const {
+    SymbolEntry entry = serializer.symbol_table().get(id());
+    switch (entry.storage_type) {
+        case StorageType::AbsoluteRef:
+        case StorageType::RelativeRef:
+            std::cerr << entry.symbol << std::endl;
+            throw std::runtime_error("Cannot load address of reference");
+        case StorageType::Absolute:
+            serializer.add_instr(OpCode::Push, entry.id, true);
+            break;
+        case StorageType::Relative:
+            serializer.add_instr(OpCode::LoadAddrRel, entry.value);
+            break;
+        case StorageType::InlineReference:
+        serializer.inline_frames().get(entry.id)
+                ->serialize_load_address(serializer);
+            break;
+        default:
+            throw std::runtime_error("Invalid storage type");
+    }
+}
+
+void VariableNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+}
+
+LiteralNode::LiteralNode(Token token)
+        : ExpressionNode(token) {}
+
+void LiteralNode::resolve_locals(Serializer &, ScopeTracker &) {}
+
+void LiteralNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+}
+
+IntegerLiteralNode::IntegerLiteralNode(Token token)
+        : LiteralNode(token), m_value(token.to_int()) {
+}
+
+void IntegerLiteralNode::serialize(Serializer &serializer) const {
+    serializer.add_instr(OpCode::Push, m_value);
+}
+
+std::optional<uint32_t> IntegerLiteralNode::get_constant_value() const {
+    return m_value;
+}
+
 UnaryExpressionNode::UnaryExpressionNode(Token token, 
         std::unique_ptr<BaseNode> operand)
         : ExpressionNode(token), 
@@ -164,165 +250,29 @@ void OrNode::serialize(Serializer &serializer) const {
     serializer.add_label(label_end);
 }
 
-NamedTypeNode::NamedTypeNode(Token ident)
-        : TypeNode(ident) {}
+SubscriptNode::SubscriptNode(std::unique_ptr<BaseNode> left, 
+        std::unique_ptr<BaseNode> right)
+        : BinaryExpressionNode(Token::synthetic("<subscript>"), 
+        std::move(left), std::move(right)) {}
 
-void NamedTypeNode::print(TreePrinter &printer) const {
-    printer.print_label(label().data());
-}
-
-TypeListNode::TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list)
-        : TypeNode(Token::synthetic("<type-list>")), 
-        m_type_list(std::move(type_list)) {}
-
-void TypeListNode::print(TreePrinter &printer) const {
-    printer.print_label("todo");
-}
-
-CallableTypeNode::CallableTypeNode(Token token, 
-        std::unique_ptr<TypeListNode> param_types, 
-        std::unique_ptr<TypeNode> return_type)
-        : TypeNode(token), m_param_types(std::move(param_types)), 
-        m_return_type(std::move(return_type)) {}
-
-void CallableTypeNode::print(TreePrinter &printer) const {
-    printer.print_label("todo");
-}
-
-CallableSignature::CallableSignature(std::vector<Token> params, 
-        std::unique_ptr<CallableTypeNode> type)
-        : params(params), type(std::move(type)) {}
-
-EmptyNode::EmptyNode()
-        : BaseNode(Token::synthetic("<empty>")) {}
-
-void EmptyNode::serialize(Serializer &) const {}
-
-void EmptyNode::print(TreePrinter &printer) const {
-    printer.print_label("(empty)");
-}
-
-IntLitNode::IntLitNode(Token token)
-        : BaseNode(token), m_value(token.to_int()) {
-}
-
-void IntLitNode::serialize(Serializer &serializer) const {
-    serializer.add_instr(OpCode::Push, m_value);
-}
-
-std::optional<uint32_t> IntLitNode::get_constant_value() const {
-    return m_value;
-}
-
-void IntLitNode::print(TreePrinter &printer) const {
-    printer.print_label(token().data());
-}
-
-VariableNode::VariableNode(Token token)
-        : BaseNode(token) {}
-
-bool VariableNode::is_lvalue() const {
+bool SubscriptNode::is_lvalue() const {
     return true;
 }
 
-void VariableNode::resolve_locals(Serializer &, ScopeTracker &scopes) {
-    SymbolId id = lookup_symbol(token().data(), scopes);
-    set_id(id);
+void SubscriptNode::serialize(Serializer &serializer) const {
+    serialize_load_address(serializer);
+    serializer.add_instr(OpCode::LoadAbs);
 }
 
-void VariableNode::serialize(Serializer &serializer) const {
-    SymbolEntry entry = serializer.symbol_table().get(id());
-    switch (entry.storage_type) {
-        case StorageType::AbsoluteRef:
-            serializer.add_instr(OpCode::Push, entry.id, true);
-            break;
-        case StorageType::RelativeRef:
-            serializer.add_instr(OpCode::LoadAddrRel, entry.value);
-            break;
-        case StorageType::Absolute:
-            serializer.add_instr(OpCode::LoadAbs, entry.id, true);
-            break;
-        case StorageType::Relative:
-            serializer.add_instr(OpCode::LoadRel, entry.value);
-            break;
-        case StorageType::Callable:
-            serializer.push_callable_addr(entry.id);
-            break;
-        case StorageType::InlineReference:
-            serializer.inline_frames().get(entry.id)->serialize(serializer);
-            break;
-        default:
-            std::cout << token().to_string() << std::endl;
-            throw std::runtime_error("Invalid storage type");
-    }
-}
-
-void VariableNode::serialize_load_address(Serializer &serializer) const {
-    SymbolEntry entry = serializer.symbol_table().get(id());
-    switch (entry.storage_type) {
-        case StorageType::AbsoluteRef:
-        case StorageType::RelativeRef:
-            std::cerr << entry.symbol << std::endl;
-            throw std::runtime_error("Cannot load address of reference");
-        case StorageType::Absolute:
-            serializer.add_instr(OpCode::Push, entry.id, true);
-            break;
-        case StorageType::Relative:
-            serializer.add_instr(OpCode::LoadAddrRel, entry.value);
-            break;
-        case StorageType::InlineReference:
-        serializer.inline_frames().get(entry.id)
-                ->serialize_load_address(serializer);
-            break;
-        default:
-            throw std::runtime_error("Invalid storage type");
-    }
-}
-
-void VariableNode::print(TreePrinter &printer) const {
-    printer.print_label(label().data());
-}
-
-IfElseNode::IfElseNode(Token token, std::unique_ptr<BaseNode> cond, 
-        std::unique_ptr<BaseNode> case_true, 
-        std::unique_ptr<BaseNode> case_false)
-        : BaseNode(token), m_cond(std::move(cond)), 
-        m_case_true(std::move(case_true)), 
-        m_case_false(std::move(case_false)) {}
-
-void IfElseNode::resolve_locals(Serializer &serializer, 
-        ScopeTracker &scopes) {
-    m_cond->resolve_locals(serializer, scopes);
-    m_case_true->resolve_locals(serializer, scopes);
-    m_case_false->resolve_locals(serializer, scopes);
-}
-
-void IfElseNode::serialize(Serializer &serializer) const {
-    Label label_false = serializer.get_label();
-    Label label_end = serializer.get_label();
-    
-    m_cond->serialize(serializer);
-    serializer.add_instr(OpCode::BrFalse, label_false, true);
-
-    m_case_true->serialize(serializer);
-    serializer.add_instr(OpCode::Jump, label_end, true);
-
-    serializer.add_label(label_false);
-    m_case_false->serialize(serializer);
-
-    serializer.add_label(label_end);
-}
-
-void IfElseNode::print(TreePrinter &printer) const {
-    printer.print_label(label().data());
-    printer.next_child(m_cond.get());
-    printer.next_child(m_case_true.get());
-    printer.last_child(m_case_false.get());
+void SubscriptNode::serialize_load_address(Serializer &serializer) const {
+    m_left->serialize(serializer);
+    m_right->serialize(serializer);
+    serializer.add_instr(OpCode::Binary, FuncCode::Add);
 }
 
 CallNode::CallNode(std::unique_ptr<BaseNode> func, 
         std::unique_ptr<ExpressionListNode> args)
-        : BaseNode(Token::synthetic("<call>")), m_func(std::move(func)), 
+        : ExpressionNode(Token::synthetic("<call>")), m_func(std::move(func)), 
         m_args(std::move(args)) {}
 
 std::unique_ptr<BaseNode> CallNode::make_call(Token ident, 
@@ -382,36 +332,79 @@ void CallNode::print(TreePrinter &printer) const {
     printer.last_child(m_args.get());
 }
 
-SubscriptNode::SubscriptNode(std::unique_ptr<BaseNode> array, 
-        std::unique_ptr<BaseNode> subscript)
-        : BaseNode(Token::synthetic("<subscript>")), m_array(std::move(array)),
-        m_subscript(std::move(subscript)) {}
+NamedTypeNode::NamedTypeNode(Token ident)
+        : TypeNode(ident) {}
 
-bool SubscriptNode::is_lvalue() const {
-    return true;
-}
-
-void SubscriptNode::resolve_locals(Serializer &serializer, 
-        ScopeTracker &scopes) {
-    m_array->resolve_locals(serializer, scopes);
-    m_subscript->resolve_locals(serializer, scopes);
-}
-
-void SubscriptNode::serialize(Serializer &serializer) const {
-    serialize_load_address(serializer);
-    serializer.add_instr(OpCode::LoadAbs);
-}
-
-void SubscriptNode::serialize_load_address(Serializer &serializer) const {
-    m_array->serialize(serializer);
-    m_subscript->serialize(serializer);
-    serializer.add_instr(OpCode::Binary, FuncCode::Add);
-}
-
-void SubscriptNode::print(TreePrinter &printer) const {
+void NamedTypeNode::print(TreePrinter &printer) const {
     printer.print_label(label().data());
-    printer.next_child(m_array.get());
-    printer.last_child(m_subscript.get());
+}
+
+TypeListNode::TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list)
+        : TypeNode(Token::synthetic("<type-list>")), 
+        m_type_list(std::move(type_list)) {}
+
+void TypeListNode::print(TreePrinter &printer) const {
+    printer.print_label("todo");
+}
+
+CallableTypeNode::CallableTypeNode(Token token, 
+        std::unique_ptr<TypeListNode> param_types, 
+        std::unique_ptr<TypeNode> return_type)
+        : TypeNode(token), m_param_types(std::move(param_types)), 
+        m_return_type(std::move(return_type)) {}
+
+void CallableTypeNode::print(TreePrinter &printer) const {
+    printer.print_label("todo");
+}
+
+CallableSignature::CallableSignature(std::vector<Token> params, 
+        std::unique_ptr<CallableTypeNode> type)
+        : params(params), type(std::move(type)) {}
+
+EmptyNode::EmptyNode()
+        : BaseNode(Token::synthetic("<empty>")) {}
+
+void EmptyNode::serialize(Serializer &) const {}
+
+void EmptyNode::print(TreePrinter &printer) const {
+    printer.print_label("(empty)");
+}
+
+IfElseNode::IfElseNode(Token token, std::unique_ptr<BaseNode> cond, 
+        std::unique_ptr<BaseNode> case_true, 
+        std::unique_ptr<BaseNode> case_false)
+        : BaseNode(token), m_cond(std::move(cond)), 
+        m_case_true(std::move(case_true)), 
+        m_case_false(std::move(case_false)) {}
+
+void IfElseNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_cond->resolve_locals(serializer, scopes);
+    m_case_true->resolve_locals(serializer, scopes);
+    m_case_false->resolve_locals(serializer, scopes);
+}
+
+void IfElseNode::serialize(Serializer &serializer) const {
+    Label label_false = serializer.get_label();
+    Label label_end = serializer.get_label();
+    
+    m_cond->serialize(serializer);
+    serializer.add_instr(OpCode::BrFalse, label_false, true);
+
+    m_case_true->serialize(serializer);
+    serializer.add_instr(OpCode::Jump, label_end, true);
+
+    serializer.add_label(label_false);
+    m_case_false->serialize(serializer);
+
+    serializer.add_label(label_end);
+}
+
+void IfElseNode::print(TreePrinter &printer) const {
+    printer.print_label(label().data());
+    printer.next_child(m_cond.get());
+    printer.next_child(m_case_true.get());
+    printer.last_child(m_case_false.get());
 }
 
 BlockNode::BlockNode(std::vector<std::unique_ptr<BaseNode>> statements)

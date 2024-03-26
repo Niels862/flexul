@@ -1,7 +1,10 @@
+include core;
+include io;
+
 fn getnum() {
     var c = __getc__();
     var n = 0;
-    while (c != 10) {
+    while (c != '\n') {
         if (c >= '0' && c <= '9') {
             n = 10 * n + c - '0';
         }
