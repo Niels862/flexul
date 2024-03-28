@@ -18,6 +18,12 @@ std::vector<IntrinsicEntry> const intrinsics = {
     {"__ile__", 2, OpCode::Binary, FuncCode::LessEquals},
 };
 
+SymbolEntry::SymbolEntry(std::string symbol, BaseNode *definition, SymbolId id,
+            StorageType storage_type, uint32_t value, uint32_t size)
+            : symbol(symbol), definition(definition), id(id),
+            storage_type(storage_type), value(value), size(size),
+            usages(0), implemented(false) {}
+
 ScopeTracker::ScopeTracker()
         : global(), enclosing(), current() {}
 
@@ -45,8 +51,8 @@ SymbolId lookup_symbol(std::string const &symbol, ScopeTracker const &scopes) {
 
 SymbolTable::SymbolTable(SymbolId &counter)
         : m_table({
-            {"<null>", 0, StorageType::Invalid, 0, 0, 0}, 
-            {"<entry>", 1, StorageType::AbsoluteRef, 0, 0, 0}
+            SymbolEntry("<null>", nullptr, 0, StorageType::Invalid, 0, 0),
+            SymbolEntry("<entry>", nullptr, 1, StorageType::AbsoluteRef, 0, 0)
         }), m_counter(counter) {}
 
 SymbolId SymbolTable::next_id() {
@@ -59,7 +65,7 @@ SymbolEntry const &SymbolTable::get(SymbolId id) const {
     return m_table[id];
 }
 
-SymbolId SymbolTable::declare(std::string const &symbol, 
+SymbolId SymbolTable::declare(std::string const &symbol, BaseNode *definition,
         SymbolMap &scope, StorageType storage_type, uint32_t value, 
         uint32_t size) {
     SymbolMap::const_iterator iter = scope.find(symbol);
@@ -68,7 +74,7 @@ SymbolId SymbolTable::declare(std::string const &symbol,
     }
     SymbolId id = next_id();
     scope[symbol] = id;
-    add({symbol, id, storage_type, value, size, 0});
+    add(SymbolEntry(symbol, definition, id, storage_type, value, size));
     return id;
 }
 
@@ -76,7 +82,7 @@ void SymbolTable::load_predefined(SymbolMap &symbol_map) {
     size_t i;
     for (i = 0; i < intrinsics.size(); i++) {
         IntrinsicEntry intrinsic = intrinsics[i];
-        declare(intrinsic.symbol, symbol_map, 
+        declare(intrinsic.symbol, nullptr, symbol_map, 
                 StorageType::Intrinsic, i);
     }
 }

@@ -92,7 +92,7 @@ void VariableNode::resolve_locals(Serializer &, ScopeTracker &scopes) {
 }
 
 void VariableNode::serialize(Serializer &serializer) const {
-    SymbolEntry entry = serializer.symbol_table().get(id());
+    SymbolEntry const &entry = serializer.symbol_table().get(id());
     switch (entry.storage_type) {
         case StorageType::AbsoluteRef:
             serializer.add_instr(OpCode::Push, entry.id, true);
@@ -118,7 +118,7 @@ void VariableNode::serialize(Serializer &serializer) const {
 }
 
 void VariableNode::serialize_load_address(Serializer &serializer) const {
-    SymbolEntry entry = serializer.symbol_table().get(id());
+    SymbolEntry const &entry = serializer.symbol_table().get(id());
     switch (entry.storage_type) {
         case StorageType::AbsoluteRef:
         case StorageType::RelativeRef:
@@ -343,7 +343,7 @@ void CallNode::resolve_locals(Serializer &serializer,
 
 void CallNode::serialize(Serializer &serializer) const {
     SymbolId id = m_func->id();
-    SymbolEntry entry = serializer.symbol_table().get(id);
+    SymbolEntry const &entry = serializer.symbol_table().get(id);
     if (entry.storage_type == StorageType::Intrinsic) {
         IntrinsicEntry intrinsic = intrinsics[entry.value];
         if (m_args->exprs().size() != intrinsic.n_args) {
@@ -415,8 +415,8 @@ void LambdaNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
     ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
     uint32_t position = -3 - m_signature.params.size();
     for (Token const &param : m_signature.params) {
-        serializer.symbol_table().declare(param.data(), block_scopes.current, 
-                StorageType::Relative, position);
+        serializer.symbol_table().declare(param.data(), this, 
+                block_scopes.current, StorageType::Relative, position);
         position++;
     }
     m_body->resolve_locals(serializer, block_scopes);
@@ -476,8 +476,8 @@ void FunctionNode::resolve_locals(Serializer &serializer,
     ScopeTracker block_scopes(scopes.global, scopes.enclosing, {}); 
     uint32_t position = -3 - n_params();
     for (Token const &param : params()) {
-        serializer.symbol_table().declare(param.data(), block_scopes.current, 
-                StorageType::Relative, position);
+        serializer.symbol_table().declare(param.data(), this, 
+                block_scopes.current, StorageType::Relative, position);
         position++;
     }
     serializer.symbol_table().open_container();
@@ -531,7 +531,7 @@ void InlineNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
     ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
     uint32_t position = 0;
     for (Token const &param : params()) {
-        SymbolId id = serializer.symbol_table().declare(param.data(), 
+        SymbolId id = serializer.symbol_table().declare(param.data(), this,
                 block_scopes.current, StorageType::InlineReference, position);
         m_param_ids.push_back(id);
         position++;
@@ -642,7 +642,7 @@ TypeDeclarationNode::TypeDeclarationNode(
 void TypeDeclarationNode::resolve_globals(
         Serializer &serializer, SymbolMap &symbol_map) {
     set_id(serializer.symbol_table().declare(
-            m_ident.data(), symbol_map, StorageType::Type));
+            m_ident.data(), this, symbol_map, StorageType::Type));
 }
 
 void TypeDeclarationNode::serialize(Serializer &) const {}
@@ -822,7 +822,7 @@ void VarDeclarationNode::resolve_globals(
         throw std::runtime_error("not implemented");
     }
     set_id(serializer.symbol_table().declare(
-            m_ident.data(), current, 
+            m_ident.data(), this, current, 
             m_size == nullptr ? 
                 StorageType::Absolute : StorageType::AbsoluteRef, 
             0, declared_size()));
@@ -835,7 +835,7 @@ void VarDeclarationNode::resolve_locals(Serializer &serializer,
         m_init_value->resolve_locals(serializer, scopes);
     }
     set_id(serializer.symbol_table().declare(
-            m_ident.data(), scopes.current, 
+            m_ident.data(), this, scopes.current, 
             m_size == nullptr ? 
                 StorageType::Relative : StorageType::RelativeRef, 
             0, declared_size()));
@@ -844,7 +844,7 @@ void VarDeclarationNode::resolve_locals(Serializer &serializer,
 
 void VarDeclarationNode::serialize(Serializer &serializer) const {
     if (m_init_value != nullptr) {
-        SymbolEntry entry = serializer.symbol_table().get(id());
+        SymbolEntry const &entry = serializer.symbol_table().get(id());
         serializer.add_instr(OpCode::LoadAddrRel, entry.value);
         m_init_value->serialize(serializer);
         serializer.add_instr(OpCode::Binary, FuncCode::Assign);

@@ -19,13 +19,23 @@ class CallableEntry {
 public:
     CallableEntry();
 
-    void add_overload(CallableNode *overload);
+    void add_overload(CallableNode *definition, SymbolId id);
 
     void call(Serializer &serializer, 
             std::vector<std::unique_ptr<ExpressionNode>> const &args) const;
     void push_callable_addr(Serializer &serializer) const;
 private:
-    std::vector<CallableNode *> m_overloads;
+    struct OverloadEntry {
+        OverloadEntry();
+        OverloadEntry(CallableNode *definition, SymbolId id);
+
+        operator bool() const;
+
+        CallableNode *definition;
+        SymbolId id;
+    };
+
+    std::vector<CallableEntry::OverloadEntry> m_overloads;
 };
 
 using CallableMap = std::unordered_map<SymbolId, CallableEntry>;

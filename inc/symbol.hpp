@@ -27,6 +27,8 @@ using SymbolIdList = std::vector<SymbolId>;
 
 class BaseNode;
 
+class Serializer;
+
 struct IntrinsicEntry {
     std::string symbol;
     size_t n_args;
@@ -37,12 +39,17 @@ struct IntrinsicEntry {
 extern std::vector<IntrinsicEntry> const intrinsics;
 
 struct SymbolEntry {
+    SymbolEntry(std::string symbol, BaseNode *definition, SymbolId id,
+            StorageType storage_type, uint32_t value, uint32_t size);
+
     std::string symbol;
+    BaseNode *definition;
     SymbolId id;
     StorageType storage_type;
     uint32_t value;
     uint32_t size;
     uint64_t usages;
+    bool implemented;
 };
 
 using SymbolMap = std::unordered_map<std::string, SymbolId>;
@@ -64,8 +71,8 @@ public:
 
     SymbolId next_id();
     SymbolEntry const &get(SymbolId id) const;
-    SymbolId declare(std::string const &symbol, SymbolMap &scope, 
-            StorageType storage_type, uint32_t value = 0, 
+    SymbolId declare(std::string const &symbol, BaseNode *definition,
+            SymbolMap &scope, StorageType storage_type, uint32_t value = 0, 
             uint32_t size = 1);
     void load_predefined(SymbolMap &symbol_map);
     void dump() const;
@@ -81,6 +88,8 @@ private:
     std::vector<SymbolEntry> m_table;
     std::stack<SymbolIdList> m_containers;
     SymbolId &m_counter;
+
+    friend Serializer;
 };
 
 #endif

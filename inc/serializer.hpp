@@ -6,6 +6,7 @@
 #include "symbol.hpp"
 #include "callable.hpp"
 #include <vector>
+#include <queue>
 #include <stack>
 #include <string>
 #include <algorithm>
@@ -24,6 +25,9 @@ using Label = uint32_t;
 using LabelMap = std::unordered_map<Label, uint32_t>;
 
 struct JobEntry {
+    JobEntry();
+    JobEntry(uint32_t label, BaseNode *node, bool no_serialize);
+
     uint32_t label;
     BaseNode *node;
     bool no_serialize;
@@ -79,6 +83,7 @@ public:
     void add_instr(OpCode opcode, FuncCode funccode, 
             uint32_t data, bool references_label = false);
     void add_job(Label label, BaseNode *node, bool no_serialize);
+    void add_function_implementation(SymbolId id);
     uint32_t add_label();
     uint32_t add_label(Label label);
     uint32_t get_label();
@@ -96,7 +101,7 @@ private:
     SymbolTable m_symbol_table;
     InlineFrames m_inline_frames;
 
-    std::vector<JobEntry> m_code_jobs;
+    std::queue<JobEntry> m_code_jobs;
     LabelMap m_labels;
     // First used to give each symbol a unique id, then to attach labels
     // Symbol ids are also used as labels

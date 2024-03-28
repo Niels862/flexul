@@ -6,6 +6,13 @@
 #include <unordered_set>
 #include <optional>
 
+JobEntry::JobEntry()
+        : label(0), node(nullptr), no_serialize(false) {}
+
+
+JobEntry::JobEntry(uint32_t label, BaseNode *node, bool no_serialize)
+        : label(label), node(node), no_serialize(no_serialize) {}
+
 StackEntry::StackEntry()
         : m_type(EntryType::Instruction), m_opcode(OpCode::Nop), 
         m_funccode(FuncCode::Nop), m_data(0), m_has_immediate(0),
@@ -231,7 +238,8 @@ SymbolId Serializer::declare_callable(std::string const &name,
     SymbolMap::const_iterator name_iter = scope.find(name);
     SymbolId name_id;
     if (name_iter == scope.end()) { // New callable
-        name_id = m_symbol_table.declare(name, scope, StorageType::Callable);
+        name_id = m_symbol_table.declare(
+                name, nullptr, scope, StorageType::Callable);
     } else {
         name_id = name_iter->second;
         if (m_symbol_table.get(name_id).storage_type != StorageType::Callable) {
@@ -239,16 +247,19 @@ SymbolId Serializer::declare_callable(std::string const &name,
         }
     }
 
+    SymbolId definition_id = m_symbol_table.declare(
+            "." + name + "_" + std::to_string(m_counter), 
+            node, scope, StorageType::AbsoluteRef);
+    
     CallableMap::iterator iter = m_callable_map.find(name_id);
     if (iter == m_callable_map.end()) {
         CallableEntry callable;
-        callable.add_overload(node);
+        callable.add_overload(node, definition_id);
         m_callable_map[name_id] = callable;
     } else {
-        iter->second.add_overload(node);
+        iter->second.add_overload(node, definition_id);
     }
-    return m_symbol_table.declare("." + name + "_" + std::to_string(m_counter), 
-            scope, StorageType::AbsoluteRef);
+    return definition_id;
 }
 
 void Serializer::call(SymbolId id, 
@@ -281,12 +292,19 @@ void Serializer::add_instr(OpCode opcode, uint32_t data,
 
 void Serializer::add_instr(OpCode opcode, FuncCode funccode, 
         uint32_t data, bool references_label) {
-    add_entry(
-            StackEntry::instr(opcode, funccode, data, references_label));
+    add_entry(StackEntry::instr(opcode, funccode, data, references_label));
 }
 
 void Serializer::add_job(uint32_t label, BaseNode *node, bool no_serialize) {
-    m_code_jobs.push_back({label, node, no_serialize});
+    m_code_jobs.push({label, node, no_serialize});
+}
+
+void Serializer::add_function_implementation(SymbolId id) {
+    SymbolEntry &symbol = m_symbol_table.m_table[id];
+    if (!symbol.implemented) {
+        m_code_jobs.push(JobEntry(id, symbol.definition, false));
+        symbol.implemented = true;
+    }
 }
 
 uint32_t Serializer::add_label() {
@@ -314,33 +332,33 @@ uint32_t Serializer::get_stack_size() const {
 
 void Serializer::serialize(std::unique_ptr<BaseNode> &root) {
     ScopeTracker scopes;
-    uint32_t i;
 
     m_symbol_table.load_predefined(scopes.global);
     m_symbol_table.open_container();
 
     root->resolve_globals(*this, scopes.global);
-    for (JobEntry const &job : m_code_jobs) {
+
+    while (!m_code_jobs.empty()) {
+        JobEntry &job = m_code_jobs.front();
         job.node->resolve_locals(*this, scopes);
+        m_code_jobs.pop();
     }
     
     uint32_t global_size = m_symbol_table.container_size();
-    // Note that 'main' may not be a function name but could be another
-    // global scope definition, this is intended behavior.
-    auto iter = scopes.global.find("main"); // TODO: variable entry point
-    if (iter == scopes.global.end()) {
-        throw std::runtime_error("Entry point 'main' was not defined");
-    }
+
+    SymbolId entry_id = lookup_symbol("main", scopes);
 
     add_instr(OpCode::AddSp, global_size);
-    call(iter->second, {});
+    call(entry_id, {});
     add_instr(OpCode::SysCall, FuncCode::Exit);
 
-    for (i = 0; i < m_code_jobs.size(); i++) {
-        if (!m_code_jobs[i].no_serialize) {
-            add_label(m_code_jobs[i].label);
-            m_code_jobs[i].node->serialize(*this);
+    while (!m_code_jobs.empty()) {
+        JobEntry &job = m_code_jobs.front();
+        if (!job.no_serialize) {
+            add_label(job.label);
+            job.node->serialize(*this);
         }
+        m_code_jobs.pop();
     }
 
     uint32_t position = get_stack_size();

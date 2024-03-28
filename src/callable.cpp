@@ -4,8 +4,8 @@
 CallableEntry::CallableEntry() 
         : m_overloads() {}
 
-void CallableEntry::add_overload(CallableNode *overload) {
-    m_overloads.push_back(overload);
+void CallableEntry::add_overload(CallableNode *definition, SymbolId id) {
+    m_overloads.push_back(OverloadEntry(definition, id));
 }
 
 void CallableEntry::call(Serializer &serializer, 
@@ -13,19 +13,21 @@ void CallableEntry::call(Serializer &serializer,
     if (m_overloads.empty()) {
         throw std::runtime_error("No overloads declared for function");
     }
-    CallableNode *overload = nullptr;
-    for (CallableNode *callable : m_overloads) {
-        if (callable->is_matching_call(args)) {
-            if (overload != nullptr) {
+    OverloadEntry candidate;
+    for (auto const &overload : m_overloads) {
+        if (overload.definition->is_matching_call(args)) {
+            if (candidate) {
                 throw std::runtime_error("Multiple candidates for call");
             }
-            overload = callable;
+            candidate = overload;
         }
     }
-    if (overload == nullptr) {
+    if (!candidate) {
         throw std::runtime_error("No suitable candidate for call");
     }
-    overload->serialize_call(serializer, args);
+
+    serializer.add_function_implementation(candidate.id);
+    candidate.definition->serialize_call(serializer, args);
 }
 
 void CallableEntry::push_callable_addr(Serializer &serializer) const {
@@ -33,7 +35,19 @@ void CallableEntry::push_callable_addr(Serializer &serializer) const {
         throw std::runtime_error(
                 "Can only load address of single implmementation");
     }
-    serializer.add_instr(OpCode::Push, m_overloads[0]->id(), true);
+    serializer.add_function_implementation(m_overloads[0].id);
+    serializer.add_instr(OpCode::Push, m_overloads[0].id, true);
+}
+
+CallableEntry::OverloadEntry::OverloadEntry()
+        : definition(nullptr), id(0) {}
+
+CallableEntry::OverloadEntry::OverloadEntry(
+        CallableNode *definition, SymbolId id)
+        : definition(definition), id(id) {}
+
+CallableEntry::OverloadEntry::operator bool() const {
+    return definition != nullptr;
 }
 
 InlineFrames::InlineFrames()
