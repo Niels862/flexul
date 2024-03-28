@@ -12,6 +12,10 @@ ArgParser get_args(int argc, char *argv[]) {
     args.add("codefilename");
 
     args.add("tree", "", "", ArgType::Flag);
+    args.add("tree-all", "", "", ArgType::Flag);
+    args.add("tree-pointers", "", "", ArgType::Flag);
+    args.add("tree-types", "", "", ArgType::Flag);
+    args.add("tree-symbol-ids", "", "", ArgType::Flag);
     args.add("stats", "", "", ArgType::Flag);
     args.add("dis", "", "", ArgType::Flag);
     args.add("symbols", "", "", ArgType::Flag);
@@ -31,8 +35,13 @@ std::vector<uint32_t> compile(ArgParser const &args) {
     std::unique_ptr<BaseNode> root = parser.parse();
     serializer.serialize(root);
     if (args.get("tree")) {
+        bool tree_all = args.get("tree-all");
         std::cerr << "Syntax Tree:" << std::endl;
-        TreePrinter printer;
+        TreePrinter printer(
+            args.get("tree-pointers") || tree_all,
+            args.get("tree-types") || tree_all,
+            args.get("tree-symbol-ids") || tree_all
+        );
         root->print(printer);
     }
     if (args.get("symbols")) {

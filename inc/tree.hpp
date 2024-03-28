@@ -264,9 +264,9 @@ public:
             CallableSignature signature, std::unique_ptr<BaseNode> body);
     
     bool is_matching_call(
-            std::unique_ptr<ExpressionListNode> const &params) const;
+            std::vector<std::unique_ptr<ExpressionNode>> const &args) const;
     virtual void serialize_call(Serializer &serializer, 
-            std::unique_ptr<ExpressionListNode> const &params) const = 0;
+            std::vector<std::unique_ptr<ExpressionNode>> const &args) const = 0;
 
     Token const &ident() const;
     std::vector<Token> const &params() const;
@@ -288,7 +288,7 @@ public:
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, 
-            std::unique_ptr<ExpressionListNode> const &params) const override;
+            std::vector<std::unique_ptr<ExpressionNode>> const &args) const override;
 
     void print(TreePrinter &printer) const override;
 
@@ -307,7 +307,7 @@ public:
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, 
-            std::unique_ptr<ExpressionListNode> const &params) const override;
+            std::vector<std::unique_ptr<ExpressionNode>> const &args) const override;
 
     void print(TreePrinter &printer) const override;
 

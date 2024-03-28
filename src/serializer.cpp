@@ -252,12 +252,12 @@ SymbolId Serializer::declare_callable(std::string const &name,
 }
 
 void Serializer::call(SymbolId id, 
-        std::unique_ptr<ExpressionListNode> const &params) {
+        std::vector<std::unique_ptr<ExpressionNode>> const &args) {
     CallableMap::const_iterator iter = m_callable_map.find(id);
     if (iter == m_callable_map.end()) {
         throw std::runtime_error("Oh no");
     }
-    iter->second.call(*this, params);
+    iter->second.call(*this, args);
 }
 
 void Serializer::push_callable_addr(SymbolId id) {
@@ -333,7 +333,7 @@ void Serializer::serialize(std::unique_ptr<BaseNode> &root) {
     }
 
     add_instr(OpCode::AddSp, global_size);
-    call(iter->second, nullptr);
+    call(iter->second, {});
     add_instr(OpCode::SysCall, FuncCode::Exit);
 
     for (i = 0; i < m_code_jobs.size(); i++) {

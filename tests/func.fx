@@ -7,5 +7,5 @@ fn +(x: IStream, y: Int) -> IStream {
 
 fn main() {
     0 + 'H' + 'e' + 'l' + 'l' + 'o' + '\n';
-    return (lambda(): 5)();
+    return (lambda(x): x)(5);
 }

@@ -9,30 +9,23 @@ void CallableEntry::add_overload(CallableNode *overload) {
 }
 
 void CallableEntry::call(Serializer &serializer, 
-        std::unique_ptr<ExpressionListNode> const &params) const {
+        std::vector<std::unique_ptr<ExpressionNode>> const &args) const {
     if (m_overloads.empty()) {
         throw std::runtime_error("No overloads declared for function");
     }
     CallableNode *overload = nullptr;
-    if (params == nullptr) {
-        if (m_overloads.size() != 1) {
-            throw std::runtime_error("Overloads present for generic call");
-        }
-        overload = m_overloads[0];
-    } else {
-        for (CallableNode *callable : m_overloads) {
-            if (callable->is_matching_call(params)) {
-                if (overload != nullptr) {
-                    throw std::runtime_error("Multiple candidates for call");
-                }
-                overload = callable;
+    for (CallableNode *callable : m_overloads) {
+        if (callable->is_matching_call(args)) {
+            if (overload != nullptr) {
+                throw std::runtime_error("Multiple candidates for call");
             }
-        }
-        if (overload == nullptr) {
-            throw std::runtime_error("No suitable candidate for call");
+            overload = callable;
         }
     }
-    overload->serialize_call(serializer, params);
+    if (overload == nullptr) {
+        throw std::runtime_error("No suitable candidate for call");
+    }
+    overload->serialize_call(serializer, args);
 }
 
 void CallableEntry::push_callable_addr(Serializer &serializer) const {
@@ -46,13 +39,14 @@ void CallableEntry::push_callable_addr(Serializer &serializer) const {
 InlineFrames::InlineFrames()
         : m_params(), m_records() {}
 
-void InlineFrames::open_call(std::unique_ptr<ExpressionListNode> const &params, 
+void InlineFrames::open_call(
+        std::vector<std::unique_ptr<ExpressionNode>> const &args, 
         std::vector<SymbolId> const &param_ids) {
     for (std::size_t i = 0; i < param_ids.size(); i++) {
         SymbolId id = param_ids[i];
         InlineParamMap::const_iterator iter = m_params.find(id);
         m_records.push({id, iter == m_params.end() ? nullptr : iter->second});
-        m_params[id] = params->exprs()[i].get();
+        m_params[id] = args[i].get();
     }
 }
 

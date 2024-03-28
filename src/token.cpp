@@ -1,6 +1,72 @@
 #include "token.hpp"
 #include <stdexcept>
 
+std::ostream &operator <<(std::ostream &stream, TokenType const type) {
+    stream << to_string(type);
+    return stream;
+}
+
+std::string to_string(TokenType type) {
+    switch (type) {
+        case TokenType::Identifier:
+            return "identifier";
+        case TokenType::IntLit:
+            return "integer literal";
+        case TokenType::Keyword:
+            return "keyword";
+        case TokenType::Operator:
+            return "operator";
+        case TokenType::Separator:
+            return "separator";
+        case TokenType::Synthetic:
+            return "synthetic";
+        case TokenType::Null:
+            return "null";
+        case TokenType::EndOfFile:
+            return "end of file";
+        case TokenType::Function:
+            return "function";
+        case TokenType::Inline:
+            return "inline";
+        case TokenType::TypeDef:
+            return "typedef";
+        case TokenType::Like:
+            return "like";
+        case TokenType::Return:
+            return "return";
+        case TokenType::Include:
+            return "include";
+        case TokenType::If:
+            return "if";
+        case TokenType::Else:
+            return "else";
+        case TokenType::While:
+            return "while";
+        case TokenType::For:
+            return "for";
+        case TokenType::Lambda:
+            return "lambda";
+        case TokenType::Var:
+            return "var";
+    }
+    return "errortype";
+}
+
+SyntaxMap const default_syntax_map = {
+    {"fn", TokenType::Function},
+    {"inline", TokenType::Inline},
+    {"typedef", TokenType::TypeDef},
+    {"like", TokenType::Like},
+    {"return", TokenType::Return},
+    {"include", TokenType::Include},
+    {"if", TokenType::If},
+    {"else", TokenType::Else},
+    {"while", TokenType::While},
+    {"for", TokenType::For},
+    {"lambda", TokenType::Lambda},
+    {"var", TokenType::Var}
+};
+
 Token::Token() 
         : m_type(TokenType::Null), m_data(""), row(0), col(0) {}
 
@@ -24,12 +90,6 @@ TokenType Token::type() const {
 
 std::string Token::data() const {
     return m_data;
-}
-
-std::string Token::to_string() const {
-    std::string type_string = Token::type_string(m_type);
-    return type_string + ": '" + m_data + "' (" 
-            + std::to_string(row) + ":" + std::to_string(col) + ")";
 }
 
 uint32_t Token::to_int() const {
@@ -83,49 +143,9 @@ bool Token::is_synthetic(std::string const &cmp_data) const {
     return m_type == TokenType::Synthetic && m_data == cmp_data;
 }
 
-std::string Token::type_string(TokenType type) {
-    switch (type) {
-        case TokenType::Identifier:
-            return "identifier";
-        case TokenType::IntLit:
-            return "number";
-        case TokenType::Keyword:
-            return "keyword";
-        case TokenType::Operator:
-            return "operator";
-        case TokenType::Separator:
-            return "separator";
-        case TokenType::Synthetic:
-            return "synthetic";
-        case TokenType::Null:
-            return "null";
-        case TokenType::EndOfFile:
-            return "end of file";
-        case TokenType::Function:
-            return "function";
-        case TokenType::Inline:
-            return "inline";
-        case TokenType::TypeDef:
-            return "typedef";
-        case TokenType::Return:
-            return "return";
-        case TokenType::Include:
-            return "include";
-        case TokenType::If:
-            return "if";
-        case TokenType::Else:
-            return "else";
-        case TokenType::While:
-            return "while";
-        case TokenType::For:
-            return "for";
-        case TokenType::Lambda:
-            return "lambda";
-        case TokenType::Var:
-            return "var";
-        default:
-            return "errortype";
-    }
+std::string to_string(Token const &token) {
+    return to_string(token.m_type) + ": '" + token.m_data + "' (" 
+        + std::to_string(token.row) + ":" + std::to_string(token.col) + ")";
 }
 
 bool Token::operator ==(Token const &other) const {

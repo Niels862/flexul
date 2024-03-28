@@ -1,4 +1,4 @@
-typedef Int;
+typedef Int like 0;
 
 inline -(x: Int) -> Int: __ineg__(x);
 inline +(x: Int): x;

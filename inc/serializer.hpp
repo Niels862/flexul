@@ -70,7 +70,8 @@ public:
     SymbolId declare_callable(std::string const &name, SymbolMap &scope, 
             CallableNode *node);
 
-    void call(SymbolId id, std::unique_ptr<ExpressionListNode> const &params);
+    void call(SymbolId id, 
+            std::vector<std::unique_ptr<ExpressionNode>> const &args);
     void push_callable_addr(SymbolId id);
 
     void add_instr(OpCode opcode, FuncCode funccode = FuncCode::Nop);

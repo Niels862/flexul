@@ -12,8 +12,9 @@ std::unique_ptr<BaseNode> Parser::parse() {
     std::unique_ptr<BaseNode> root = parse_filebody();
     if (get_token().type() != TokenType::EndOfFile) {
         throw std::runtime_error(
-                "Unexpected token: " + m_curr_token.to_string());
+                "Unexpected token: " + to_string(m_curr_token));
     }
+    print_map(m_type_literals);
     return root;
 }
 
@@ -48,7 +49,7 @@ Token Parser::expect_data(std::string const &data) {
     if (token.data() != data) {
         throw std::runtime_error(
                 "Expected '" + data + "', got '" 
-                + token.to_string() + "'");
+                + to_string(token) + "'");
     }
     get_token();
     return token;
@@ -58,8 +59,8 @@ Token Parser::expect_type(TokenType type) {
     Token token = m_curr_token;
     if (token.type() != type) {
         throw std::runtime_error(
-                "Expected token of type " + Token::type_string(type) 
-                + ", got " + token.to_string());
+                "Expected token of type " + to_string(type)
+                + ", got " + to_string(token));
     }
     get_token();
     return token;
@@ -69,8 +70,8 @@ Token Parser::expect_token(Token const &other) {
     Token token = m_curr_token;
     if (token != other) {
         throw std::runtime_error(
-                "Expected " + other.to_string()
-                + ", got " + token.to_string());
+                "Expected " + to_string(token)
+                + ", got " + to_string(token));
     }
     get_token();
     return token;
@@ -237,6 +238,10 @@ std::unique_ptr<StatementNode> Parser::parse_braced_block(bool is_scope) {
 std::unique_ptr<StatementNode> Parser::parse_type_declaration() {
     Token token = expect_type(TokenType::TypeDef);
     Token ident = expect_type(TokenType::Identifier);
+    if (accept_type(TokenType::Like)) {
+        m_type_literals[m_curr_token.type()] = ident.data();
+        get_token();
+    }
     expect_data(";");
     return std::make_unique<TypeDeclarationNode>(token, ident);
 }
@@ -506,7 +511,7 @@ std::unique_ptr<ExpressionNode> Parser::parse_value() {
         value = parse_expression();
         expect_data(")");
     } else {
-        throw std::runtime_error("Expected value, got " + token.to_string());
+        throw std::runtime_error("Expected value, got " + to_string(token));
     }
     return parse_postfix(std::move(value));
 }

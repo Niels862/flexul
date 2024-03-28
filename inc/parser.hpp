@@ -57,6 +57,7 @@ private:
     std::stack<Tokenizer> m_tokenizers;
     Token m_curr_token;
     std::unordered_set<std::string> m_included_files;
+    std::unordered_map<TokenType, std::string> m_type_literals;
 };
 
 #endif

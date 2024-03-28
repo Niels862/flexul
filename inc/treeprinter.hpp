@@ -3,21 +3,21 @@
 
 #include <string>
 #include <vector>
-#include <memory>
 
 class BaseNode;
 
 class TreePrinter {
 public:
-    TreePrinter();
+    TreePrinter(bool with_pointers, bool with_types, 
+            bool with_symbol_ids);
     
-    void print_label(std::string const &label);
-    void next_child(BaseNode *next);
-    void last_child(BaseNode *last);
+    void print_node(BaseNode const *node);
+    void next_child(BaseNode const *next);
+    void last_child(BaseNode const *last);
 
 private:
     void print_label_prefix();
-    void print_child(BaseNode *child);
+    void print_child(BaseNode const *child);
 
     struct PrefixRecord {
         PrefixRecord(std::string label, std::string branch);
@@ -27,6 +27,10 @@ private:
     };
 
     std::vector<TreePrinter::PrefixRecord> m_prefixes;
+
+    bool with_pointers;
+    bool with_types;
+    bool with_symbol_ids;
 };
 
 #endif

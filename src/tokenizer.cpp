@@ -6,25 +6,11 @@
 #include <iostream>
 #include <fstream>
 
-SyntaxMap const &default_syntax_map = {
-    {"fn", TokenType::Function},
-    {"inline", TokenType::Inline},
-    {"typedef", TokenType::TypeDef},
-    {"return", TokenType::Return},
-    {"include", TokenType::Include},
-    {"if", TokenType::If},
-    {"else", TokenType::Else},
-    {"while", TokenType::While},
-    {"for", TokenType::For},
-    {"lambda", TokenType::Lambda},
-    {"var", TokenType::Var}
-};
-
 Tokenizer::Tokenizer()
-        : m_syntax_map(), m_text(), m_i(0), m_row(1), m_col(1) {}
+        : m_text(), m_i(0), m_row(1), m_col(1) {}
 
 Tokenizer::Tokenizer(std::string const &filename)
-        : m_syntax_map(default_syntax_map), m_text(), m_i(0), 
+        : m_text(), m_i(0), 
         m_row(1), m_col(1) {
     std::string include_name = 
             filename + (endswith(filename, ".fx") ? "" : ".fx");
@@ -115,8 +101,8 @@ Token Tokenizer::get_identifier() {
         next_char();
     } while (std::isalpha(m_text[m_i]) || std::isdigit(m_text[m_i]) || m_text[m_i] == '_');
     identifier = m_text.substr(start, m_i - start);
-    SyntaxMap::const_iterator iter = m_syntax_map.find(identifier);
-    if (iter == m_syntax_map.end()) {
+    SyntaxMap::const_iterator iter = default_syntax_map.find(identifier);
+    if (iter == default_syntax_map.end()) {
         return Token(TokenType::Identifier, identifier, m_row, m_col);
     }
     return Token(iter->second, identifier, m_row, m_col);

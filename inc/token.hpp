@@ -3,12 +3,22 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
+#include <unordered_map>
 
 enum class TokenType {
     Null, Identifier, IntLit, Keyword, Operator, Separator, 
-    Function, Inline, TypeDef, Return, Include, If, Else, While, 
+    Function, Inline, TypeDef, Like, Return, Include, If, Else, While, 
     For, Lambda, Var, EndOfFile, Synthetic
 };
+
+std::ostream &operator <<(std::ostream &stream, TokenType const type);
+
+std::string to_string(TokenType type);
+
+using SyntaxMap = std::unordered_map<std::string, TokenType>;
+
+extern SyntaxMap const default_syntax_map;
 
 class Token {
 public:
@@ -19,10 +29,11 @@ public:
     static Token null();
     TokenType type() const;
     std::string data() const;
-    std::string to_string() const;
     uint32_t to_int() const;
     bool is_synthetic(std::string const &cmp_data) const;
-    static std::string type_string(TokenType type);
+
+    friend std::string to_string(Token const &token);
+
     bool operator ==(Token const &other) const;
     bool operator !=(Token const &other) const;
     operator bool() const;
