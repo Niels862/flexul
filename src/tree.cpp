@@ -43,6 +43,13 @@ TypeNode::TypeNode(Token token)
 
 void TypeNode::serialize(Serializer &) const {}
 
+std::string to_string(TypeNode const *node) {
+    if (node == nullptr) {
+        return "Any";
+    }
+    return node->type_string();
+}
+
 NamedTypeNode::NamedTypeNode(Token ident)
         : TypeNode(ident) {}
 
@@ -69,6 +76,21 @@ void TypeListNode::print(TreePrinter &printer) const {
     }
 }
 
+std::vector<std::unique_ptr<TypeNode>> const &TypeListNode::list() const {
+    return m_type_list;
+}
+
+std::string TypeListNode::type_string() const {
+    std::string str = "(";
+    for (auto const &entry : m_type_list) {
+        str += to_string(entry.get());
+        if (entry != m_type_list.back()) {
+            str += ", ";
+        }
+    }
+    return str + ")";
+}
+
 CallableTypeNode::CallableTypeNode(Token token, 
         std::unique_ptr<TypeListNode> param_types, 
         std::unique_ptr<TypeNode> return_type)
@@ -79,6 +101,19 @@ void CallableTypeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
     printer.next_child(m_param_types.get());
     printer.last_child(m_return_type.get());
+}
+
+std::string CallableTypeNode::type_string() const {
+    return to_string(m_param_types.get()) 
+            + " -> " + to_string(m_return_type.get());
+}
+
+TypeListNode *CallableTypeNode::param_types() const {
+    return m_param_types.get();
+}
+
+TypeNode *CallableTypeNode::return_type() const {
+    return m_return_type.get();
 }
 
 CallableSignature::CallableSignature(std::vector<Token> params, 
@@ -431,11 +466,17 @@ LambdaNode::LambdaNode(Token token,
 void LambdaNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
     ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
     uint32_t position = -3 - m_signature.params.size();
-    for (Token const &param : m_signature.params) {
-        serializer.symbol_table().declare(param.data(), this, 
-                block_scopes.current, StorageType::Relative, position);
+
+    for (std::size_t i = 0; i < m_signature.params.size(); i++) {
+        Token const &token = m_signature.params[i];
+        TypeNode *type = m_signature.type->param_types()->list()[i].get();
+
+        serializer.symbol_table().declare(block_scopes.current, token.data(), 
+                this, type, StorageType::Relative, position);
+
         position++;
     }
+    
     m_body->resolve_locals(serializer, block_scopes);
 }
 
@@ -477,6 +518,10 @@ uint32_t CallableNode::n_params() const {
     return m_signature.params.size();
 }
 
+CallableSignature const &CallableNode::signature() const {
+    return m_signature;
+}
+
 FunctionNode::FunctionNode(Token token, Token ident, 
         CallableSignature signature, std::unique_ptr<BaseNode> body)
         : CallableNode(token, ident, std::move(signature), std::move(body)) {}
@@ -493,11 +538,15 @@ void FunctionNode::resolve_locals(Serializer &serializer,
     // todo replace by block: -> {{ fn (...) {...} }}
     ScopeTracker block_scopes(scopes.global, scopes.enclosing, {}); 
     uint32_t position = -3 - n_params();
-    for (Token const &param : params()) {
-        serializer.symbol_table().declare(param.data(), this, 
-                block_scopes.current, StorageType::Relative, position);
+
+    for (std::size_t i = 0; i < n_params(); i++) {
+        Token const &token = params()[i];
+        TypeNode *type = signature().type->param_types()->list()[i].get();
+        serializer.symbol_table().declare(block_scopes.current, token.data(), 
+                this, type, StorageType::Relative, position);
         position++;
     }
+
     serializer.symbol_table().open_container();
     m_body->resolve_locals(serializer, block_scopes);
     m_frame_size = serializer.symbol_table().container_size();
@@ -549,12 +598,19 @@ void InlineNode::resolve_globals(
 void InlineNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
     ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
     uint32_t position = 0;
-    for (Token const &param : params()) {
-        SymbolId id = serializer.symbol_table().declare(param.data(), this,
-                block_scopes.current, StorageType::InlineReference, position);
+
+    for (std::size_t i = 0; i < n_params(); i++) {
+        Token const &token = params()[i];
+        TypeNode *type = signature().type->param_types()->list()[i].get();
+
+        SymbolId id = serializer.symbol_table().declare(block_scopes.current, 
+                token.data(), this, type, StorageType::InlineReference, 
+                position);
         m_param_ids.push_back(id);
+
         position++;
     }
+
     m_body->resolve_locals(serializer, block_scopes);
 }
 
@@ -661,8 +717,8 @@ TypeDeclarationNode::TypeDeclarationNode(
 
 void TypeDeclarationNode::resolve_globals(
         Serializer &serializer, SymbolMap &symbol_map) {
-    set_id(serializer.symbol_table().declare(
-            m_ident->token().data(), this, symbol_map, StorageType::Type));
+    set_id(serializer.symbol_table().declare(symbol_map, 
+            m_ident->token().data(), this, nullptr, StorageType::Type));
 }
 
 void TypeDeclarationNode::serialize(Serializer &) const {}
@@ -831,9 +887,11 @@ void ReturnNode::print(TreePrinter &printer) const {
 }
 
 VarDeclarationNode::VarDeclarationNode(Token token, Token ident, 
+        std::unique_ptr<TypeNode> type,
         std::unique_ptr<ExpressionNode> size, 
         std::unique_ptr<ExpressionNode> init_value)
-        : StatementNode(token), m_ident(ident), m_size(std::move(size)), 
+        : StatementNode(token), m_ident(ident), m_type(std::move(type)),
+        m_size(std::move(size)), 
         m_init_value(std::move(init_value)) {}
 
 void VarDeclarationNode::resolve_globals(
@@ -841,8 +899,8 @@ void VarDeclarationNode::resolve_globals(
     if (m_init_value != nullptr) {
         throw std::runtime_error("not implemented");
     }
-    set_id(serializer.symbol_table().declare(
-            m_ident.data(), this, current, 
+    set_id(serializer.symbol_table().declare(current, m_ident.data(), 
+            this, m_type.get(), 
             m_size == nullptr ? 
                 StorageType::Absolute : StorageType::AbsoluteRef, 
             0, declared_size()));
@@ -854,8 +912,8 @@ void VarDeclarationNode::resolve_locals(Serializer &serializer,
     if (m_init_value != nullptr) {
         m_init_value->resolve_locals(serializer, scopes);
     }
-    set_id(serializer.symbol_table().declare(
-            m_ident.data(), this, scopes.current, 
+    set_id(serializer.symbol_table().declare(scopes.current, m_ident.data(), 
+            this, m_type.get(), 
             m_size == nullptr ? 
                 StorageType::Relative : StorageType::RelativeRef, 
             0, declared_size()));

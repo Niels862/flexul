@@ -238,8 +238,8 @@ SymbolId Serializer::declare_callable(std::string const &name,
     SymbolMap::const_iterator name_iter = scope.find(name);
     SymbolId name_id;
     if (name_iter == scope.end()) { // New callable
-        name_id = m_symbol_table.declare(
-                name, nullptr, scope, StorageType::Callable);
+        name_id = m_symbol_table.declare(scope, name, nullptr, nullptr, 
+                StorageType::Callable);
     } else {
         name_id = name_iter->second;
         if (m_symbol_table.get(name_id).storage_type != StorageType::Callable) {
@@ -247,9 +247,9 @@ SymbolId Serializer::declare_callable(std::string const &name,
         }
     }
 
-    SymbolId definition_id = m_symbol_table.declare(
+    SymbolId definition_id = m_symbol_table.declare(scope, 
             "." + name + "_" + std::to_string(m_counter), 
-            node, scope, StorageType::AbsoluteRef);
+            node, node->signature().type.get(), StorageType::AbsoluteRef);
     
     CallableMap::iterator iter = m_callable_map.find(name_id);
     if (iter == m_callable_map.end()) {

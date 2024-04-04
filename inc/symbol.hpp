@@ -27,6 +27,8 @@ using SymbolIdList = std::vector<SymbolId>;
 
 class BaseNode;
 
+class TypeNode;
+
 class Serializer;
 
 struct IntrinsicEntry {
@@ -39,11 +41,13 @@ struct IntrinsicEntry {
 extern std::vector<IntrinsicEntry> const intrinsics;
 
 struct SymbolEntry {
-    SymbolEntry(std::string symbol, BaseNode *definition, SymbolId id,
-            StorageType storage_type, uint32_t value, uint32_t size);
+    SymbolEntry(std::string symbol, BaseNode *definition, TypeNode *type, 
+            SymbolId id, StorageType storage_type, uint32_t value, 
+            uint32_t size);
 
     std::string symbol;
     BaseNode *definition;
+    TypeNode *type;
     SymbolId id;
     StorageType storage_type;
     uint32_t value;
@@ -71,9 +75,9 @@ public:
 
     SymbolId next_id();
     SymbolEntry const &get(SymbolId id) const;
-    SymbolId declare(std::string const &symbol, BaseNode *definition,
-            SymbolMap &scope, StorageType storage_type, uint32_t value = 0, 
-            uint32_t size = 1);
+    SymbolId declare(SymbolMap &scope, std::string const &symbol, 
+        BaseNode *definition, TypeNode *type, StorageType storage_type, 
+        uint32_t value = 0, uint32_t size = 1);
     void load_predefined(SymbolMap &symbol_map);
     void dump() const;
 

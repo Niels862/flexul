@@ -50,7 +50,9 @@ public:
 
     void serialize(Serializer &serializer) const override;
 
-    virtual std::string type_string() const { return "todo"; };
+    friend std::string to_string(TypeNode const *node);
+private:
+    virtual std::string type_string() const = 0;
 };
 
 class NamedTypeNode : public TypeNode {
@@ -58,8 +60,8 @@ public:
     NamedTypeNode(Token ident);
 
     void print(TreePrinter &printer) const override;
-
-    std::string type_string() const;
+private:
+    std::string type_string() const override;
 };
 
 class TypeListNode : public TypeNode {
@@ -67,7 +69,11 @@ public:
     TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list);
 
     void print(TreePrinter &printer) const override;
+
+    std::vector<std::unique_ptr<TypeNode>> const &list() const;
 private:
+    std::string type_string() const override;
+
     std::vector<std::unique_ptr<TypeNode>> m_type_list;
 };
 
@@ -77,7 +83,12 @@ public:
             std::unique_ptr<TypeNode> return_type);
     
     void print(TreePrinter &printer) const override;
+
+    TypeListNode *param_types() const;
+    TypeNode *return_type() const;
 private:
+    std::string type_string() const override;
+
     std::unique_ptr<TypeListNode> m_param_types;
     std::unique_ptr<TypeNode> m_return_type;
 };
@@ -279,6 +290,7 @@ public:
     Token const &ident() const;
     std::vector<Token> const &params() const;
     uint32_t n_params() const;
+    CallableSignature const &signature() const;
 protected:
     std::unique_ptr<BaseNode> m_body;
     Token m_ident;
@@ -456,6 +468,7 @@ private:
 class VarDeclarationNode : public StatementNode {
 public:
     VarDeclarationNode(Token token, Token ident, 
+            std::unique_ptr<TypeNode> type,
             std::unique_ptr<ExpressionNode> size, 
             std::unique_ptr<ExpressionNode> init_value);
 
@@ -471,6 +484,7 @@ private:
     uint32_t declared_size() const;
 
     Token m_ident;
+    std::unique_ptr<TypeNode> m_type;
     std::unique_ptr<ExpressionNode> m_size;
     std::unique_ptr<ExpressionNode> m_init_value;
 };

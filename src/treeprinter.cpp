@@ -20,7 +20,7 @@ void TreePrinter::print_node(BaseNode const *node) {
             if (expr->type() == nullptr) {
                 std::cout << "Any";
             } else {
-                std::cout << expr->type()->type_string();
+                std::cout << to_string(expr->type());
             }
             std::cout << "]";
         }

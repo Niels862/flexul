@@ -1,5 +1,6 @@
 #include "symbol.hpp"
 #include "utils.hpp"
+#include "tree.hpp"
 #include <stdexcept>
 
 std::vector<IntrinsicEntry> const intrinsics = {
@@ -18,9 +19,10 @@ std::vector<IntrinsicEntry> const intrinsics = {
     {"__ile__", 2, OpCode::Binary, FuncCode::LessEquals},
 };
 
-SymbolEntry::SymbolEntry(std::string symbol, BaseNode *definition, SymbolId id,
-            StorageType storage_type, uint32_t value, uint32_t size)
-            : symbol(symbol), definition(definition), id(id),
+SymbolEntry::SymbolEntry(std::string symbol, BaseNode *definition, 
+            TypeNode *type, SymbolId id, StorageType storage_type, 
+            uint32_t value, uint32_t size)
+            : symbol(symbol), definition(definition), type(type), id(id),
             storage_type(storage_type), value(value), size(size),
             usages(0), implemented(false) {}
 
@@ -51,8 +53,10 @@ SymbolId lookup_symbol(std::string const &symbol, ScopeTracker const &scopes) {
 
 SymbolTable::SymbolTable(SymbolId &counter)
         : m_table({
-            SymbolEntry("<null>", nullptr, 0, StorageType::Invalid, 0, 0),
-            SymbolEntry("<entry>", nullptr, 1, StorageType::AbsoluteRef, 0, 0)
+            SymbolEntry(
+                "<null>", nullptr, nullptr, 0, StorageType::Invalid, 0, 0),
+            SymbolEntry(
+                "<entry>", nullptr, nullptr, 1, StorageType::AbsoluteRef, 0, 0)
         }), m_counter(counter) {}
 
 SymbolId SymbolTable::next_id() {
@@ -65,16 +69,16 @@ SymbolEntry const &SymbolTable::get(SymbolId id) const {
     return m_table[id];
 }
 
-SymbolId SymbolTable::declare(std::string const &symbol, BaseNode *definition,
-        SymbolMap &scope, StorageType storage_type, uint32_t value, 
-        uint32_t size) {
+SymbolId SymbolTable::declare(SymbolMap &scope, std::string const &symbol, 
+        BaseNode *definition, TypeNode *type, StorageType storage_type, 
+        uint32_t value, uint32_t size) {
     SymbolMap::const_iterator iter = scope.find(symbol);
     if (iter != scope.end()) {
         throw std::runtime_error("Redeclared symbol: " + symbol);
     }
     SymbolId id = next_id();
     scope[symbol] = id;
-    add(SymbolEntry(symbol, definition, id, storage_type, value, size));
+    add(SymbolEntry(symbol, definition, type, id, storage_type, value, size));
     return id;
 }
 
@@ -82,7 +86,7 @@ void SymbolTable::load_predefined(SymbolMap &symbol_map) {
     size_t i;
     for (i = 0; i < intrinsics.size(); i++) {
         IntrinsicEntry intrinsic = intrinsics[i];
-        declare(intrinsic.symbol, nullptr, symbol_map, 
+        declare(symbol_map, intrinsic.symbol, nullptr, nullptr,
                 StorageType::Intrinsic, i);
     }
 }
@@ -91,11 +95,18 @@ void SymbolTable::dump() const {
     uint32_t i;
     for (i = 0; i < m_table.size(); i++) {
         SymbolEntry entry = m_table[i];
-        std::cerr << std::setw(6) << i << ": " 
-                << entry.symbol << " of type " 
-                << static_cast<int>(entry.storage_type)
-                << " with value " << static_cast<int32_t>(entry.value) 
-                << " (" << entry.usages << " usages)" << std::endl;
+        std::cout << std::setw(6) << i << " " << entry.symbol << " symtype=" 
+                << static_cast<int>(entry.storage_type);
+        if (entry.storage_type != StorageType::Callable 
+                && entry.storage_type != StorageType::Intrinsic 
+                && entry.storage_type != StorageType::Type) {
+            if (entry.type != nullptr) {
+                std::cout << " type=" << to_string(entry.type);
+            } else {
+                std::cout << " type=Any";
+            }
+        }
+        std::cout << std::endl;
     }
 }
 

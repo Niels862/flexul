@@ -362,17 +362,22 @@ std::unique_ptr<StatementNode> Parser::parse_var_declaration() {
 
     do {
         Token ident = expect_type(TokenType::Identifier);
+        std::unique_ptr<TypeNode> type = nullptr;
         std::unique_ptr<ExpressionNode> size = nullptr;
         std::unique_ptr<ExpressionNode> init_value = nullptr;
         if (accept_data("[")) {
             size = parse_expression();
             expect_data("]");
         }
+        if (accept_data(":")) {
+            type = parse_type();
+        }
         if (accept_data("=")) {
             init_value = parse_expression();
         }
         nodes.push_back(std::make_unique<VarDeclarationNode>(
-                token, ident, std::move(size), std::move(init_value)));
+                token, ident, std::move(type), std::move(size), 
+                std::move(init_value)));
     } while (accept_data(","));
 
     if (nodes.size() == 1) {
