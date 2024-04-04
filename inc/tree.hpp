@@ -49,6 +49,8 @@ public:
     TypeNode(Token token);
 
     void serialize(Serializer &serializer) const override;
+
+    virtual std::string type_string() const { return "todo"; };
 };
 
 class NamedTypeNode : public TypeNode {
@@ -56,6 +58,8 @@ public:
     NamedTypeNode(Token ident);
 
     void print(TreePrinter &printer) const override;
+
+    std::string type_string() const;
 };
 
 class TypeListNode : public TypeNode {
@@ -88,7 +92,11 @@ struct CallableSignature {
 
 class ExpressionNode : public BaseNode {
 public:
-    ExpressionNode(Token token);
+    ExpressionNode(Token token, TypeNode *m_type = nullptr); // todo temp
+
+    TypeNode const *type() const;
+private:
+    TypeNode *m_type;
 };
 
 class StatementNode : public BaseNode {
@@ -110,7 +118,7 @@ public:
 
 class LiteralNode : public ExpressionNode {
 public:
-    LiteralNode(Token token);
+    LiteralNode(Token token, TypeNode *type);
 
     void resolve_locals(Serializer &serializer, 
             ScopeTracker &scopes) override;
@@ -120,7 +128,7 @@ public:
 
 class IntegerLiteralNode : public LiteralNode {
 public:
-    IntegerLiteralNode(Token token);
+    IntegerLiteralNode(Token token, TypeNode *type);
 
     void serialize(Serializer &serializer) const override;
     std::optional<uint32_t> get_constant_value() const;
@@ -357,7 +365,7 @@ private:
 
 class TypeDeclarationNode : public StatementNode {
 public:
-    TypeDeclarationNode(Token token, Token ident);
+    TypeDeclarationNode(Token token, std::unique_ptr<NamedTypeNode> ident);
 
     void resolve_globals(
             Serializer &serializer, SymbolMap &symbol_map) override;
@@ -367,7 +375,7 @@ public:
 
     std::string label() const override;
 private:
-    Token m_ident;
+    std::unique_ptr<NamedTypeNode> m_ident;
 };
 
 class ExpressionListNode : public BaseNode {

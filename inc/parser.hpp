@@ -18,6 +18,8 @@ private:
 
     Token get_token();
     
+    TypeNode *get_literal_type(TokenType type);
+
     Token expect_data(std::string const &data);
     Token expect_type(TokenType type);
     Token expect_token(Token const &other);
@@ -57,7 +59,7 @@ private:
     std::stack<Tokenizer> m_tokenizers;
     Token m_curr_token;
     std::unordered_set<std::string> m_included_files;
-    std::unordered_map<TokenType, std::string> m_type_literals;
+    std::unordered_map<TokenType, TypeNode *> m_type_literals;
 };
 
 #endif

@@ -25,15 +25,6 @@ void print_iterable(T const &iterable) {
     std::cerr << "}" << std::endl;
 }
 
-template <typename To, typename From>
-std::vector<To> derive_vector(std::vector<From> vector) {
-    std::vector<To> vector_to;
-    for (auto const elem : vector) {
-        vector_to.push_back(elem);
-    }
-    return vector_to;
-}
-
 bool endswith(std::string const &string, std::string const &postfix);
 
 #endif

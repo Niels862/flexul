@@ -44,6 +44,14 @@ Token Parser::get_token() {
     return m_curr_token;
 }
 
+TypeNode *Parser::get_literal_type(TokenType type) {
+    auto iter = m_type_literals.find(type);
+    if (iter == m_type_literals.end()) {
+        return nullptr;
+    }
+    return iter->second;
+}
+
 Token Parser::expect_data(std::string const &data) {
     Token token = m_curr_token;
     if (token.data() != data) {
@@ -238,12 +246,14 @@ std::unique_ptr<StatementNode> Parser::parse_braced_block(bool is_scope) {
 std::unique_ptr<StatementNode> Parser::parse_type_declaration() {
     Token token = expect_type(TokenType::TypeDef);
     Token ident = expect_type(TokenType::Identifier);
-    if (accept_type(TokenType::Like)) {
-        m_type_literals[m_curr_token.type()] = ident.data();
+    std::unique_ptr<NamedTypeNode> ident_node 
+            = std::make_unique<NamedTypeNode>(ident);
+    if (accept_type(TokenType::Like)) { // vvvv todo currently leaked vvvv
+        m_type_literals[m_curr_token.type()] = ident_node.get();
         get_token();
     }
     expect_data(";");
-    return std::make_unique<TypeDeclarationNode>(token, ident);
+    return std::make_unique<TypeDeclarationNode>(token, std::move(ident_node));
 }
 
 std::unique_ptr<TypeNode> Parser::parse_type() {
@@ -504,7 +514,8 @@ std::unique_ptr<ExpressionNode> Parser::parse_value() {
     } else if (accept_data("*")) {
         value = std::make_unique<DereferenceNode>(token, parse_value());
     } else if (accept_type(TokenType::IntLit)) {
-        value = std::make_unique<IntegerLiteralNode>(token);
+        value = std::make_unique<IntegerLiteralNode>(
+                token, get_literal_type(TokenType::IntLit));
     } else if (accept_type(TokenType::Identifier)) {
         value = std::make_unique<VariableNode>(token);
     } else if (accept_data("(")) {

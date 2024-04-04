@@ -50,6 +50,10 @@ void NamedTypeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
 }
 
+std::string NamedTypeNode::type_string() const {
+    return token().data();
+}
+
 TypeListNode::TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list)
         : TypeNode(Token::synthetic("<type-list>")), 
         m_type_list(std::move(type_list)) {}
@@ -73,8 +77,12 @@ CallableSignature::CallableSignature(std::vector<Token> params,
         : params(params), type(std::move(type)) {}
 
 
-ExpressionNode::ExpressionNode(Token token)
-        : BaseNode(token) {}
+ExpressionNode::ExpressionNode(Token token, TypeNode *type)
+        : BaseNode(token), m_type(type) {}
+
+TypeNode const *ExpressionNode::type() const {
+    return m_type;
+}
 
 StatementNode::StatementNode(Token token)
         : BaseNode(token) {}
@@ -143,8 +151,8 @@ void VariableNode::print(TreePrinter &printer) const {
     printer.print_node(this);
 }
 
-LiteralNode::LiteralNode(Token token)
-        : ExpressionNode(token) {}
+LiteralNode::LiteralNode(Token token, TypeNode *type)
+        : ExpressionNode(token, type) {}
 
 void LiteralNode::resolve_locals(Serializer &, ScopeTracker &) {}
 
@@ -152,8 +160,8 @@ void LiteralNode::print(TreePrinter &printer) const {
     printer.print_node(this);
 }
 
-IntegerLiteralNode::IntegerLiteralNode(Token token)
-        : LiteralNode(token), m_value(token.to_int()) {
+IntegerLiteralNode::IntegerLiteralNode(Token token, TypeNode *type)
+        : LiteralNode(token, type), m_value(token.to_int()) {
 }
 
 void IntegerLiteralNode::serialize(Serializer &serializer) const {
@@ -636,13 +644,13 @@ void ScopedBlockNode::print(TreePrinter &printer) const {
 }
 
 TypeDeclarationNode::TypeDeclarationNode(
-        Token token, Token ident)
-        : StatementNode(token), m_ident(ident) {}
+        Token token, std::unique_ptr<NamedTypeNode> ident)
+        : StatementNode(token), m_ident(std::move(ident)) {}
 
 void TypeDeclarationNode::resolve_globals(
         Serializer &serializer, SymbolMap &symbol_map) {
     set_id(serializer.symbol_table().declare(
-            m_ident.data(), this, symbol_map, StorageType::Type));
+            m_ident->token().data(), this, symbol_map, StorageType::Type));
 }
 
 void TypeDeclarationNode::serialize(Serializer &) const {}
@@ -652,7 +660,7 @@ void TypeDeclarationNode::print(TreePrinter &printer) const {
 }
 
 std::string TypeDeclarationNode::label() const {
-    return token().data() + " " + m_ident.data();
+    return token().data() + " " + m_ident->token().data();
 }
 
 ExpressionListNode::ExpressionListNode(

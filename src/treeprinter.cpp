@@ -13,8 +13,17 @@ void TreePrinter::print_node(BaseNode const *node) {
     if (with_pointers) {
         std::cout << " [p=" << node << "]";
     }
-    if (with_types && 0) {
-        std::cout << " [type=" << "todo" << "]";
+    if (with_types) {
+        ExpressionNode const *expr = dynamic_cast<ExpressionNode const *>(node);
+        if (expr != nullptr) {
+            std::cout << " [type=";
+            if (expr->type() == nullptr) {
+                std::cout << "Any";
+            } else {
+                std::cout << expr->type()->type_string();
+            }
+            std::cout << "]";
+        }
     }
     if (with_symbol_ids && node->id()) {
         std::cout << " [id=" << node->id() << "]";
