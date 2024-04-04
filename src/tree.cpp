@@ -60,6 +60,13 @@ TypeListNode::TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list)
 
 void TypeListNode::print(TreePrinter &printer) const {
     printer.print_node(this);
+    for (auto const &entry : m_type_list) {
+        if (entry == m_type_list.back()) {
+            printer.last_child(entry.get());
+        } else {
+            printer.next_child(entry.get());
+        }
+    }
 }
 
 CallableTypeNode::CallableTypeNode(Token token, 
@@ -70,6 +77,8 @@ CallableTypeNode::CallableTypeNode(Token token,
 
 void CallableTypeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
+    printer.next_child(m_param_types.get());
+    printer.last_child(m_return_type.get());
 }
 
 CallableSignature::CallableSignature(std::vector<Token> params, 
@@ -438,6 +447,7 @@ void LambdaNode::serialize(Serializer &serializer) const {
 
 void LambdaNode::print(TreePrinter &printer) const {
     printer.print_node(this);
+    printer.next_child(m_signature.type.get());
     printer.last_child(m_body.get());
 }
 
@@ -515,6 +525,7 @@ void FunctionNode::serialize_call(Serializer &serializer,
 
 void FunctionNode::print(TreePrinter &printer) const {
     printer.print_node(this);
+    printer.next_child(m_signature.type.get());
     printer.last_child(m_body.get());
 }
 
@@ -558,10 +569,11 @@ void InlineNode::serialize_call(Serializer &serializer,
 
 void InlineNode::print(TreePrinter &printer) const {
     printer.print_node(this);
+    printer.next_child(m_signature.type.get());
     printer.last_child(m_body.get());
 }
 
-std::string InlineNode::get_label() const {
+std::string InlineNode::label() const {
     return token().data() + " " + ident().data() + "(" 
             + tokenlist_to_string(params()) + ")";
 }

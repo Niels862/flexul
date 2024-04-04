@@ -260,7 +260,7 @@ public:
 
     void print(TreePrinter &printer) const override;
 
-    std::string label() const;
+    std::string label() const override;
 private:
     std::unique_ptr<StatementNode> m_body;
     CallableSignature m_signature;
@@ -281,7 +281,6 @@ public:
     uint32_t n_params() const;
 protected:
     std::unique_ptr<BaseNode> m_body;
-private:
     Token m_ident;
     CallableSignature m_signature;
 };
@@ -300,7 +299,7 @@ public:
 
     void print(TreePrinter &printer) const override;
 
-    std::string label() const;
+    std::string label() const override;
 private:
     uint32_t m_frame_size;
 };
@@ -319,7 +318,7 @@ public:
 
     void print(TreePrinter &printer) const override;
 
-    std::string get_label() const;
+    std::string label() const override;
 private:
     std::vector<SymbolId> m_param_ids;
 };
