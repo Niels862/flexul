@@ -248,9 +248,11 @@ std::unique_ptr<StatementNode> Parser::parse_type_declaration() {
     Token ident = expect_type(TokenType::Identifier);
     std::unique_ptr<NamedTypeNode> ident_node 
             = std::make_unique<NamedTypeNode>(ident);
-    if (accept_type(TokenType::Like)) { // vvvv todo currently leaked vvvv
-        m_type_literals[m_curr_token.type()] = ident_node.get();
-        get_token();
+    if (accept_type(TokenType::Like)) {
+        do {
+            m_type_literals[m_curr_token.type()] = ident_node.get();
+            get_token();
+        } while (accept_data(","));
     }
     expect_data(";");
     return std::make_unique<TypeDeclarationNode>(token, std::move(ident_node));
@@ -448,20 +450,30 @@ std::unique_ptr<ExpressionNode> Parser::parse_ternary() {
 }
 
 std::unique_ptr<ExpressionNode> Parser::parse_or() {
+    static TypeNode *type = assert_equal(      // todo: will be determined in 
+            get_literal_type(TokenType::True), // the token scanner phase
+            get_literal_type(TokenType::False), 
+            "boolean literal types must match");
     std::unique_ptr<ExpressionNode> left = parse_and();
     Token token = m_curr_token;
     while (accept_data("||")) {
-        left = std::make_unique<OrNode>(token, std::move(left), parse_and());
+        left = std::make_unique<OrNode>(
+                token, std::move(left), parse_and(), type);
         token = m_curr_token;
     }
     return left;
 }
 
 std::unique_ptr<ExpressionNode> Parser::parse_and() {
+    static TypeNode *type = assert_equal(
+        get_literal_type(TokenType::True), 
+        get_literal_type(TokenType::False), 
+        "boolean literal types must match");
     std::unique_ptr<ExpressionNode> left = parse_equality_1();
     Token token = m_curr_token;
     while (accept_data("&&")) {
-        left = std::make_unique<AndNode>(token, std::move(left), parse_equality_1());
+        left = std::make_unique<AndNode>(
+                    token, std::move(left), parse_equality_1(), type);
         token = m_curr_token;
     }
     return left;
@@ -528,6 +540,12 @@ std::unique_ptr<ExpressionNode> Parser::parse_value() {
     } else if (accept_type(TokenType::IntLit)) {
         value = std::make_unique<IntegerLiteralNode>(
                 token, get_literal_type(TokenType::IntLit));
+    } else if (accept_type(TokenType::True)) {
+        value = std::make_unique<TrueLiteralNode>(
+                token, get_literal_type(TokenType::True));
+    } else if (accept_type(TokenType::False)) {
+        value = std::make_unique<FalseLiteralNode>(
+                token, get_literal_type(TokenType::False));
     } else if (accept_type(TokenType::Identifier)) {
         value = std::make_unique<VariableNode>(token);
     } else if (accept_data("(")) {

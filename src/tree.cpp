@@ -160,7 +160,7 @@ ExpressionNode::ExpressionNode(Token token, TypeNode *type)
 
 void ExpressionNode::resolve_globals(Serializer &, SymbolMap &) {}
 
-TypeNode const *ExpressionNode::type() const {
+TypeNode *ExpressionNode::type() const {
     return m_type;
 }
 
@@ -253,6 +253,22 @@ void IntegerLiteralNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Push, m_value);
 }
 
+TrueLiteralNode::TrueLiteralNode(Token token, TypeNode *type)
+        : LiteralNode(token, type) {
+}
+
+void TrueLiteralNode::serialize(Serializer &serializer) const {
+    serializer.add_instr(OpCode::Push, 1);
+}
+
+FalseLiteralNode::FalseLiteralNode(Token token, TypeNode *type)
+        : LiteralNode(token, type) {
+}
+
+void FalseLiteralNode::serialize(Serializer &serializer) const {
+    serializer.add_instr(OpCode::Push, false);
+}
+
 std::optional<uint32_t> IntegerLiteralNode::get_constant_value() const {
     return m_value;
 }
@@ -278,6 +294,7 @@ AddressOfNode::AddressOfNode(Token token,
 
 void AddressOfNode::resolve_types(Serializer &serializer) {
     m_operand->resolve_types(serializer);
+    // todo
 }
 
 void AddressOfNode::serialize(Serializer &serializer) const {
@@ -294,6 +311,7 @@ bool DereferenceNode::is_lvalue() const {
 
 void DereferenceNode::resolve_types(Serializer &serializer) {
     m_operand->resolve_types(serializer);
+    // todo
 }
 
 void DereferenceNode::serialize(Serializer &serializer) const {
@@ -335,6 +353,7 @@ AssignNode::AssignNode(Token token,
 void AssignNode::resolve_types(Serializer &serializer) {
     m_left->resolve_types(serializer);
     m_right->resolve_types(serializer);
+    m_type = m_left->type();
 }
 
 void AssignNode::serialize(Serializer &serializer) const {
@@ -343,10 +362,11 @@ void AssignNode::serialize(Serializer &serializer) const {
     serializer.add_instr(OpCode::Binary, FuncCode::Assign);
 }
 
-AndNode::AndNode(Token token, 
-        std::unique_ptr<ExpressionNode> left, 
-        std::unique_ptr<ExpressionNode> right)
-        : BinaryExpressionNode(token, std::move(left), std::move(right)) {}
+AndNode::AndNode(Token token, std::unique_ptr<ExpressionNode> left, 
+        std::unique_ptr<ExpressionNode> right, TypeNode *type)
+        : BinaryExpressionNode(token, std::move(left), std::move(right)) {
+    m_type = type;
+}
 
 void AndNode::resolve_types(Serializer &serializer) {
     m_left->resolve_types(serializer);
@@ -373,8 +393,11 @@ void AndNode::serialize(Serializer &serializer) const {
 
 OrNode::OrNode(Token token, 
         std::unique_ptr<ExpressionNode> left, 
-        std::unique_ptr<ExpressionNode> right)
-        : BinaryExpressionNode(token, std::move(left), std::move(right)) {}
+        std::unique_ptr<ExpressionNode> right,
+        TypeNode *type)
+        : BinaryExpressionNode(token, std::move(left), std::move(right)) {
+    m_type = type;
+}
 
 void OrNode::resolve_types(Serializer &serializer) {
     m_left->resolve_types(serializer);
@@ -412,6 +435,7 @@ bool SubscriptNode::is_lvalue() const {
 void SubscriptNode::resolve_types(Serializer &serializer) {
     m_left->resolve_types(serializer);
     m_right->resolve_types(serializer);
+    // todo
 }
 
 void SubscriptNode::serialize(Serializer &serializer) const {
@@ -464,6 +488,7 @@ void CallNode::resolve_locals(Serializer &serializer,
 void CallNode::resolve_types(Serializer &serializer) {
     m_func->resolve_types(serializer);
     m_args->resolve_types(serializer);
+    // todo
 }
 
 void CallNode::serialize(Serializer &serializer) const {
@@ -511,6 +536,7 @@ void TernaryNode::resolve_types(Serializer &serializer) {
     m_cond->resolve_types(serializer);
     m_case_true->resolve_types(serializer);
     m_case_false->resolve_types(serializer);
+    // todo
 }
 
 void TernaryNode::serialize(Serializer &serializer) const {

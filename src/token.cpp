@@ -48,6 +48,10 @@ std::string to_string(TokenType type) {
             return "lambda";
         case TokenType::Var:
             return "var";
+        case TokenType::True:
+            return "true";
+        case TokenType::False:
+            return "false";
     }
     return "errortype";
 }
@@ -64,7 +68,9 @@ SyntaxMap const default_syntax_map = {
     {"while", TokenType::While},
     {"for", TokenType::For},
     {"lambda", TokenType::Lambda},
-    {"var", TokenType::Var}
+    {"var", TokenType::Var},
+    {"true", TokenType::True},
+    {"false", TokenType::False}
 };
 
 Token::Token() 

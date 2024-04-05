@@ -25,6 +25,14 @@ void print_iterable(T const &iterable) {
     std::cerr << "}" << std::endl;
 }
 
+template <typename T>
+T assert_equal(T const &x, T const &y, std::string const &err) {
+    if (x == y) {
+        return x;
+    }
+    throw std::runtime_error(err);
+}
+
 bool endswith(std::string const &string, std::string const &postfix);
 
 #endif

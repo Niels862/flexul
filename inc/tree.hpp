@@ -129,7 +129,7 @@ public:
 
     void resolve_globals(Serializer &serializer, SymbolMap &current) override;
 
-    TypeNode const *type() const;
+    TypeNode *type() const;
 protected:
     TypeNode *m_type;
 };
@@ -171,6 +171,20 @@ public:
     std::optional<uint32_t> get_constant_value() const;
 private:
     uint32_t m_value;
+};
+
+class TrueLiteralNode : public LiteralNode {
+public:
+    TrueLiteralNode(Token token, TypeNode *type);
+
+    void serialize(Serializer &serializer) const override;
+};
+
+class FalseLiteralNode : public LiteralNode {
+public:
+    FalseLiteralNode(Token token, TypeNode *type);
+
+    void serialize(Serializer &serializer) const override;
 };
 
 class UnaryExpressionNode : public ExpressionNode {
@@ -228,7 +242,8 @@ public:
 class AndNode : public BinaryExpressionNode {
 public:
     AndNode(Token token, std::unique_ptr<ExpressionNode> left, 
-            std::unique_ptr<ExpressionNode> right);
+            std::unique_ptr<ExpressionNode> right, 
+            TypeNode *type);
 
     void resolve_types(Serializer &serializer) override;
     void serialize(Serializer &serializer) const override;
@@ -237,7 +252,8 @@ public:
 class OrNode : public BinaryExpressionNode {
 public:
     OrNode(Token token, std::unique_ptr<ExpressionNode> left, 
-            std::unique_ptr<ExpressionNode> right);
+            std::unique_ptr<ExpressionNode> right,
+            TypeNode *type);
 
     void resolve_types(Serializer &serializer) override;
     void serialize(Serializer &serializer) const override;
