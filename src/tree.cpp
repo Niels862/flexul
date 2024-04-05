@@ -41,6 +41,8 @@ SymbolId BaseNode::id() const {
 TypeNode::TypeNode(Token token)
         : BaseNode(token) {}
 
+void TypeNode::resolve_globals(Serializer &, SymbolMap &) {}
+
 void TypeNode::serialize(Serializer &) const {}
 
 std::string to_string(TypeNode const *node) {
@@ -53,6 +55,10 @@ std::string to_string(TypeNode const *node) {
 NamedTypeNode::NamedTypeNode(Token ident)
         : TypeNode(ident) {}
 
+void NamedTypeNode::resolve_locals(Serializer &, ScopeTracker &scopes) {
+    set_id(lookup_symbol(token().data(), scopes));
+}
+
 void NamedTypeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
 }
@@ -64,6 +70,13 @@ std::string NamedTypeNode::type_string() const {
 TypeListNode::TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list)
         : TypeNode(Token::synthetic("<type-list>")), 
         m_type_list(std::move(type_list)) {}
+
+void TypeListNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    for (auto const &entry : m_type_list) {
+        entry->resolve_locals(serializer, scopes);
+    }
+}
 
 void TypeListNode::print(TreePrinter &printer) const {
     printer.print_node(this);
@@ -97,6 +110,12 @@ CallableTypeNode::CallableTypeNode(Token token,
         : TypeNode(token), m_param_types(std::move(param_types)), 
         m_return_type(std::move(return_type)) {}
 
+void CallableTypeNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_param_types->resolve_locals(serializer, scopes);
+    m_return_type->resolve_locals(serializer, scopes);
+}
+
 void CallableTypeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
     printer.next_child(m_param_types.get());
@@ -124,6 +143,8 @@ CallableSignature::CallableSignature(std::vector<Token> params,
 ExpressionNode::ExpressionNode(Token token, TypeNode *type)
         : BaseNode(token), m_type(type) {}
 
+void ExpressionNode::resolve_globals(Serializer &, SymbolMap &) {}
+
 TypeNode const *ExpressionNode::type() const {
     return m_type;
 }
@@ -139,8 +160,7 @@ bool VariableNode::is_lvalue() const {
 }
 
 void VariableNode::resolve_locals(Serializer &, ScopeTracker &scopes) {
-    SymbolId id = lookup_symbol(token().data(), scopes);
-    set_id(id);
+    set_id(lookup_symbol(token().data(), scopes));
 }
 
 void VariableNode::serialize(Serializer &serializer) const {
@@ -637,6 +657,10 @@ std::string InlineNode::label() const {
 EmptyNode::EmptyNode()
         : StatementNode(Token::synthetic("<empty>")) {}
 
+void EmptyNode::resolve_globals(Serializer &, SymbolMap &) {}
+
+void EmptyNode::resolve_locals(Serializer &, ScopeTracker &) {}
+
 void EmptyNode::serialize(Serializer &) const {}
 
 void EmptyNode::print(TreePrinter &printer) const {
@@ -683,6 +707,8 @@ ScopedBlockNode::ScopedBlockNode(
         : StatementNode(Token::synthetic("<scoped-block>")), 
         m_statements(std::move(statements)), m_scope_map() {}
 
+void ScopedBlockNode::resolve_globals(Serializer &, SymbolMap &) {}
+
 void ScopedBlockNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
     ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
@@ -721,6 +747,8 @@ void TypeDeclarationNode::resolve_globals(
             m_ident->token().data(), this, nullptr, StorageType::Type));
 }
 
+void TypeDeclarationNode::resolve_locals(Serializer &, ScopeTracker &) {}
+
 void TypeDeclarationNode::serialize(Serializer &) const {}
 
 void TypeDeclarationNode::print(TreePrinter &printer) const {
@@ -734,6 +762,8 @@ std::string TypeDeclarationNode::label() const {
 ExpressionListNode::ExpressionListNode(
         Token token, std::vector<std::unique_ptr<ExpressionNode>> exprs)
         : BaseNode(token), m_exprs(std::move(exprs)) {}
+
+void ExpressionListNode::resolve_globals(Serializer &, SymbolMap &) {}
 
 void ExpressionListNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
@@ -769,6 +799,8 @@ IfNode::IfNode(Token token, std::unique_ptr<ExpressionNode> cond,
         : StatementNode(token), m_cond(std::move(cond)), 
         m_case_true(std::move(case_true)) {}
 
+void IfNode::resolve_globals(Serializer &, SymbolMap &) {}
+
 void IfNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
     m_cond->resolve_locals(serializer, scopes);
@@ -796,6 +828,8 @@ IfElseNode::IfElseNode(Token token, std::unique_ptr<ExpressionNode> cond,
         : StatementNode(token), m_cond(std::move(cond)), 
         m_case_true(std::move(case_true)), 
         m_case_false(std::move(case_false)) {}
+
+void IfElseNode::resolve_globals(Serializer &, SymbolMap &) {}
 
 void IfElseNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
@@ -836,6 +870,8 @@ ForLoopNode::ForLoopNode(Token token,
         m_init(std::move(init)), m_cond(std::move(cond)), 
         m_post(std::move(post)), m_body(std::move(body)) {}
 
+void ForLoopNode::resolve_globals(Serializer &, SymbolMap &) {}
+
 void ForLoopNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
     m_init->resolve_locals(serializer, scopes);
@@ -870,6 +906,8 @@ void ForLoopNode::print(TreePrinter &printer) const {
 
 ReturnNode::ReturnNode(Token token, std::unique_ptr<ExpressionNode> operand)
         : StatementNode(token), m_operand(std::move(operand)) {}
+
+void ReturnNode::resolve_globals(Serializer &, SymbolMap &) {}
 
 void ReturnNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
@@ -955,6 +993,8 @@ ExpressionStatementNode::ExpressionStatementNode(
         std::unique_ptr<ExpressionNode> expr)
         : StatementNode(Token::synthetic("<expr-stmt>")), 
         m_expr(std::move(expr)) {}
+
+void ExpressionStatementNode::resolve_globals(Serializer &, SymbolMap &) {}
 
 void ExpressionStatementNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
