@@ -341,6 +341,7 @@ void Serializer::serialize(std::unique_ptr<BaseNode> &root) {
     while (!m_code_jobs.empty()) {
         JobEntry &job = m_code_jobs.front();
         job.node->resolve_locals(*this, scopes);
+        job.node->resolve_types(*this);
         m_code_jobs.pop();
     }
     

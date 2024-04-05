@@ -210,7 +210,7 @@ CallableSignature Parser::parse_param_declaration() {
             if (accept_data(":")) {
                 param_type = parse_type();
             } else {
-                param_type = nullptr;
+                param_type = std::make_unique<AnyTypeNode>();
             }
             type_list.push_back(std::move(param_type));
             if (!accept_data(",")) {
@@ -222,7 +222,7 @@ CallableSignature Parser::parse_param_declaration() {
     if (accept_data("->")) {
         return_type = parse_type();
     } else {
-        return_type = nullptr;
+        return_type = std::make_unique<AnyTypeNode>();
     }
     return CallableSignature(params, std::make_unique<CallableTypeNode>(
             Token::synthetic("->"), 
@@ -260,7 +260,12 @@ std::unique_ptr<TypeNode> Parser::parse_type() {
     Token ident;
     std::vector<std::unique_ptr<TypeNode>> type_list;
     if (ident = accept_type(TokenType::Identifier)) {
-        std::unique_ptr<TypeNode> node = std::make_unique<NamedTypeNode>(ident);
+        std::unique_ptr<TypeNode> node;
+        if (ident.data() == "Any") { // todo 
+            node = std::make_unique<AnyTypeNode>();
+        } else {
+            node = std::make_unique<NamedTypeNode>(ident);
+        }
         if (check_data("->")) {
             type_list.push_back(std::move(node));
         } else {
@@ -371,6 +376,8 @@ std::unique_ptr<StatementNode> Parser::parse_var_declaration() {
         }
         if (accept_data(":")) {
             type = parse_type();
+        } else {
+            type = std::make_unique<AnyTypeNode>();
         }
         if (accept_data("=")) {
             init_value = parse_expression();

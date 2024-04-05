@@ -43,13 +43,28 @@ TypeNode::TypeNode(Token token)
 
 void TypeNode::resolve_globals(Serializer &, SymbolMap &) {}
 
+void TypeNode::resolve_types(Serializer &) {}
+
 void TypeNode::serialize(Serializer &) const {}
 
 std::string to_string(TypeNode const *node) {
     if (node == nullptr) {
-        return "Any";
+        return "*null)";
     }
     return node->type_string();
+}
+
+AnyTypeNode::AnyTypeNode()
+        : TypeNode(Token::synthetic("<Any>")) {}
+
+void AnyTypeNode::resolve_locals(Serializer &, ScopeTracker &) {}
+
+void AnyTypeNode::print(TreePrinter &printer) const {
+    printer.print_node(this);
+}
+
+std::string AnyTypeNode::type_string() const {
+    return "Any";
 }
 
 NamedTypeNode::NamedTypeNode(Token ident)
@@ -163,6 +178,10 @@ void VariableNode::resolve_locals(Serializer &, ScopeTracker &scopes) {
     set_id(lookup_symbol(token().data(), scopes));
 }
 
+void VariableNode::resolve_types(Serializer &serializer) {
+    m_type = serializer.symbol_table().get(id()).type;
+}
+
 void VariableNode::serialize(Serializer &serializer) const {
     SymbolEntry const &entry = serializer.symbol_table().get(id());
     switch (entry.storage_type) {
@@ -220,6 +239,8 @@ LiteralNode::LiteralNode(Token token, TypeNode *type)
 
 void LiteralNode::resolve_locals(Serializer &, ScopeTracker &) {}
 
+void LiteralNode::resolve_types(Serializer &) {}
+
 void LiteralNode::print(TreePrinter &printer) const {
     printer.print_node(this);
 }
@@ -255,6 +276,10 @@ AddressOfNode::AddressOfNode(Token token,
         std::unique_ptr<ExpressionNode> operand)
         : UnaryExpressionNode(token, std::move(operand)) {}
 
+void AddressOfNode::resolve_types(Serializer &serializer) {
+    m_operand->resolve_types(serializer);
+}
+
 void AddressOfNode::serialize(Serializer &serializer) const {
     m_operand->serialize_load_address(serializer);
 }
@@ -265,6 +290,10 @@ DereferenceNode::DereferenceNode(Token token,
 
 bool DereferenceNode::is_lvalue() const {
     return true;
+}
+
+void DereferenceNode::resolve_types(Serializer &serializer) {
+    m_operand->resolve_types(serializer);
 }
 
 void DereferenceNode::serialize(Serializer &serializer) const {
@@ -303,6 +332,11 @@ AssignNode::AssignNode(Token token,
     }
 }
 
+void AssignNode::resolve_types(Serializer &serializer) {
+    m_left->resolve_types(serializer);
+    m_right->resolve_types(serializer);
+}
+
 void AssignNode::serialize(Serializer &serializer) const {
     m_left->serialize_load_address(serializer);
     m_right->serialize(serializer);
@@ -314,6 +348,10 @@ AndNode::AndNode(Token token,
         std::unique_ptr<ExpressionNode> right)
         : BinaryExpressionNode(token, std::move(left), std::move(right)) {}
 
+void AndNode::resolve_types(Serializer &serializer) {
+    m_left->resolve_types(serializer);
+    m_right->resolve_types(serializer);
+}
 
 void AndNode::serialize(Serializer &serializer) const {
     Label label_false = serializer.get_label();
@@ -337,6 +375,11 @@ OrNode::OrNode(Token token,
         std::unique_ptr<ExpressionNode> left, 
         std::unique_ptr<ExpressionNode> right)
         : BinaryExpressionNode(token, std::move(left), std::move(right)) {}
+
+void OrNode::resolve_types(Serializer &serializer) {
+    m_left->resolve_types(serializer);
+    m_right->resolve_types(serializer);
+}
 
 void OrNode::serialize(Serializer &serializer) const {
     Label label_true = serializer.get_label();
@@ -364,6 +407,11 @@ SubscriptNode::SubscriptNode(
 
 bool SubscriptNode::is_lvalue() const {
     return true;
+}
+
+void SubscriptNode::resolve_types(Serializer &serializer) {
+    m_left->resolve_types(serializer);
+    m_right->resolve_types(serializer);
 }
 
 void SubscriptNode::serialize(Serializer &serializer) const {
@@ -413,6 +461,11 @@ void CallNode::resolve_locals(Serializer &serializer,
     m_args->resolve_locals(serializer, scopes);
 }
 
+void CallNode::resolve_types(Serializer &serializer) {
+    m_func->resolve_types(serializer);
+    m_args->resolve_types(serializer);
+}
+
 void CallNode::serialize(Serializer &serializer) const {
     SymbolId id = m_func->id();
     SymbolEntry const &entry = serializer.symbol_table().get(id);
@@ -452,6 +505,12 @@ void TernaryNode::resolve_locals(Serializer &serializer,
     m_cond->resolve_locals(serializer, scopes);
     m_case_true->resolve_locals(serializer, scopes);
     m_case_false->resolve_locals(serializer, scopes);
+}
+
+void TernaryNode::resolve_types(Serializer &serializer) {
+    m_cond->resolve_types(serializer);
+    m_case_true->resolve_types(serializer);
+    m_case_false->resolve_types(serializer);
 }
 
 void TernaryNode::serialize(Serializer &serializer) const {
@@ -500,6 +559,11 @@ void LambdaNode::resolve_locals(Serializer &serializer, ScopeTracker &scopes) {
     m_body->resolve_locals(serializer, block_scopes);
 }
 
+void LambdaNode::resolve_types(Serializer &serializer) {
+    m_body->resolve_types(serializer);
+    m_type = m_signature.type.get();
+}
+
 void LambdaNode::serialize(Serializer &serializer) const {
     SymbolId id = serializer.get_label();
     serializer.add_job(id, m_body.get(), false);
@@ -521,6 +585,10 @@ CallableNode::CallableNode(Token token, Token ident,
         CallableSignature signature, std::unique_ptr<BaseNode> body)
         : StatementNode(token), m_body(std::move(body)), m_ident(ident),
         m_signature(std::move(signature)) {}
+
+void CallableNode::resolve_types(Serializer &serializer) {
+    m_body->resolve_types(serializer);
+}
 
 bool CallableNode::is_matching_call(
         std::vector<std::unique_ptr<ExpressionNode>> const &args) const {
@@ -661,6 +729,8 @@ void EmptyNode::resolve_globals(Serializer &, SymbolMap &) {}
 
 void EmptyNode::resolve_locals(Serializer &, ScopeTracker &) {}
 
+void EmptyNode::resolve_types(Serializer &) {}
+
 void EmptyNode::serialize(Serializer &) const {}
 
 void EmptyNode::print(TreePrinter &printer) const {
@@ -688,6 +758,12 @@ void BlockNode::resolve_locals(Serializer &serializer,
 void BlockNode::serialize(Serializer &serializer) const {
     for (std::unique_ptr<StatementNode> const &stmt : m_statements) {
         stmt->serialize(serializer);
+    }
+}
+
+void BlockNode::resolve_types(Serializer &serializer) {
+    for (auto const &stmt : m_statements) {
+        stmt->resolve_types(serializer);
     }
 }
 
@@ -720,6 +796,12 @@ void ScopedBlockNode::resolve_locals(Serializer &serializer,
     }
 }
 
+void ScopedBlockNode::resolve_types(Serializer &serializer) {
+    for (auto const &stmt : m_statements) {
+        stmt->resolve_types(serializer);
+    }
+}
+
 void ScopedBlockNode::serialize(Serializer &serializer) const {
     for (auto const &stmt : m_statements) {
         stmt->serialize(serializer);
@@ -749,6 +831,8 @@ void TypeDeclarationNode::resolve_globals(
 
 void TypeDeclarationNode::resolve_locals(Serializer &, ScopeTracker &) {}
 
+void TypeDeclarationNode::resolve_types(Serializer &) {}
+
 void TypeDeclarationNode::serialize(Serializer &) const {}
 
 void TypeDeclarationNode::print(TreePrinter &printer) const {
@@ -769,6 +853,12 @@ void ExpressionListNode::resolve_locals(Serializer &serializer,
         ScopeTracker &scopes) {
     for (auto const &expr : m_exprs) {
         expr->resolve_locals(serializer, scopes);
+    }
+}
+
+void ExpressionListNode::resolve_types(Serializer &serializer) {
+    for (auto const &expr : m_exprs) {
+        expr->resolve_types(serializer);
     }
 }
 
@@ -807,6 +897,11 @@ void IfNode::resolve_locals(Serializer &serializer,
     m_case_true->resolve_locals(serializer, scopes);
 }
 
+void IfNode::resolve_types(Serializer &serializer) {
+    m_cond->resolve_types(serializer);
+    m_case_true->resolve_types(serializer);
+}
+
 void IfNode::serialize(Serializer &serializer) const {
     Label label_end = serializer.get_label();
     m_cond->serialize(serializer);
@@ -836,6 +931,12 @@ void IfElseNode::resolve_locals(Serializer &serializer,
     m_cond->resolve_locals(serializer, scopes);
     m_case_true->resolve_locals(serializer, scopes);
     m_case_false->resolve_locals(serializer, scopes);
+}
+
+void IfElseNode::resolve_types(Serializer &serializer) {
+    m_cond->resolve_types(serializer);
+    m_case_true->resolve_types(serializer);
+    m_case_false->resolve_types(serializer);
 }
 
 void IfElseNode::serialize(Serializer &serializer) const {
@@ -880,6 +981,13 @@ void ForLoopNode::resolve_locals(Serializer &serializer,
     m_body->resolve_locals(serializer, scopes);
 }
 
+void ForLoopNode::resolve_types(Serializer &serializer) {
+    m_init->resolve_types(serializer);
+    m_cond->resolve_types(serializer);
+    m_post->resolve_types(serializer);
+    m_body->resolve_types(serializer);
+}
+
 void ForLoopNode::serialize(Serializer &serializer) const {
     Label loop_body_label = serializer.get_label();
     Label cond_label = serializer.get_label();
@@ -912,6 +1020,10 @@ void ReturnNode::resolve_globals(Serializer &, SymbolMap &) {}
 void ReturnNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
     m_operand->resolve_locals(serializer, scopes);
+}
+
+void ReturnNode::resolve_types(Serializer &serializer) {
+    m_operand->resolve_types(serializer);
 }
 
 void ReturnNode::serialize(Serializer &serializer) const {
@@ -947,6 +1059,9 @@ void VarDeclarationNode::resolve_globals(
 
 void VarDeclarationNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
+    if (m_type != nullptr) {
+        m_type->resolve_locals(serializer, scopes);
+    }
     if (m_init_value != nullptr) {
         m_init_value->resolve_locals(serializer, scopes);
     }
@@ -956,6 +1071,15 @@ void VarDeclarationNode::resolve_locals(Serializer &serializer,
                 StorageType::Relative : StorageType::RelativeRef, 
             0, declared_size()));
     serializer.symbol_table().add_to_container(id());
+}
+
+void VarDeclarationNode::resolve_types(Serializer &serializer) {
+    if (m_size != nullptr) {
+        m_size->resolve_types(serializer);
+    }
+    if (m_init_value != nullptr) {
+        m_init_value->resolve_types(serializer);
+    }
 }
 
 void VarDeclarationNode::serialize(Serializer &serializer) const {
@@ -999,6 +1123,10 @@ void ExpressionStatementNode::resolve_globals(Serializer &, SymbolMap &) {}
 void ExpressionStatementNode::resolve_locals(Serializer &serializer, 
         ScopeTracker &scopes) {
     m_expr->resolve_locals(serializer, scopes);
+}
+
+void ExpressionStatementNode::resolve_types(Serializer &serializer) {
+    m_expr->resolve_types(serializer);
 }
 
 void ExpressionStatementNode::serialize(Serializer &serializer) const {
