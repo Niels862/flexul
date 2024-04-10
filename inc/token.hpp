@@ -45,6 +45,17 @@ private:
     std::size_t col;
 };
 
+class TokenList {
+public:
+    TokenList();
+    
+    Token const &get();
+    Token const &peek() const;
+    Token const &look_ahead(std::size_t offset) const;
+private:
+    std::vector<Token> m_tokens;
+};
+
 std::string tokenlist_to_string(std::vector<Token> const &tokens, 
         std::string const &sep = ", ");
 

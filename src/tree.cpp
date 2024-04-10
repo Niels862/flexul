@@ -3,6 +3,12 @@
 #include "utils.hpp"
 #include <iostream>
 
+TypeMatch weakest_match(TypeMatch m1, TypeMatch m2) {
+    return static_cast<TypeMatch>(std::min(
+            static_cast<int>(m1), 
+            static_cast<int>(m2)));
+}
+
 BaseNode::BaseNode(Token token)
         : m_token(token), m_id(0) {}
 
@@ -59,6 +65,13 @@ AnyTypeNode::AnyTypeNode()
 
 void AnyTypeNode::resolve_locals(Serializer &, ScopeTracker &) {}
 
+TypeMatch AnyTypeNode::matching(TypeNode const *node) const {
+    if (dynamic_cast<AnyTypeNode const *>(node) != nullptr) {
+        return TypeMatch::ExactMatch;
+    }
+    return TypeMatch::AnyMatch;
+}
+
 void AnyTypeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
 }
@@ -72,6 +85,17 @@ NamedTypeNode::NamedTypeNode(Token ident)
 
 void NamedTypeNode::resolve_locals(Serializer &, ScopeTracker &scopes) {
     set_id(lookup_symbol(token().data(), scopes));
+}
+
+TypeMatch NamedTypeNode::matching(TypeNode const *node) const {
+    if (dynamic_cast<AnyTypeNode const *>(node) != nullptr) {
+        return TypeMatch::AnyMatch;
+    }
+    NamedTypeNode const *other = dynamic_cast<NamedTypeNode const *>(node);
+    if (other == nullptr || token() != other->token()) {
+        return TypeMatch::NoMatch;
+    }
+    return TypeMatch::ExactMatch;
 }
 
 void NamedTypeNode::print(TreePrinter &printer) const {
@@ -91,6 +115,22 @@ void TypeListNode::resolve_locals(Serializer &serializer,
     for (auto const &entry : m_type_list) {
         entry->resolve_locals(serializer, scopes);
     }
+}
+
+TypeMatch TypeListNode::matching(TypeNode const *node) const {
+    TypeListNode const *other = dynamic_cast<TypeListNode const *>(node);
+    if (other == nullptr) {
+        throw std::runtime_error("cannot match types");
+    }
+    if (list().size() != other->list().size()) {
+        return TypeMatch::NoMatch;
+    }
+    TypeMatch match = TypeMatch::ExactMatch;
+    for (std::size_t i = 0; i < list().size(); i++) {
+        match = weakest_match(match, 
+                list()[i]->matching(other->list()[i].get()));
+    }
+    return match;
 }
 
 void TypeListNode::print(TreePrinter &printer) const {
@@ -129,6 +169,16 @@ void CallableTypeNode::resolve_locals(Serializer &serializer,
         ScopeTracker &scopes) {
     m_param_types->resolve_locals(serializer, scopes);
     m_return_type->resolve_locals(serializer, scopes);
+}
+
+TypeMatch CallableTypeNode::matching(TypeNode const *node) const {
+    if (dynamic_cast<AnyTypeNode const *>(node) != nullptr) {
+        return TypeMatch::AnyMatch;
+    }
+    CallableTypeNode const *other = dynamic_cast<CallableTypeNode const *>(node);
+    return weakest_match(
+            m_param_types->matching(other->param_types()), 
+            m_return_type->matching(other->return_type()));
 }
 
 void CallableTypeNode::print(TreePrinter &printer) const {
@@ -560,6 +610,33 @@ void TernaryNode::print(TreePrinter &printer) const {
     printer.next_child(m_cond.get());
     printer.next_child(m_case_true.get());
     printer.last_child(m_case_false.get());
+}
+
+AttributeNode::AttributeNode(Token token, 
+        std::unique_ptr<ExpressionNode> object,
+        std::unique_ptr<VariableNode> attribute)
+        : ExpressionNode(token), m_object(std::move(object)), 
+        m_attribute(std::move(attribute)) {}
+
+void AttributeNode::resolve_locals(Serializer &serializer, 
+        ScopeTracker &scopes) {
+    m_object->resolve_locals(serializer, scopes);
+}
+
+void AttributeNode::resolve_types(Serializer &serializer) {
+    m_object->resolve_types(serializer);
+}
+
+void AttributeNode::serialize(Serializer &serializer) const {
+    m_object->serialize(serializer);
+    serializer.add_instr(OpCode::Pop);
+    serializer.add_instr(OpCode::Push, 42);
+}
+
+void AttributeNode::print(TreePrinter &printer) const {
+    printer.print_node(this);
+    printer.next_child(m_object.get());
+    printer.last_child(m_attribute.get());
 }
 
 LambdaNode::LambdaNode(Token token, 
@@ -1105,6 +1182,10 @@ void VarDeclarationNode::resolve_types(Serializer &serializer) {
     }
     if (m_init_value != nullptr) {
         m_init_value->resolve_types(serializer);
+        TypeMatch match = m_type->matching(m_init_value->type());
+        if (match == TypeMatch::NoMatch) {
+            throw std::runtime_error("Type mismatch: " + to_string(token()));
+        }
     }
 }
 

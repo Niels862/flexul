@@ -4,6 +4,7 @@ typedef Bool like true, false;
 
 fn main() -> Int {
     var f: Float;
+    var i: Int = 4;
     var a: (Int, Int) -> Int = lambda(a: Int, b: Int) -> Int: a;
-    return true;
+    return a.test;
 }

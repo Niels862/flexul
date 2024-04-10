@@ -17,6 +17,10 @@ class TypeNode;
 
 class ExpressionListNode;
 
+enum class TypeMatch {
+    NoMatch, AnyMatch, ExactMatch
+};
+
 class BaseNode {
 public:
     BaseNode(Token token);
@@ -54,6 +58,8 @@ public:
     void resolve_globals(Serializer &serializer, SymbolMap &current) override;
     void resolve_types(Serializer &serializer) override;
     void serialize(Serializer &serializer) const override;
+    
+    virtual TypeMatch matching(TypeNode const *node) const = 0;
 
     friend std::string to_string(TypeNode const *node);
 private:
@@ -66,6 +72,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
 
+    TypeMatch matching(TypeNode const *node) const override;
+
     void print(TreePrinter &printer) const override;
 private:
     std::string type_string() const override;
@@ -77,6 +85,8 @@ public:
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
 
+    TypeMatch matching(TypeNode const *node) const override;
+
     void print(TreePrinter &printer) const override;
 private:
     std::string type_string() const override;
@@ -87,6 +97,8 @@ public:
     TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list);
 
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+
+    TypeMatch matching(TypeNode const *node) const override;
 
     void print(TreePrinter &printer) const override;
 
@@ -103,6 +115,8 @@ public:
             std::unique_ptr<TypeNode> return_type);
     
     void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+
+    TypeMatch matching(TypeNode const *node) const override;
 
     void print(TreePrinter &printer) const override;
 
@@ -308,6 +322,21 @@ private:
     std::unique_ptr<ExpressionNode> m_cond;
     std::unique_ptr<ExpressionNode> m_case_true;
     std::unique_ptr<ExpressionNode> m_case_false;
+};
+
+class AttributeNode : public ExpressionNode {
+public:
+    AttributeNode(Token token, std::unique_ptr<ExpressionNode> object,
+            std::unique_ptr<VariableNode> attribute);
+
+    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void resolve_types(Serializer &serializer) override;
+    void serialize(Serializer &serializer) const override;
+
+    void print(TreePrinter &printer) const override;
+private:
+    std::unique_ptr<ExpressionNode> m_object;
+    std::unique_ptr<VariableNode> m_attribute;
 };
 
 class LambdaNode : public ExpressionNode {

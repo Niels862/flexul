@@ -577,6 +577,11 @@ std::unique_ptr<ExpressionNode> Parser::parse_postfix(
             expect_data("]");
             value = std::make_unique<SubscriptNode>(
                     std::move(value), std::move(subscript));
+        } else if (accept_data(".")) {
+            value = std::make_unique<AttributeNode>(token, 
+                    std::move(value), 
+                    std::make_unique<VariableNode>(
+                        expect_type(TokenType::Identifier)));
         } else {
             auto iter = assignments.find(token.data());
             if (iter == assignments.end()) {
