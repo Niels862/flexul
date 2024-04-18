@@ -29,11 +29,14 @@ ArgParser get_args(int argc, char *argv[]) {
 std::vector<uint32_t> compile(ArgParser const &args) {
     std::string infilename = args.get(0).value;
 
-    Parser parser(infilename);
-    Serializer serializer;
+    std::unique_ptr<BaseNode> root = Parser(infilename).parse();
 
-    std::unique_ptr<BaseNode> root = parser.parse();
+    SymbolTable symbol_table;
+    SymbolId entry_id = SymbolResolver(root, symbol_table).resolve();
+
+    Serializer serializer(symbol_table);
     serializer.serialize(root);
+
     if (args.get("tree")) {
         bool tree_all = args.get("tree-all");
         std::cerr << "Syntax Tree:" << std::endl;
@@ -44,14 +47,17 @@ std::vector<uint32_t> compile(ArgParser const &args) {
         );
         root->print(printer);
     }
+
     if (args.get("symbols")) {
         std::cerr << "Symbol Table:" << std::endl;
-        serializer.symbol_table().dump();
+        symbol_table.dump();
     }
+
     if (args.get("dis")) {
         std::cerr << "Assembly:" << std::endl;
         serializer.disassemble();
     }
+    
     return serializer.assemble();
 }
 

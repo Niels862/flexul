@@ -71,7 +71,7 @@ SymbolId lookup_symbol(std::string const &symbol, ScopeTracker const &scopes);
 
 class SymbolTable {
 public:
-    SymbolTable(SymbolId &counter);
+    SymbolTable();
 
     SymbolId next_id();
     SymbolEntry const &get(SymbolId id) const;
@@ -86,14 +86,26 @@ public:
     uint32_t container_size() const;
     void resolve_local_container();
     SymbolIdList const &container() const;
+
+    SymbolId counter() const;
 private:
     void add(SymbolEntry const &entry);
 
     std::vector<SymbolEntry> m_table;
     std::stack<SymbolIdList> m_containers;
-    SymbolId &m_counter;
+    SymbolId m_counter;
 
     friend Serializer;
+};
+
+class SymbolResolver {
+public:
+    SymbolResolver(std::unique_ptr<BaseNode> &root, SymbolTable &symbol_table);
+
+    SymbolId resolve();
+private:
+    std::unique_ptr<BaseNode> &m_root;
+    SymbolTable &m_symbol_table;
 };
 
 #endif

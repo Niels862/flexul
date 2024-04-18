@@ -230,8 +230,8 @@ void StackEntry::disassemble() const {
     }
 }
 
-Serializer::Serializer()
-        : m_symbol_table(m_counter), m_counter(2), m_stack() {}
+Serializer::Serializer(SymbolTable &symbol_table)
+        : m_symbol_table(symbol_table), m_stack() {}
 
 SymbolId Serializer::declare_callable(std::string const &name, 
         SymbolMap &scope, CallableNode *node) {
@@ -248,7 +248,7 @@ SymbolId Serializer::declare_callable(std::string const &name,
     }
 
     SymbolId definition_id = m_symbol_table.declare(scope, 
-            "." + name + "_" + std::to_string(m_counter), 
+            "." + name + "_" + std::to_string(m_symbol_table.counter()), 
             node, node->signature().type.get(), StorageType::AbsoluteRef);
     
     CallableMap::iterator iter = m_callable_map.find(name_id);
@@ -317,9 +317,7 @@ uint32_t Serializer::add_label(Label label) {
 }
 
 uint32_t Serializer::get_label() {
-    Label label = m_counter;
-    m_counter++;
-    return label;
+    return m_symbol_table.next_id();
 }
 
 uint32_t Serializer::get_stack_size() const {

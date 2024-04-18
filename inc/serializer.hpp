@@ -69,7 +69,7 @@ private:
 
 class Serializer {
 public:
-    Serializer();
+    Serializer(SymbolTable &symbol_table);
 
     SymbolId declare_callable(std::string const &name, SymbolMap &scope, 
             CallableNode *node);
@@ -98,16 +98,11 @@ public:
 private:
     void add_entry(StackEntry const &entry);
 
-    SymbolTable m_symbol_table;
+    SymbolTable &m_symbol_table;
     InlineFrames m_inline_frames;
 
     std::queue<JobEntry> m_code_jobs;
     LabelMap m_labels;
-    // First used to give each symbol a unique id, then to attach labels
-    // Symbol ids are also used as labels
-    // 0 -> invalid/unset id
-    // 1 -> entry point id
-    uint32_t m_counter;
     std::vector<StackEntry> m_stack;
     CallableMap m_callable_map;
 };

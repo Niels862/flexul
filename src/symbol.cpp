@@ -51,13 +51,13 @@ SymbolId lookup_symbol(std::string const &symbol, ScopeTracker const &scopes) {
     throw std::runtime_error("Undeclared symbol: " + symbol);
 }
 
-SymbolTable::SymbolTable(SymbolId &counter)
+SymbolTable::SymbolTable()
         : m_table({
             SymbolEntry(
                 "<null>", nullptr, nullptr, 0, StorageType::Invalid, 0, 0),
             SymbolEntry(
                 "<entry>", nullptr, nullptr, 1, StorageType::AbsoluteRef, 0, 0)
-        }), m_counter(counter) {}
+        }), m_counter(2) {}
 
 SymbolId SymbolTable::next_id() {
     SymbolId id = m_counter;
@@ -139,6 +139,10 @@ SymbolIdList const &SymbolTable::container() const {
     return m_containers.top();
 }
 
+SymbolId SymbolTable::counter() const {
+    return m_counter;
+}
+
 void SymbolTable::add(SymbolEntry const &entry) {
     if (entry.id != m_table.size()) {
         throw std::runtime_error(
@@ -147,4 +151,12 @@ void SymbolTable::add(SymbolEntry const &entry) {
                 + std::to_string(m_table.size()));
     }
     m_table.push_back(entry);
+}
+
+SymbolResolver::SymbolResolver(std::unique_ptr<BaseNode> &root, 
+        SymbolTable &symbol_table)
+        : m_root(root), m_symbol_table(symbol_table) {}
+
+SymbolId SymbolResolver::resolve() {
+    return 0;
 }
