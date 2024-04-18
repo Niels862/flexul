@@ -62,7 +62,6 @@ public:
     virtual TypeMatch matching(TypeNode const *node) const = 0;
 
     friend std::string to_string(TypeNode const *node);
-private:
     virtual std::string type_string() const = 0;
 };
 
@@ -75,7 +74,6 @@ public:
     TypeMatch matching(TypeNode const *node) const override;
 
     void print(TreePrinter &printer) const override;
-private:
     std::string type_string() const override;
 };
 
@@ -88,7 +86,6 @@ public:
     TypeMatch matching(TypeNode const *node) const override;
 
     void print(TreePrinter &printer) const override;
-private:
     std::string type_string() const override;
 };
 
@@ -101,10 +98,9 @@ public:
     TypeMatch matching(TypeNode const *node) const override;
 
     void print(TreePrinter &printer) const override;
+    std::string type_string() const override;
 
     std::vector<std::unique_ptr<TypeNode>> const &list() const;
-private:
-    std::string type_string() const override;
 
     std::vector<std::unique_ptr<TypeNode>> m_type_list;
 };
@@ -119,12 +115,11 @@ public:
     TypeMatch matching(TypeNode const *node) const override;
 
     void print(TreePrinter &printer) const override;
+    std::string type_string() const override;
 
     TypeListNode *param_types() const;
     TypeNode *return_type() const;
 private:
-    std::string type_string() const override;
-
     std::unique_ptr<TypeListNode> m_param_types;
     std::unique_ptr<TypeNode> m_return_type;
 };
@@ -364,7 +359,7 @@ public:
 
     void resolve_types(Serializer &serializer) override;
 
-    bool is_matching_call(
+    TypeMatch is_matching_call(
             std::vector<std::unique_ptr<ExpressionNode>> const &args) const;
     virtual void serialize_call(Serializer &serializer, 
             std::vector<std::unique_ptr<ExpressionNode>> const &args) const = 0;

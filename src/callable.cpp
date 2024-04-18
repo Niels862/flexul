@@ -13,21 +13,36 @@ void CallableEntry::call(Serializer &serializer,
     if (m_overloads.empty()) {
         throw std::runtime_error("No overloads declared for function");
     }
-    OverloadEntry candidate;
+    OverloadEntry candidates[3] = {};
+    bool multiple[3] = {};
     for (auto const &overload : m_overloads) {
-        if (overload.definition->is_matching_call(args)) {
-            if (candidate) {
-                throw std::runtime_error("Multiple candidates for call");
-            }
-            candidate = overload;
+        TypeMatch match = overload.definition->is_matching_call(args);
+        std::size_t index = static_cast<std::size_t>(match);
+        if (candidates[index]) {
+            multiple[index] = true;
+        }
+        if (match != TypeMatch::NoMatch) {
+            candidates[index] = overload; 
         }
     }
-    if (!candidate) {
-        throw std::runtime_error("No suitable candidate for call");
+    
+    OverloadEntry winner;
+    for (std::size_t i = 3; i > 1; i--) {
+        std::size_t index = i - 1;
+        if (candidates[index]) {
+            if (multiple[index]) {
+                throw std::runtime_error("Multiple candidates for call");
+            }
+            winner = candidates[index];
+        }
     }
 
-    serializer.add_function_implementation(candidate.id);
-    candidate.definition->serialize_call(serializer, args);
+    if (!winner) {
+        throw std::runtime_error("No matching call found");
+    }
+
+    serializer.add_function_implementation(winner.id);
+    winner.definition->serialize_call(serializer, args);
 }
 
 void CallableEntry::push_callable_addr(Serializer &serializer) const {

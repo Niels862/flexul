@@ -120,7 +120,9 @@ void TypeListNode::resolve_locals(Serializer &serializer,
 TypeMatch TypeListNode::matching(TypeNode const *node) const {
     TypeListNode const *other = dynamic_cast<TypeListNode const *>(node);
     if (other == nullptr) {
-        throw std::runtime_error("cannot match types");
+        throw std::runtime_error(
+                "cannot match types: " + type_string() 
+                + " and " + node->type_string());
     }
     if (list().size() != other->list().size()) {
         return TypeMatch::NoMatch;
@@ -693,9 +695,17 @@ void CallableNode::resolve_types(Serializer &serializer) {
     m_body->resolve_types(serializer);
 }
 
-bool CallableNode::is_matching_call(
+TypeMatch CallableNode::is_matching_call(
         std::vector<std::unique_ptr<ExpressionNode>> const &args) const {
-    return args.size() == n_params();
+    if (args.size() != n_params()) {
+        return TypeMatch::NoMatch;
+    }
+    TypeMatch match = TypeMatch::ExactMatch;
+    for (std::size_t i = 0; i < args.size(); i++) {
+        auto const &param_type = m_signature.type->param_types()->list()[i];
+        match = weakest_match(match, param_type->matching(args[i]->type()));
+    }
+    return match;
 }
 
 Token const &CallableNode::ident() const {
