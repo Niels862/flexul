@@ -21,12 +21,12 @@ void ArgParser::add(std::string name) {
 }
 
 void ArgParser::add(std::string const &name, std::string const &alias, 
-        std::string const &defaultValue, ArgType type) {
+        std::string const &default_value, ArgType type) {
     m_keyword_map[name] = m_keywords.size();
     if (!alias.empty()) {
         m_keyword_map[alias] = m_keywords.size();
     }
-    m_keywords.push_back(Argument(name, alias, defaultValue, type));
+    m_keywords.push_back(Argument(name, alias, default_value, type));
 }
 
 Argument const &ArgParser::get(size_t i) const {

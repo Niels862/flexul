@@ -55,7 +55,7 @@ void TypeNode::serialize(Serializer &) const {}
 
 std::string to_string(TypeNode const *node) {
     if (node == nullptr) {
-        return "*null)";
+        return "(null)";
     }
     return node->type_string();
 }
@@ -1140,6 +1140,7 @@ void ReturnNode::resolve_types(Serializer &serializer) {
 }
 
 void ReturnNode::serialize(Serializer &serializer) const {
+    // todo: first push ret dest addr, then do store, then ret wo val
     m_operand->serialize(serializer);
     serializer.add_instr(OpCode::Ret);
 }

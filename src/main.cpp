@@ -19,7 +19,7 @@ ArgParser get_args(int argc, char *argv[]) {
     args.add("stats", "", "", ArgType::Flag);
     args.add("dis", "", "", ArgType::Flag);
     args.add("symbols", "", "", ArgType::Flag);
-    args.add("no-exec", "", "", ArgType::Flag);
+    args.add("no-exec", "n", "", ArgType::Flag);
 
     args.parse(argc, argv);
 
@@ -32,8 +32,8 @@ std::vector<uint32_t> compile(ArgParser const &args) {
     std::unique_ptr<BaseNode> root = Parser(infilename).parse();
 
     SymbolTable symbol_table;
-    SymbolId entry_id = SymbolResolver(root, symbol_table).resolve();
-
+    ScopeTracker scopes;
+    (void)scopes;
     Serializer serializer(symbol_table);
     serializer.serialize(root);
 

@@ -3,6 +3,7 @@
 #define FLEXUL_SYMBOL_HPP
 
 #include "opcodes.hpp"
+#include <memory>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -98,14 +99,5 @@ private:
     friend Serializer;
 };
 
-class SymbolResolver {
-public:
-    SymbolResolver(std::unique_ptr<BaseNode> &root, SymbolTable &symbol_table);
-
-    SymbolId resolve();
-private:
-    std::unique_ptr<BaseNode> &m_root;
-    SymbolTable &m_symbol_table;
-};
 
 #endif

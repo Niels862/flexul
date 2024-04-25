@@ -7,13 +7,10 @@ fn f(x: Int) {
 }
 
 fn f(x: Float) {
-    return __iadd__(x, 1);
+    return 0;
 }
 
 fn main() -> Int {
     var i: Int = 4;
-    var d: Float;
-    d = 4;
-    var a: (Int, Int) -> Int = lambda(a: Int, b: Int) -> Int: a;
-    return f(d);
+    return f(i);
 }

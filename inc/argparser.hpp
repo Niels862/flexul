@@ -30,7 +30,7 @@ public:
 
     void add(std::string name);
     void add(std::string const &name, std::string const &alias, 
-                    std::string const &defaultValue, ArgType type);
+                    std::string const &default_value, ArgType type);
     Argument const &get(size_t i) const;
     Argument const &get(std::string const &name) const;
 

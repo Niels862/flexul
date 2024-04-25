@@ -152,11 +152,3 @@ void SymbolTable::add(SymbolEntry const &entry) {
     }
     m_table.push_back(entry);
 }
-
-SymbolResolver::SymbolResolver(std::unique_ptr<BaseNode> &root, 
-        SymbolTable &symbol_table)
-        : m_root(root), m_symbol_table(symbol_table) {}
-
-SymbolId SymbolResolver::resolve() {
-    return 0;
-}
