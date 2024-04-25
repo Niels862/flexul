@@ -15,3 +15,4 @@ inline >(x, y): __ilt__(y, x);
 inline >=(x, y): __ile__(y, x);
 
 inline exit(x): __exit__(x);
+inline segfault(): *1000000;
