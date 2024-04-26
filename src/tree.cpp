@@ -729,7 +729,7 @@ FunctionNode::FunctionNode(Token token, Token ident,
 
 void FunctionNode::resolve_globals(
         Serializer &serializer, SymbolMap &symbol_map) {
-    set_id(serializer.declare_callable(ident().data(), 
+    set_id(serializer.symbol_table().declare_callable(ident().data(), 
             symbol_map, this));
     serializer.add_job(id(), this, false);
 }
@@ -791,7 +791,7 @@ InlineNode::InlineNode(Token token, Token ident,
 
 void InlineNode::resolve_globals(
         Serializer &serializer, SymbolMap &symbol_map) {
-    set_id(serializer.declare_callable(ident().data(), 
+    set_id(serializer.symbol_table().declare_callable(ident().data(), 
             symbol_map, this));
     serializer.add_job(id(), this, true);
 }

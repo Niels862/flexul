@@ -233,35 +233,6 @@ void StackEntry::disassemble() const {
 Serializer::Serializer(SymbolTable &symbol_table)
         : m_symbol_table(symbol_table), m_stack() {}
 
-SymbolId Serializer::declare_callable(std::string const &name, 
-        SymbolMap &scope, CallableNode *node) {
-    SymbolMap::const_iterator name_iter = scope.find(name);
-    SymbolId name_id;
-    if (name_iter == scope.end()) { // New callable
-        name_id = m_symbol_table.declare(scope, name, nullptr, nullptr, 
-                StorageType::Callable);
-    } else {
-        name_id = name_iter->second;
-        if (m_symbol_table.get(name_id).storage_type != StorageType::Callable) {
-            throw std::runtime_error("Can only overload other callables");
-        }
-    }
-
-    SymbolId definition_id = m_symbol_table.declare(scope, 
-            "." + name + "_" + std::to_string(m_symbol_table.counter()), 
-            node, node->signature().type.get(), StorageType::AbsoluteRef);
-    
-    CallableMap::iterator iter = m_callable_map.find(name_id);
-    if (iter == m_callable_map.end()) {
-        CallableEntry callable;
-        callable.add_overload(node, definition_id);
-        m_callable_map[name_id] = callable;
-    } else {
-        iter->second.add_overload(node, definition_id);
-    }
-    return definition_id;
-}
-
 void Serializer::call(SymbolId id, 
         std::vector<std::unique_ptr<ExpressionNode>> const &args) {
     CallableMap::const_iterator iter = m_callable_map.find(id);
@@ -341,6 +312,15 @@ void Serializer::serialize(std::unique_ptr<BaseNode> &root) {
         job.node->resolve_locals(*this, scopes);
         job.node->resolve_types(*this);
         m_code_jobs.pop();
+    }
+    
+    for (SymbolEntry const &entry : m_symbol_table) {
+        if (entry.storage_type == StorageType::Callable) {
+            m_callable_map[entry.id] = CallableEntry();
+        } else if (entry.overload) {
+            m_callable_map[entry.value].add_overload(
+                    dynamic_cast<CallableNode *>(entry.definition), entry.id);
+        }
     }
     
     uint32_t global_size = m_symbol_table.container_size();

@@ -1,9 +1,15 @@
-inline +(x, y): __iadd__(x, y);
+fn f() {
+    return 0;
+}
 
-fn -(x) {
-    return x + x;
+fn f(x) {
+    return 1;
+}
+
+fn f(x, y) {
+    return 2;
 }
 
 fn main() {
-    return -3;
+    return f(f(), f(0));
 }

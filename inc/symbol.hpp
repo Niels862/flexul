@@ -30,6 +30,8 @@ class BaseNode;
 
 class TypeNode;
 
+class CallableNode;
+
 class Serializer;
 
 struct IntrinsicEntry {
@@ -46,6 +48,8 @@ struct SymbolEntry {
             SymbolId id, StorageType storage_type, uint32_t value, 
             uint32_t size);
 
+    void overload_of(SymbolId name_id);
+
     std::string symbol;
     BaseNode *definition;
     TypeNode *type;
@@ -55,6 +59,7 @@ struct SymbolEntry {
     uint32_t size;
     uint64_t usages;
     bool implemented;
+    bool overload;
 };
 
 using SymbolMap = std::unordered_map<std::string, SymbolId>;
@@ -77,8 +82,11 @@ public:
     SymbolId next_id();
     SymbolEntry const &get(SymbolId id) const;
     SymbolId declare(SymbolMap &scope, std::string const &symbol, 
-        BaseNode *definition, TypeNode *type, StorageType storage_type, 
-        uint32_t value = 0, uint32_t size = 1);
+            BaseNode *definition, TypeNode *type, StorageType storage_type, 
+            uint32_t value = 0, uint32_t size = 1);
+    SymbolId declare_callable(std::string const &name, SymbolMap &scope, 
+            CallableNode *node);
+
     void load_predefined(SymbolMap &symbol_map);
     void dump() const;
 
@@ -87,6 +95,9 @@ public:
     uint32_t container_size() const;
     void resolve_local_container();
     SymbolIdList const &container() const;
+
+    std::vector<SymbolEntry>::const_iterator begin() const;
+    std::vector<SymbolEntry>::const_iterator end() const;
 
     SymbolId counter() const;
 private:

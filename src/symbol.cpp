@@ -24,7 +24,12 @@ SymbolEntry::SymbolEntry(std::string symbol, BaseNode *definition,
             uint32_t value, uint32_t size)
             : symbol(symbol), definition(definition), type(type), id(id),
             storage_type(storage_type), value(value), size(size),
-            usages(0), implemented(false) {}
+            usages(0), implemented(false), overload(false) {}
+
+void SymbolEntry::overload_of(SymbolId name_id) {
+    overload = true;
+    value = name_id;
+}
 
 ScopeTracker::ScopeTracker()
         : global(), enclosing(), current() {}
@@ -82,6 +87,29 @@ SymbolId SymbolTable::declare(SymbolMap &scope, std::string const &symbol,
     return id;
 }
 
+SymbolId SymbolTable::declare_callable(std::string const &name, 
+        SymbolMap &scope, CallableNode *node) {
+    SymbolMap::const_iterator name_iter = scope.find(name);
+    SymbolId name_id;
+    if (name_iter == scope.end()) { // New callable
+        name_id = declare(scope, name, nullptr, nullptr, 
+                StorageType::Callable);
+    } else {
+        name_id = name_iter->second;
+        if (get(name_id).storage_type != StorageType::Callable) {
+            throw std::runtime_error("Can only overload other callables");
+        }
+    }
+
+    SymbolId definition_id = declare(scope, 
+            "." + name + "_" + std::to_string(counter()), 
+            node, node->signature().type.get(), StorageType::AbsoluteRef);
+
+    m_table[definition_id].overload_of(name_id);
+    
+    return definition_id;
+}
+
 void SymbolTable::load_predefined(SymbolMap &symbol_map) {
     size_t i;
     for (i = 0; i < intrinsics.size(); i++) {
@@ -105,6 +133,9 @@ void SymbolTable::dump() const {
             } else {
                 std::cout << " type=Any";
             }
+        }
+        if (entry.overload) {
+            std::cout << " value=" << entry.value;
         }
         std::cout << std::endl;
     }
@@ -137,6 +168,14 @@ void SymbolTable::resolve_local_container() {
 
 SymbolIdList const &SymbolTable::container() const {
     return m_containers.top();
+}
+
+std::vector<SymbolEntry>::const_iterator SymbolTable::begin() const {
+    return m_table.begin();
+}
+
+std::vector<SymbolEntry>::const_iterator SymbolTable::end() const {
+    return m_table.end();
 }
 
 SymbolId SymbolTable::counter() const {
