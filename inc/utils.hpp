@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <string>
 #include <vector>
+#include <optional>
 
 template <typename T>
 void print_map(T const &map, size_t width = 16) {

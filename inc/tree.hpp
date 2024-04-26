@@ -29,12 +29,12 @@ public:
     virtual bool is_lvalue() const;
     // First pass: collects symbols which can be referenced before declaration:
     // functions, global variables, definitions
-    virtual void resolve_globals(Serializer &serializer, 
+    virtual void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &current) = 0;
     // Second pass: collects all other symbols and resolves occurences.
-    virtual void resolve_locals(Serializer &serializer, 
+    virtual void resolve_locals(SymbolTable &symbol_table, 
             ScopeTracker &scopes) = 0;
-    virtual void resolve_types(Serializer &serializer) { (void)serializer; };
+    virtual void resolve_types(SymbolTable &symbol_table) { (void)symbol_table; };
     virtual void serialize(Serializer &serializer) const = 0;
     virtual void serialize_load_address(Serializer &serializer) const;
     virtual std::optional<uint32_t> get_constant_value() const;
@@ -55,8 +55,8 @@ class TypeNode : public BaseNode {
 public:
     TypeNode(Token token);
 
-    void resolve_globals(Serializer &serializer, SymbolMap &current) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_globals(SymbolTable &symbol_table, SymbolMap &current) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
     
     virtual TypeMatch matching(TypeNode const *node) const = 0;
@@ -69,7 +69,7 @@ class AnyTypeNode : public TypeNode {
 public:
     AnyTypeNode();
 
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
 
     TypeMatch matching(TypeNode const *node) const override;
 
@@ -81,7 +81,7 @@ class NamedTypeNode : public TypeNode {
 public:
     NamedTypeNode(Token ident);
 
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
 
     TypeMatch matching(TypeNode const *node) const override;
 
@@ -93,7 +93,7 @@ class TypeListNode : public TypeNode {
 public:
     TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list);
 
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
 
     TypeMatch matching(TypeNode const *node) const override;
 
@@ -110,7 +110,7 @@ public:
     CallableTypeNode(Token token, std::unique_ptr<TypeListNode> param_types, 
             std::unique_ptr<TypeNode> return_type);
     
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
 
     TypeMatch matching(TypeNode const *node) const override;
 
@@ -136,7 +136,7 @@ class ExpressionNode : public BaseNode {
 public:
     ExpressionNode(Token token, TypeNode *m_type = nullptr); // todo temp
 
-    void resolve_globals(Serializer &serializer, SymbolMap &current) override;
+    void resolve_globals(SymbolTable &symbol_table, SymbolMap &current) override;
 
     TypeNode *type() const;
 protected:
@@ -153,8 +153,8 @@ public:
     VariableNode(Token token);
 
     bool is_lvalue() const override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 
@@ -165,9 +165,9 @@ class LiteralNode : public ExpressionNode {
 public:
     LiteralNode(Token token, TypeNode *type);
 
-    void resolve_locals(Serializer &serializer, 
+    void resolve_locals(SymbolTable &symbol_table, 
             ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_types(SymbolTable &symbol_table) override;
 
     void print(TreePrinter &printer) const override;
 };
@@ -200,7 +200,7 @@ class UnaryExpressionNode : public ExpressionNode {
 public:
     UnaryExpressionNode(Token token, std::unique_ptr<ExpressionNode> operand);
 
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
 
     void print(TreePrinter &printer) const override;
 protected:
@@ -212,7 +212,7 @@ class AddressOfNode : public UnaryExpressionNode {
 public:
     AddressOfNode(Token token, std::unique_ptr<ExpressionNode> operand);
 
-    void resolve_types(Serializer &serializer) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 };
 
@@ -221,7 +221,7 @@ public:
     DereferenceNode(Token token, std::unique_ptr<ExpressionNode> operand);
 
     bool is_lvalue() const override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 };
@@ -231,7 +231,7 @@ public:
     BinaryExpressionNode(Token token, std::unique_ptr<ExpressionNode> left, 
             std::unique_ptr<ExpressionNode> right);
 
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
 
     void print(TreePrinter &printer) const override;
 protected:
@@ -244,7 +244,7 @@ public:
     AssignNode(Token token, std::unique_ptr<ExpressionNode> left, 
             std::unique_ptr<ExpressionNode> right);
 
-    void resolve_types(Serializer &serializer) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 };
 
@@ -254,7 +254,7 @@ public:
             std::unique_ptr<ExpressionNode> right, 
             TypeNode *type);
 
-    void resolve_types(Serializer &serializer) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 };
 
@@ -264,7 +264,7 @@ public:
             std::unique_ptr<ExpressionNode> right,
             TypeNode *type);
 
-    void resolve_types(Serializer &serializer) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 };
 
@@ -274,7 +274,7 @@ public:
             std::unique_ptr<ExpressionNode> subscript);
 
     bool is_lvalue() const override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
     void serialize_load_address(Serializer &serializer) const override;
 };
@@ -292,8 +292,8 @@ public:
             std::unique_ptr<ExpressionNode> left, 
             std::unique_ptr<ExpressionNode> right);
 
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -308,8 +308,8 @@ public:
             std::unique_ptr<ExpressionNode> case_true, 
             std::unique_ptr<ExpressionNode> case_false);
 
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -324,8 +324,8 @@ public:
     AttributeNode(Token token, std::unique_ptr<ExpressionNode> object,
             std::unique_ptr<VariableNode> attribute);
 
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -340,8 +340,8 @@ public:
             CallableSignature signature, 
             std::unique_ptr<StatementNode> body);
 
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -357,7 +357,7 @@ public:
     CallableNode(Token token, Token ident, 
             CallableSignature signature, std::unique_ptr<BaseNode> body);
 
-    void resolve_types(Serializer &serializer) override;
+    void resolve_types(SymbolTable &symbol_table) override;
 
     TypeMatch is_matching_call(
             std::vector<std::unique_ptr<ExpressionNode>> const &args) const;
@@ -380,8 +380,8 @@ public:
             CallableSignature signature, std::unique_ptr<BaseNode> body);
 
     void resolve_globals(
-            Serializer &serializer, SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+            SymbolTable &symbol_table, SymbolMap &symbol_map) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, 
             std::vector<std::unique_ptr<ExpressionNode>> const &args) const override;
@@ -398,9 +398,9 @@ public:
     InlineNode(Token token, Token ident, 
             CallableSignature signature, std::unique_ptr<BaseNode> body);
 
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
     void serialize(Serializer &serializer) const override;
     void serialize_call(Serializer &serializer, 
             std::vector<std::unique_ptr<ExpressionNode>> const &args
@@ -418,10 +418,10 @@ class EmptyNode : public StatementNode {
 public:
     EmptyNode();
 
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -432,9 +432,9 @@ public:
     BlockNode(std::vector<std::unique_ptr<StatementNode>> children);
 
     void resolve_globals(
-            Serializer &serializer, SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+            SymbolTable &symbol_table, SymbolMap &symbol_map) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -448,10 +448,10 @@ class ScopedBlockNode : public StatementNode {
 public:
     ScopedBlockNode(std::vector<std::unique_ptr<StatementNode>> children);
 
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -464,10 +464,10 @@ class TypeDeclarationNode : public StatementNode {
 public:
     TypeDeclarationNode(Token token, std::unique_ptr<NamedTypeNode> ident);
 
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -482,10 +482,10 @@ public:
     ExpressionListNode(Token token, 
             std::vector<std::unique_ptr<ExpressionNode>> children);
 
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -500,10 +500,10 @@ public:
     IfNode(Token token, std::unique_ptr<ExpressionNode> cond, 
             std::unique_ptr<StatementNode> case_true);
 
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -518,10 +518,10 @@ public:
             std::unique_ptr<StatementNode> case_true, 
             std::unique_ptr<StatementNode> case_false);
 
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -539,10 +539,10 @@ public:
             std::unique_ptr<StatementNode> post, 
             std::unique_ptr<StatementNode> body);
 
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -557,10 +557,10 @@ class ReturnNode : public StatementNode {
 public:
     ReturnNode(Token token, std::unique_ptr<ExpressionNode> operand);
 
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -575,10 +575,11 @@ public:
             std::unique_ptr<ExpressionNode> size, 
             std::unique_ptr<ExpressionNode> init_value);
 
-    void resolve_globals(
-            Serializer &serializer, SymbolMap &current);
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_globals(SymbolTable &symbol_table, 
+            SymbolMap &current) override;
+    void resolve_locals(SymbolTable &symbol_table, 
+            ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;
@@ -597,10 +598,10 @@ class ExpressionStatementNode : public StatementNode {
 public:
     ExpressionStatementNode(std::unique_ptr<ExpressionNode> expr);
     
-    void resolve_globals(Serializer &serializer, 
+    void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
-    void resolve_locals(Serializer &serializer, ScopeTracker &scopes) override;
-    void resolve_types(Serializer &serializer) override;
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+    void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
 
     void print(TreePrinter &printer) const override;

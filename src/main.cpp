@@ -31,11 +31,11 @@ std::vector<uint32_t> compile(ArgParser const &args) {
 
     std::unique_ptr<BaseNode> root = Parser(infilename).parse();
 
-    SymbolTable symbol_table;
-    ScopeTracker scopes;
-    (void)scopes;
+    SymbolTable symbol_table(root);
+    symbol_table.resolve();
+
     Serializer serializer(symbol_table);
-    serializer.serialize(root);
+    serializer.serialize();
 
     if (args.get("tree")) {
         bool tree_all = args.get("tree-all");

@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 #include <stack>
+#include <queue>
 
 enum class StorageType {
     Invalid,
@@ -75,9 +76,14 @@ struct ScopeTracker {
 
 SymbolId lookup_symbol(std::string const &symbol, ScopeTracker const &scopes);
 
+SymbolId lookup_scope(std::string const &symbol, SymbolMap const &scope);
+
 class SymbolTable {
 public:
-    SymbolTable();
+    SymbolTable(std::unique_ptr<BaseNode> &root);
+
+    void resolve();
+    void add_job(BaseNode *node);
 
     SymbolId next_id();
     SymbolEntry const &get(SymbolId id) const;
@@ -96,6 +102,8 @@ public:
     void resolve_local_container();
     SymbolIdList const &container() const;
 
+    SymbolMap const &global() const;
+
     std::vector<SymbolEntry>::const_iterator begin() const;
     std::vector<SymbolEntry>::const_iterator end() const;
 
@@ -103,6 +111,10 @@ public:
 private:
     void add(SymbolEntry const &entry);
 
+    SymbolMap m_global;
+
+    std::unique_ptr<BaseNode> &m_root;
+    std::queue<BaseNode *> m_jobs;
     std::vector<SymbolEntry> m_table;
     std::stack<SymbolIdList> m_containers;
     SymbolId m_counter;

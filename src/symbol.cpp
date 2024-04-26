@@ -56,13 +56,42 @@ SymbolId lookup_symbol(std::string const &symbol, ScopeTracker const &scopes) {
     throw std::runtime_error("Undeclared symbol: " + symbol);
 }
 
-SymbolTable::SymbolTable()
-        : m_table({
+SymbolId lookup_scope(std::string const &symbol, SymbolMap const &scope) {
+    SymbolMap::const_iterator iter = scope.find(symbol);
+    if (iter == scope.end()) {
+        throw std::runtime_error(symbol + " not defined in scope");
+    }
+    return iter->second;
+}
+
+SymbolTable::SymbolTable(std::unique_ptr<BaseNode> &root)
+        : m_root(root), m_jobs(), m_table({
             SymbolEntry(
                 "<null>", nullptr, nullptr, 0, StorageType::Invalid, 0, 0),
             SymbolEntry(
                 "<entry>", nullptr, nullptr, 1, StorageType::AbsoluteRef, 0, 0)
         }), m_counter(2) {}
+
+void SymbolTable::resolve() {
+    ScopeTracker scopes;
+
+    load_predefined(scopes.global);
+    open_container();
+
+    m_root->resolve_globals(*this, scopes.global);
+    while (!m_jobs.empty()) {
+        BaseNode *job = m_jobs.front();
+        job->resolve_locals(*this, scopes);
+        job->resolve_types(*this);
+        m_jobs.pop();
+    }
+
+    m_global = std::move(scopes.global);
+}
+
+void SymbolTable::add_job(BaseNode *node) {
+    m_jobs.push(node);
+}
 
 SymbolId SymbolTable::next_id() {
     SymbolId id = m_counter;
@@ -168,6 +197,10 @@ void SymbolTable::resolve_local_container() {
 
 SymbolIdList const &SymbolTable::container() const {
     return m_containers.top();
+}
+
+SymbolMap const &SymbolTable::global() const {
+    return m_global;
 }
 
 std::vector<SymbolEntry>::const_iterator SymbolTable::begin() const {

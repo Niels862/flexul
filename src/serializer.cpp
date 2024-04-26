@@ -231,7 +231,8 @@ void StackEntry::disassemble() const {
 }
 
 Serializer::Serializer(SymbolTable &symbol_table)
-        : m_symbol_table(symbol_table), m_stack() {}
+        : m_symbol_table(symbol_table), m_inline_frames(), 
+        m_code_jobs(), m_labels(), m_stack(), m_callable_map() {}
 
 void Serializer::call(SymbolId id, 
         std::vector<std::unique_ptr<ExpressionNode>> const &args) {
@@ -299,21 +300,7 @@ uint32_t Serializer::get_stack_size() const {
     return size;
 }
 
-void Serializer::serialize(std::unique_ptr<BaseNode> &root) {
-    ScopeTracker scopes;
-
-    m_symbol_table.load_predefined(scopes.global);
-    m_symbol_table.open_container();
-
-    root->resolve_globals(*this, scopes.global);
-
-    while (!m_code_jobs.empty()) {
-        JobEntry &job = m_code_jobs.front();
-        job.node->resolve_locals(*this, scopes);
-        job.node->resolve_types(*this);
-        m_code_jobs.pop();
-    }
-    
+void Serializer::serialize() {    
     for (SymbolEntry const &entry : m_symbol_table) {
         if (entry.storage_type == StorageType::Callable) {
             m_callable_map[entry.id] = CallableEntry();
@@ -325,7 +312,7 @@ void Serializer::serialize(std::unique_ptr<BaseNode> &root) {
     
     uint32_t global_size = m_symbol_table.container_size();
 
-    SymbolId entry_id = lookup_symbol("main", scopes);
+    SymbolId entry_id = lookup_scope("main", m_symbol_table.global());
 
     add_instr(OpCode::AddSp, global_size);
     call(entry_id, {});

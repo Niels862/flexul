@@ -86,7 +86,7 @@ public:
     uint32_t get_label();
     uint32_t get_stack_size() const;
 
-    void serialize(std::unique_ptr<BaseNode> &root);
+    void serialize();
     std::vector<uint32_t> assemble();
     void disassemble() const;
 
