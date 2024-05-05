@@ -6,7 +6,7 @@ fn f(x: Int) {
     return x;
 }
 
-fn f(x: Float) {
+fn g(x: Float) {
     return 0;
 }
 

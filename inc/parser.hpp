@@ -34,10 +34,10 @@ private:
     std::unique_ptr<StatementNode> parse_inline_declaration();
     std::unique_ptr<ExpressionListNode> parse_param_list();
     CallableSignature parse_param_declaration();
-    std::unique_ptr<StatementNode> parse_braced_block(bool is_scope);
+    std::unique_ptr<StatementNode> parse_braced_block(bool is_scoped);
     std::unique_ptr<StatementNode> parse_type_declaration();
     std::unique_ptr<TypeNode> parse_type();
-    std::unique_ptr<StatementNode> parse_statement();
+    std::unique_ptr<StatementNode> parse_statement(bool is_scoped);
     std::unique_ptr<StatementNode> parse_if_else();
     std::unique_ptr<StatementNode> parse_for();
     std::unique_ptr<StatementNode> parse_while();

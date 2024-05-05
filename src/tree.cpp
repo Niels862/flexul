@@ -765,20 +765,19 @@ LambdaNode::LambdaNode(Token token,
         m_signature(std::move(signature)) {}
 
 void LambdaNode::resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) {
-    ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
     uint32_t position = -3 - m_signature.params.size();
 
     for (std::size_t i = 0; i < m_signature.params.size(); i++) {
         Token const &token = m_signature.params[i];
         TypeNode *type = m_signature.type->param_types()->list()[i].get();
 
-        symbol_table.declare(block_scopes.current, token.data(), 
+        symbol_table.declare(scopes.current, token.data(), 
                 this, type, StorageType::Relative, position);
 
         position++;
     }
     
-    m_body->resolve_locals(symbol_table, block_scopes);
+    m_body->resolve_locals(symbol_table, scopes);
 }
 
 void LambdaNode::resolve_types(SymbolTable &symbol_table) {
@@ -848,25 +847,24 @@ void FunctionNode::resolve_globals(
         SymbolTable &symbol_table, SymbolMap &symbol_map) {
     set_id(symbol_table.declare_callable(ident().data(), 
             symbol_map, this));
-    symbol_table.add_job(this);
 }
 
 void FunctionNode::resolve_locals(SymbolTable &symbol_table, 
         ScopeTracker &scopes) {
     // todo replace by block: -> {{ fn (...) {...} }}
-    ScopeTracker block_scopes(scopes.global, scopes.enclosing, {}); 
     uint32_t position = -3 - n_params();
 
     for (std::size_t i = 0; i < n_params(); i++) {
         Token const &token = params()[i];
+        
         TypeNode *type = signature().type->param_types()->list()[i].get();
-        symbol_table.declare(block_scopes.current, token.data(), 
+        symbol_table.declare(scopes.current, token.data(), 
                 this, type, StorageType::Relative, position);
         position++;
     }
 
     symbol_table.open_container();
-    m_body->resolve_locals(symbol_table, block_scopes);
+    m_body->resolve_locals(symbol_table, scopes);
     m_frame_size = symbol_table.container_size();
     symbol_table.resolve_local_container();
 }
@@ -910,18 +908,16 @@ void InlineNode::resolve_globals(
         SymbolTable &symbol_table, SymbolMap &symbol_map) {
     set_id(symbol_table.declare_callable(ident().data(), 
             symbol_map, this));
-    symbol_table.add_job(this);
 }
 
 void InlineNode::resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) {
-    ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
     uint32_t position = 0;
 
     for (std::size_t i = 0; i < n_params(); i++) {
         Token const &token = params()[i];
         TypeNode *type = signature().type->param_types()->list()[i].get();
 
-        SymbolId id = symbol_table.declare(block_scopes.current, 
+        SymbolId id = symbol_table.declare(scopes.current, 
                 token.data(), this, type, StorageType::InlineReference, 
                 position);
         m_param_ids.push_back(id);
@@ -929,7 +925,7 @@ void InlineNode::resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes)
         position++;
     }
 
-    m_body->resolve_locals(symbol_table, block_scopes);
+    m_body->resolve_locals(symbol_table, scopes);
 }
 
 void InlineNode::serialize(Serializer &) const {}
@@ -1008,45 +1004,36 @@ void BlockNode::print(TreePrinter &printer) const {
     }
 }
 
-ScopedBlockNode::ScopedBlockNode(
-        std::vector<std::unique_ptr<StatementNode>> statements)
-        : StatementNode(Token::synthetic("<scoped-block>")), 
-        m_statements(std::move(statements)), m_scope_map() {}
+ScopeNode::ScopeNode(std::unique_ptr<StatementNode> statement)
+        : StatementNode(Token::synthetic("<scope>")), 
+        m_statement(std::move(statement)) {}
 
-void ScopedBlockNode::resolve_globals(SymbolTable &, SymbolMap &) {}
+void ScopeNode::resolve_globals(SymbolTable &symbol_table, 
+        SymbolMap &symbol_map) {
+    m_statement->resolve_globals(symbol_table, symbol_map);
+    symbol_table.add_job(this);
+}
 
-void ScopedBlockNode::resolve_locals(SymbolTable &symbol_table, 
+void ScopeNode::resolve_locals(SymbolTable &symbol_table, 
         ScopeTracker &scopes) {
     ScopeTracker block_scopes(scopes.global, scopes.enclosing, {});
     for (auto const &entry : scopes.current) {
         block_scopes.enclosing[entry.first] = entry.second;
     }
-    for (auto const &stmt : m_statements) {
-        stmt->resolve_locals(symbol_table, block_scopes);
-    }
+    m_statement->resolve_locals(symbol_table, block_scopes);
 }
 
-void ScopedBlockNode::resolve_types(SymbolTable &symbol_table) {
-    for (auto const &stmt : m_statements) {
-        stmt->resolve_types(symbol_table);
-    }
+void ScopeNode::resolve_types(SymbolTable &symbol_table) {
+    m_statement->resolve_types(symbol_table);
 }
 
-void ScopedBlockNode::serialize(Serializer &serializer) const {
-    for (auto const &stmt : m_statements) {
-        stmt->serialize(serializer);
-    }
+void ScopeNode::serialize(Serializer &serializer) const {
+    m_statement->serialize(serializer);
 }
 
-void ScopedBlockNode::print(TreePrinter &printer) const {
+void ScopeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
-    for (std::size_t i = 0; i < m_statements.size(); i++) {
-        if (i == m_statements.size() - 1) {
-            printer.last_child(m_statements[i].get());
-        } else {
-            printer.next_child(m_statements[i].get());
-        }
-    }
+    printer.last_child(m_statement.get());
 }
 
 TypeDeclarationNode::TypeDeclarationNode(

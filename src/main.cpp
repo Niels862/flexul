@@ -30,6 +30,8 @@ std::vector<uint32_t> compile(ArgParser const &args) {
     std::string infilename = args.get(0).value;
 
     std::unique_ptr<BaseNode> root = Parser(infilename).parse();
+    auto p = TreePrinter(0, 0, 0);
+    root->print(p);
 
     SymbolTable symbol_table(root);
     symbol_table.resolve();

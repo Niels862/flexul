@@ -161,8 +161,9 @@ std::unique_ptr<StatementNode> Parser::parse_function_declaration() {
     }
     CallableSignature signature = parse_param_declaration();
     std::unique_ptr<StatementNode> body = parse_braced_block(false);
-    return std::make_unique<FunctionNode>(fn_token, ident, 
-            std::move(signature), std::move(body));
+    return std::make_unique<ScopeNode>(
+            std::move(std::make_unique<FunctionNode>(fn_token, ident, 
+                std::move(signature), std::move(body))));
 }
 
 std::unique_ptr<StatementNode> Parser::parse_inline_declaration() {
@@ -175,8 +176,9 @@ std::unique_ptr<StatementNode> Parser::parse_inline_declaration() {
     expect_data(":");
     std::unique_ptr<ExpressionNode> body = parse_expression();
     expect_data(";");
-    return std::make_unique<InlineNode>(inline_token, ident, 
-            std::move(signature), std::move(body));
+    return std::make_unique<ScopeNode>(std::move(
+            std::make_unique<InlineNode>(inline_token, ident, 
+                std::move(signature), std::move(body))));
 }
 
 std::unique_ptr<ExpressionListNode> Parser::parse_param_list() {
@@ -230,15 +232,16 @@ CallableSignature Parser::parse_param_declaration() {
             std::move(return_type)));
 }
 
-std::unique_ptr<StatementNode> Parser::parse_braced_block(bool is_scope) {
+std::unique_ptr<StatementNode> Parser::parse_braced_block(bool is_scoped) {
     std::vector<std::unique_ptr<StatementNode> > statements;
     expect_data("{");
     while (m_curr_token.data() != "}") {
-        statements.push_back(parse_statement());
+        statements.push_back(parse_statement(false));
     }
     get_token();
-    if (is_scope) {
-        return std::make_unique<ScopedBlockNode>(std::move(statements));
+    if (is_scoped) {
+        return std::make_unique<ScopeNode>(
+                std::move(std::make_unique<BlockNode>(std::move(statements))));
     }
     return std::make_unique<BlockNode>(std::move(statements));
 }
@@ -290,7 +293,7 @@ std::unique_ptr<TypeNode> Parser::parse_type() {
             parse_type());
 }
 
-std::unique_ptr<StatementNode> Parser::parse_statement() {
+std::unique_ptr<StatementNode> Parser::parse_statement(bool is_scoped) {
     std::unique_ptr<StatementNode> node;
     Token token = m_curr_token;
     if (check_type(TokenType::If)) {
@@ -300,7 +303,7 @@ std::unique_ptr<StatementNode> Parser::parse_statement() {
     } else if (check_type(TokenType::While)) {
         node = parse_while();
     } else if (token.data() == "{") {
-        node = parse_braced_block(true);
+        node = parse_braced_block(!is_scoped);
     } else if (token.data() == ";") {
         node = std::make_unique<EmptyNode>();
         get_token();
@@ -315,6 +318,9 @@ std::unique_ptr<StatementNode> Parser::parse_statement() {
         }
         expect_data(";");
     }
+    if (is_scoped) {
+        return std::make_unique<ScopeNode>(std::move(node));
+    }
     return node;
 }
 
@@ -323,14 +329,17 @@ std::unique_ptr<StatementNode> Parser::parse_if_else() {
     expect_data("(");
     std::unique_ptr<ExpressionNode> cond = parse_expression();
     expect_data(")");
-    std::unique_ptr<StatementNode> body_true = parse_statement();
+    std::unique_ptr<StatementNode> body_true = parse_statement(true);
     if (accept_type(TokenType::Else)) {
-        std::unique_ptr<StatementNode> body_false = parse_statement();
-        return std::make_unique<IfElseNode>(token, 
-                std::move(cond), std::move(body_true), std::move(body_false));
+        std::unique_ptr<StatementNode> body_false = parse_statement(true);
+        return std::make_unique<ScopeNode>(
+                std::move(std::make_unique<IfElseNode>(token, 
+                    std::move(cond), std::move(body_true), 
+                    std::move(body_false))));
     }
-    return std::make_unique<IfNode>(token, 
-            std::move(cond), std::move(body_true));
+    return std::make_unique<ScopeNode>(
+            std::move(std::make_unique<IfNode>(token, 
+                std::move(cond), std::move(body_true))));
 }
 
 std::unique_ptr<StatementNode> Parser::parse_for() {
@@ -344,10 +353,11 @@ std::unique_ptr<StatementNode> Parser::parse_for() {
     std::unique_ptr<StatementNode> post = 
             std::make_unique<ExpressionStatementNode>(parse_expression());
     expect_data(")");
-    std::unique_ptr<StatementNode> body = parse_statement();
-    return std::make_unique<ForLoopNode>(token, 
-            std::move(init), std::move(cond), 
-            std::move(post), std::move(body));
+    std::unique_ptr<StatementNode> body = parse_statement(true);
+    return std::make_unique<ScopeNode>(
+            std::move(std::make_unique<ForLoopNode>(token, 
+                std::move(init), std::move(cond), 
+                std::move(post), std::move(body))));
 }
 
 std::unique_ptr<StatementNode> Parser::parse_while() {
@@ -355,12 +365,13 @@ std::unique_ptr<StatementNode> Parser::parse_while() {
     expect_data("(");
     std::unique_ptr<ExpressionNode> cond = parse_expression();
     expect_data(")");
-    std::unique_ptr<StatementNode> body = parse_statement();
-    return std::make_unique<ForLoopNode>(token, 
-            std::make_unique<EmptyNode>(),
-            std::move(cond),
-            std::make_unique<EmptyNode>(),
-            std::move(body));
+    std::unique_ptr<StatementNode> body = parse_statement(true);
+    return std::make_unique<ScopeNode>(std::move(
+            std::make_unique<ForLoopNode>(token, 
+                std::make_unique<EmptyNode>(),
+                std::move(cond),
+                std::make_unique<EmptyNode>(),
+                std::move(body))));
 }
 
 std::unique_ptr<StatementNode> Parser::parse_var_declaration() {

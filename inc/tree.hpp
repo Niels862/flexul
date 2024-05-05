@@ -485,9 +485,9 @@ private:
 };
 
 // Block which introduces a new scope: statement blocks
-class ScopedBlockNode : public StatementNode {
+class ScopeNode : public StatementNode {
 public:
-    ScopedBlockNode(std::vector<std::unique_ptr<StatementNode>> children);
+    ScopeNode(std::unique_ptr<StatementNode> statement);
 
     void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
@@ -497,8 +497,7 @@ public:
 
     void print(TreePrinter &printer) const override;
 private:
-    std::vector<std::unique_ptr<StatementNode>> m_statements;
-    SymbolMap m_scope_map;
+    std::unique_ptr<StatementNode> m_statement;
 };
 
 class TypeDeclarationNode : public StatementNode {

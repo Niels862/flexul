@@ -115,6 +115,8 @@ SymbolId SymbolTable::declare(SymbolMap &scope, std::string const &symbol,
         uint32_t value, uint32_t size) {
     SymbolMap::const_iterator iter = scope.find(symbol);
     if (iter != scope.end()) {
+        print_map(scope);
+        dump();
         throw std::runtime_error("Redeclared symbol: " + symbol);
     }
     SymbolId id = next_id();
