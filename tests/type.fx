@@ -12,5 +12,5 @@ fn f(x: Float) {
 
 fn main() -> Int {
     var i: Int = 4;
-    return f(i);
+    return &i;
 }

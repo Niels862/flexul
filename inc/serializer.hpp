@@ -101,7 +101,6 @@ private:
     std::queue<JobEntry> m_code_jobs;
     LabelMap m_labels;
     std::vector<StackEntry> m_stack;
-    CallableMap m_callable_map;
 };
 
 #endif

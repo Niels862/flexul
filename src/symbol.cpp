@@ -79,6 +79,13 @@ void SymbolTable::resolve() {
     open_container();
 
     m_root->resolve_globals(*this, scopes.global);
+    
+    for (SymbolEntry const &entry : m_table) {
+        if (entry.overload) {
+            m_callables[entry.value].push_back(entry.id);
+        }
+    }
+
     while (!m_jobs.empty()) {
         BaseNode *job = m_jobs.front();
         job->resolve_locals(*this, scopes);
@@ -143,7 +150,7 @@ void SymbolTable::load_predefined(SymbolMap &symbol_map) {
     size_t i;
     for (i = 0; i < intrinsics.size(); i++) {
         IntrinsicEntry intrinsic = intrinsics[i];
-        declare(symbol_map, intrinsic.symbol, nullptr, nullptr,
+        declare(symbol_map, intrinsic.symbol, nullptr, &Any,
                 StorageType::Intrinsic, i);
     }
 }
@@ -201,6 +208,15 @@ SymbolIdList const &SymbolTable::container() const {
 
 SymbolMap const &SymbolTable::global() const {
     return m_global;
+}
+
+std::vector<SymbolId> const &SymbolTable::callable(SymbolId id) const {
+    auto iter = m_callables.find(id);
+    if (iter == m_callables.end()) {
+        throw std::runtime_error(m_table[id].symbol + " " 
+                + std::to_string(id) + " not in map");
+    }
+    return iter->second;
 }
 
 std::vector<SymbolEntry>::const_iterator SymbolTable::begin() const {

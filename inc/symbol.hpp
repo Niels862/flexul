@@ -103,6 +103,7 @@ public:
     SymbolIdList const &container() const;
 
     SymbolMap const &global() const;
+    std::vector<SymbolId> const &callable(SymbolId id) const;
 
     std::vector<SymbolEntry>::const_iterator begin() const;
     std::vector<SymbolEntry>::const_iterator end() const;
@@ -116,6 +117,7 @@ private:
     std::unique_ptr<BaseNode> &m_root;
     std::queue<BaseNode *> m_jobs;
     std::vector<SymbolEntry> m_table;
+    std::unordered_map<SymbolId, std::vector<SymbolId>> m_callables;
     std::stack<SymbolIdList> m_containers;
     SymbolId m_counter;
 

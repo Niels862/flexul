@@ -61,6 +61,9 @@ public:
     
     virtual TypeMatch matching(TypeNode const *node) const = 0;
 
+    virtual TypeNode *called_type() = 0;
+    virtual TypeNode *pointed_type() = 0;
+
     friend std::string to_string(TypeNode const *node);
     virtual std::string type_string() const = 0;
 };
@@ -73,9 +76,14 @@ public:
 
     TypeMatch matching(TypeNode const *node) const override;
 
+    TypeNode *called_type();
+    TypeNode *pointed_type();
+
     void print(TreePrinter &printer) const override;
     std::string type_string() const override;
 };
+
+extern AnyTypeNode Any;
 
 class NamedTypeNode : public TypeNode {
 public:
@@ -85,8 +93,32 @@ public:
 
     TypeMatch matching(TypeNode const *node) const override;
 
+    TypeNode *called_type();
+    TypeNode *pointed_type();
+
     void print(TreePrinter &printer) const override;
     std::string type_string() const override;
+};
+
+class PointerTypeNode : public TypeNode {
+public:
+    PointerTypeNode();
+    PointerTypeNode(Token token, std::unique_ptr<TypeNode> pointed_type);
+
+    void set_internal(TypeNode *pointed_type_internal);
+
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+
+    TypeMatch matching(TypeNode const *node) const override;
+
+    TypeNode *called_type();
+    TypeNode *pointed_type();
+
+    void print(TreePrinter &printer) const override;
+    std::string type_string() const override;
+private:
+    std::unique_ptr<TypeNode> m_pointed_type;
+    TypeNode *m_pointed_type_internal;
 };
 
 class TypeListNode : public TypeNode {
@@ -97,11 +129,14 @@ public:
 
     TypeMatch matching(TypeNode const *node) const override;
 
+    TypeNode *called_type();
+    TypeNode *pointed_type();
+
     void print(TreePrinter &printer) const override;
     std::string type_string() const override;
 
     std::vector<std::unique_ptr<TypeNode>> const &list() const;
-
+private:
     std::vector<std::unique_ptr<TypeNode>> m_type_list;
 };
 
@@ -113,6 +148,9 @@ public:
     void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
 
     TypeMatch matching(TypeNode const *node) const override;
+
+    TypeNode *called_type();
+    TypeNode *pointed_type();
 
     void print(TreePrinter &printer) const override;
     std::string type_string() const override;
@@ -214,6 +252,8 @@ public:
 
     void resolve_types(SymbolTable &symbol_table) override;
     void serialize(Serializer &serializer) const override;
+private:
+    PointerTypeNode m_pointer_type;
 };
 
 class DereferenceNode : public UnaryExpressionNode {
@@ -300,6 +340,7 @@ public:
 private:
     std::unique_ptr<ExpressionNode> m_func;
     std::unique_ptr<ExpressionListNode> m_args;
+    SymbolId m_overload_id;
 };
 
 class TernaryNode : public ExpressionNode {

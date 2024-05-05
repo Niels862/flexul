@@ -3,6 +3,8 @@
 #include "utils.hpp"
 #include <iostream>
 
+AnyTypeNode Any;
+
 TypeMatch weakest_match(TypeMatch m1, TypeMatch m2) {
     return static_cast<TypeMatch>(std::min(
             static_cast<int>(m1), 
@@ -68,6 +70,14 @@ TypeMatch AnyTypeNode::matching(TypeNode const *node) const {
     return TypeMatch::AnyMatch;
 }
 
+TypeNode *AnyTypeNode::called_type() {
+    return this;
+}
+
+TypeNode *AnyTypeNode::pointed_type() {
+    return this;
+}
+
 void AnyTypeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
 }
@@ -94,12 +104,63 @@ TypeMatch NamedTypeNode::matching(TypeNode const *node) const {
     return TypeMatch::ExactMatch;
 }
 
+TypeNode *NamedTypeNode::called_type() {
+    throw std::runtime_error("Cannot call '" + token().data() + "'");
+}
+
+TypeNode *NamedTypeNode::pointed_type() {
+    throw std::runtime_error("No pointed type for '" + token().data() + "'");
+}
+
 void NamedTypeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
 }
 
 std::string NamedTypeNode::type_string() const {
     return token().data();
+}
+
+PointerTypeNode::PointerTypeNode()
+        : TypeNode(Token::synthetic("<*>")), m_pointed_type(),
+        m_pointed_type_internal(&Any) {}
+
+PointerTypeNode::PointerTypeNode(Token token, 
+        std::unique_ptr<TypeNode> pointed_type)
+        : TypeNode(token), m_pointed_type(std::move(pointed_type)), 
+        m_pointed_type_internal(m_pointed_type.get()) {}
+
+void PointerTypeNode::set_internal(TypeNode *pointed_type_internal) {
+    m_pointed_type_internal = pointed_type_internal;
+}
+
+void PointerTypeNode::resolve_locals(SymbolTable &symbol_table, 
+        ScopeTracker &scopes) {
+    m_pointed_type_internal->resolve_locals(symbol_table, scopes);
+}
+
+TypeMatch PointerTypeNode::matching(TypeNode const *node) const {
+    PointerTypeNode const *other = dynamic_cast<PointerTypeNode const *>(node);
+    if (other == nullptr) {
+        return TypeMatch::NoMatch;
+    }
+    return m_pointed_type_internal->matching(other->m_pointed_type_internal);
+}
+
+TypeNode *PointerTypeNode::called_type() {
+    throw std::runtime_error("Cannot call pointer type");
+}
+
+TypeNode *PointerTypeNode::pointed_type() {
+    return m_pointed_type_internal;
+}
+
+void PointerTypeNode::print(TreePrinter &printer) const {
+    printer.print_node(this);
+    printer.last_child(m_pointed_type_internal);
+}
+
+std::string PointerTypeNode::type_string() const {
+    return m_pointed_type_internal->type_string() + "*";
 }
 
 TypeListNode::TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list)
@@ -129,6 +190,14 @@ TypeMatch TypeListNode::matching(TypeNode const *node) const {
                 list()[i]->matching(other->list()[i].get()));
     }
     return match;
+}
+
+TypeNode *TypeListNode::called_type() {
+    throw std::runtime_error("Cannot call typelist");
+}
+
+TypeNode *TypeListNode::pointed_type() {
+    throw std::runtime_error("No pointed type for typelist");
 }
 
 void TypeListNode::print(TreePrinter &printer) const {
@@ -179,6 +248,14 @@ TypeMatch CallableTypeNode::matching(TypeNode const *node) const {
             m_return_type->matching(other->return_type()));
 }
 
+TypeNode *CallableTypeNode::called_type() {
+    return m_return_type.get();
+}
+
+TypeNode *CallableTypeNode::pointed_type() {
+    throw std::runtime_error("No pointed type for callable type");
+}
+
 void CallableTypeNode::print(TreePrinter &printer) const {
     printer.print_node(this);
     printer.next_child(m_param_types.get());
@@ -201,7 +278,6 @@ TypeNode *CallableTypeNode::return_type() const {
 CallableSignature::CallableSignature(std::vector<Token> params, 
         std::unique_ptr<CallableTypeNode> type)
         : params(params), type(std::move(type)) {}
-
 
 ExpressionNode::ExpressionNode(Token token, TypeNode *type)
         : BaseNode(token), m_type(type) {}
@@ -342,7 +418,8 @@ AddressOfNode::AddressOfNode(Token token,
 
 void AddressOfNode::resolve_types(SymbolTable &symbol_table) {
     m_operand->resolve_types(symbol_table);
-    // todo
+    m_pointer_type.set_internal(m_operand->type());
+    m_type = &m_pointer_type;
 }
 
 void AddressOfNode::serialize(Serializer &serializer) const {
@@ -359,7 +436,7 @@ bool DereferenceNode::is_lvalue() const {
 
 void DereferenceNode::resolve_types(SymbolTable &symbol_table) {
     m_operand->resolve_types(symbol_table);
-    // todo
+    m_type = m_operand->type()->pointed_type();
 }
 
 void DereferenceNode::serialize(Serializer &serializer) const {
@@ -483,7 +560,7 @@ bool SubscriptNode::is_lvalue() const {
 void SubscriptNode::resolve_types(SymbolTable &symbol_table) {
     m_left->resolve_types(symbol_table);
     m_right->resolve_types(symbol_table);
-    // todo
+    m_type = m_left->type()->pointed_type();
 }
 
 void SubscriptNode::serialize(Serializer &serializer) const {
@@ -501,7 +578,7 @@ CallNode::CallNode(
         std::unique_ptr<ExpressionNode> func, 
         std::unique_ptr<ExpressionListNode> args)
         : ExpressionNode(Token::synthetic("<call>")), m_func(std::move(func)), 
-        m_args(std::move(args)) {}
+        m_args(std::move(args)), m_overload_id(0) {}
 
 std::unique_ptr<CallNode> CallNode::make_call(Token ident, 
         std::vector<std::unique_ptr<ExpressionNode>> params) {
@@ -536,27 +613,67 @@ void CallNode::resolve_locals(SymbolTable &symbol_table,
 void CallNode::resolve_types(SymbolTable &symbol_table) {
     m_func->resolve_types(symbol_table);
     m_args->resolve_types(symbol_table);
-    // todo
+
+    SymbolEntry const &entry = symbol_table.get(m_func->id());
+    
+    if (entry.storage_type != StorageType::Callable) {
+        m_type = m_func->type()->called_type();
+        return;
+    }
+
+    SymbolId candidates[3] = {};
+    bool multiple[3] = {};
+
+    for (auto const &id : symbol_table.callable(entry.id)) {
+        CallableNode *node = dynamic_cast<CallableNode *>(symbol_table.get(id).definition);
+        TypeMatch match = node->is_matching_call(m_args->exprs());
+        std::size_t index = static_cast<std::size_t>(match);
+        if (candidates[index]) {
+            multiple[index] = true;
+        }
+        if (match != TypeMatch::NoMatch) {
+            candidates[index] = id; 
+        }
+    }
+    
+    for (std::size_t i = 3; i > 1; i--) {
+        std::size_t index = i - 1;
+        if (candidates[index]) {
+            if (multiple[index]) {
+                throw std::runtime_error("Multiple candidates for call");
+            }
+            m_overload_id = candidates[index];
+        }
+    }
+
+    if (m_overload_id == 0) {
+        throw std::runtime_error("No matching call found");
+    }
+
+    m_type = symbol_table.get(m_overload_id).type->called_type();
 }
 
 void CallNode::serialize(Serializer &serializer) const {
-    SymbolId id = m_func->id();
-    SymbolEntry const &entry = serializer.symbol_table().get(id);
-    if (entry.storage_type == StorageType::Intrinsic) {
-        IntrinsicEntry intrinsic = intrinsics[entry.value];
-        if (m_args->exprs().size() != intrinsic.n_args) {
-            throw std::runtime_error(
-                    "Invalid intrinsic invocation of " + intrinsic.symbol);
-        }
-        m_args->serialize(serializer);
-        serializer.add_instr(intrinsic.opcode, intrinsic.funccode);
-    } else if (entry.storage_type == StorageType::Callable) {
-        serializer.call(id, m_args->exprs());
-    } else {
-        m_args->serialize(serializer);
-        serializer.add_instr(OpCode::Push, m_args->exprs().size());
-        m_func->serialize(serializer);
-        serializer.add_instr(OpCode::Call);
+    SymbolEntry const &entry = serializer.symbol_table().get(m_func->id());
+    IntrinsicEntry intrinsic;
+    switch (entry.storage_type) {
+        case StorageType::Callable:
+            serializer.call(m_overload_id, m_args->exprs());
+            break;
+        case StorageType::Intrinsic:
+            intrinsic = intrinsics[entry.value];
+            if (m_args->exprs().size() != intrinsic.n_args) {
+                throw std::runtime_error(
+                        "Invalid intrinsic invocation of " + intrinsic.symbol);
+            }
+            m_args->serialize(serializer);
+            serializer.add_instr(intrinsic.opcode, intrinsic.funccode);
+            break;
+        default:
+            m_args->serialize(serializer);
+            serializer.add_instr(OpCode::Push, m_args->exprs().size());
+            m_func->serialize(serializer);
+            serializer.add_instr(OpCode::Call);
     }
 }
 
@@ -584,7 +701,10 @@ void TernaryNode::resolve_types(SymbolTable &symbol_table) {
     m_cond->resolve_types(symbol_table);
     m_case_true->resolve_types(symbol_table);
     m_case_false->resolve_types(symbol_table);
-    // todo
+    if (m_case_true->type()->matching(m_case_false->type()) != TypeMatch::ExactMatch) {
+        throw std::runtime_error("Types in ternary do not match");
+    }
+    m_type = m_case_true->type();
 }
 
 void TernaryNode::serialize(Serializer &serializer) const {
@@ -623,6 +743,7 @@ void AttributeNode::resolve_locals(SymbolTable &symbol_table,
 
 void AttributeNode::resolve_types(SymbolTable &symbol_table) {
     m_object->resolve_types(symbol_table);
+    m_type = &Any;
 }
 
 void AttributeNode::serialize(Serializer &serializer) const {

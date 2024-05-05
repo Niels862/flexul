@@ -1,3 +1,5 @@
+include core;
+
 fn f() {
     return 0;
 }
@@ -11,5 +13,5 @@ fn f(x, y) {
 }
 
 fn main() {
-    return f(f(), f(0));
+    return f(f() + f(0));
 }

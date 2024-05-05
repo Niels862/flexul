@@ -232,34 +232,44 @@ void StackEntry::disassemble() const {
 
 Serializer::Serializer(SymbolTable &symbol_table)
         : m_symbol_table(symbol_table), m_inline_frames(), 
-        m_code_jobs(), m_labels(), m_stack(), m_callable_map() {}
+        m_code_jobs(), m_labels(), m_stack() {}
 
 void Serializer::call(SymbolId id, 
         std::vector<std::unique_ptr<ExpressionNode>> const &args) {
-    CallableMap::const_iterator iter = m_callable_map.find(id);
-    if (iter == m_callable_map.end()) {
-        throw std::runtime_error("Oh no");
+    if (id == 0) {
+        throw std::runtime_error("No matching call found");
     }
-    iter->second.call(*this, args);
+    CallableNode *callable = dynamic_cast<CallableNode *>(
+            m_symbol_table.get(id).definition);
+    if (callable == nullptr) {
+        m_symbol_table.dump();
+        throw std::runtime_error("Definition is not callable: " + std::to_string(id));
+    }
+    add_function_implementation(id);
+    callable->serialize_call(*this, args);
 }
 
 void Serializer::push_callable_addr(SymbolId id) {
-    CallableMap::const_iterator iter = m_callable_map.find(id);
-    if (iter == m_callable_map.end()) {
-        throw std::runtime_error("Oh no");
+    auto callable = m_symbol_table.callable(id);
+    if (callable.size() != 1) {
+        throw std::runtime_error(
+                "Can only reference single implementation");
     }
-    iter->second.push_callable_addr(*this);
+    SymbolEntry entry = m_symbol_table.get(callable.front());
+    if (entry.storage_type != StorageType::AbsoluteRef) {
+        throw std::runtime_error("Can only reference function");
+    }
+    add_function_implementation(entry.id);
+    add_instr(OpCode::Push, entry.id, true);
 }
 
 void Serializer::add_instr(OpCode opcode, FuncCode funccode) {
-    add_entry(
-            StackEntry::instr(opcode, funccode));
+    add_entry(StackEntry::instr(opcode, funccode));
 }
 
 void Serializer::add_instr(OpCode opcode, uint32_t data, 
         bool references_label) {
-    add_entry(
-            StackEntry::instr(opcode, data, references_label));
+    add_entry(StackEntry::instr(opcode, data, references_label));
 }
 
 void Serializer::add_instr(OpCode opcode, FuncCode funccode, 
@@ -300,22 +310,17 @@ uint32_t Serializer::get_stack_size() const {
     return size;
 }
 
-void Serializer::serialize() {    
-    for (SymbolEntry const &entry : m_symbol_table) {
-        if (entry.storage_type == StorageType::Callable) {
-            m_callable_map[entry.id] = CallableEntry();
-        } else if (entry.overload) {
-            m_callable_map[entry.value].add_overload(
-                    dynamic_cast<CallableNode *>(entry.definition), entry.id);
-        }
-    }
-    
+void Serializer::serialize() {
     uint32_t global_size = m_symbol_table.container_size();
 
     SymbolId entry_id = lookup_scope("main", m_symbol_table.global());
+    auto callable = m_symbol_table.callable(entry_id);
+    if (callable.size() != 1) {
+        throw std::runtime_error("Multiple definitions for 'main'");
+    }
 
     add_instr(OpCode::AddSp, global_size);
-    call(entry_id, {});
+    call(callable.front(), {});
     add_instr(OpCode::SysCall, FuncCode::Exit);
 
     while (!m_code_jobs.empty()) {

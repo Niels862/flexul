@@ -7,38 +7,9 @@
 #include <stack>
 #include <memory>
 
-class Serializer;
-
 class BaseNode;
 
-class CallableNode;
-
 class ExpressionNode;
-
-class CallableEntry {
-public:
-    CallableEntry();
-
-    void add_overload(CallableNode *definition, SymbolId id);
-
-    void call(Serializer &serializer, 
-            std::vector<std::unique_ptr<ExpressionNode>> const &args) const;
-    void push_callable_addr(Serializer &serializer) const;
-private:
-    struct OverloadEntry {
-        OverloadEntry();
-        OverloadEntry(CallableNode *definition, SymbolId id);
-
-        operator bool() const;
-
-        CallableNode *definition;
-        SymbolId id;
-    };
-
-    std::vector<CallableEntry::OverloadEntry> m_overloads;
-};
-
-using CallableMap = std::unordered_map<SymbolId, CallableEntry>;
 
 struct InlineRecord {
     SymbolId id;
