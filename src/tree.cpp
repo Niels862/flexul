@@ -325,7 +325,7 @@ void VariableNode::serialize(Serializer &serializer) const {
             serializer.push_callable_addr(entry.id);
             break;
         case StorageType::InlineReference:
-            serializer.inline_frames().get(entry.id)->serialize(serializer);
+            serializer.inline_frames().use(serializer, entry.id);
             break;
         default:
             throw std::runtime_error("Invalid storage type");
@@ -346,8 +346,7 @@ void VariableNode::serialize_load_address(Serializer &serializer) const {
             serializer.add_instr(OpCode::LoadAddrRel, entry.value);
             break;
         case StorageType::InlineReference:
-        serializer.inline_frames().get(entry.id)
-                ->serialize_load_address(serializer);
+            serializer.inline_frames().use_address(serializer, entry.id);
             break;
         default:
             throw std::runtime_error("Invalid storage type");
@@ -840,8 +839,10 @@ CallableSignature const &CallableNode::signature() const {
 }
 
 FunctionNode::FunctionNode(Token token, Token ident, 
-        CallableSignature signature, std::unique_ptr<BaseNode> body)
-        : CallableNode(token, ident, std::move(signature), std::move(body)) {}
+        CallableSignature signature, std::unique_ptr<BaseNode> body,
+        bool writeback)
+        : CallableNode(token, ident, std::move(signature), std::move(body)),
+        m_writeback(writeback) {}
 
 void FunctionNode::resolve_globals(
         SymbolTable &symbol_table, SymbolMap &symbol_map) {
@@ -881,11 +882,19 @@ void FunctionNode::serialize(Serializer &serializer) const {
 void FunctionNode::serialize_call(Serializer &serializer, 
         std::vector<std::unique_ptr<ExpressionNode>> const &args) const {
     for (auto const &node : args) {
-        node->serialize(serializer);
+        if (m_writeback && &node == &args.front()) {
+            node->serialize_load_address(serializer);
+            serializer.add_instr(OpCode::DupLoad);
+        } else {
+            node->serialize(serializer);
+        }
     }
     serializer.add_instr(OpCode::Push, n_params());
     serializer.add_instr(OpCode::Push, id(), true);
     serializer.add_instr(OpCode::Call);
+    if (m_writeback) {
+        serializer.add_instr(OpCode::Binary, FuncCode::Assign);
+    }
 }
 
 void FunctionNode::print(TreePrinter &printer) const {
@@ -900,9 +909,10 @@ std::string FunctionNode::label() const {
 }
 
 InlineNode::InlineNode(Token token, Token ident, 
-        CallableSignature signature, std::unique_ptr<BaseNode> body)
+        CallableSignature signature, std::unique_ptr<BaseNode> body, 
+        bool writeback)
         : CallableNode(token, ident, std::move(signature), std::move(body)), 
-        m_param_ids() {}
+        m_param_ids(), m_writeback(writeback) {}
 
 void InlineNode::resolve_globals(
         SymbolTable &symbol_table, SymbolMap &symbol_map) {
@@ -932,7 +942,7 @@ void InlineNode::serialize(Serializer &) const {}
 
 void InlineNode::serialize_call(Serializer &serializer, 
         std::vector<std::unique_ptr<ExpressionNode>> const &args) const {
-    serializer.inline_frames().open_call(args, m_param_ids);
+    serializer.inline_frames().open_call(args, m_param_ids, m_writeback);
     m_body->serialize(serializer);
     serializer.inline_frames().close_call(m_param_ids);
 }

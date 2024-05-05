@@ -12,6 +12,8 @@ enum class OpCode {
     LoadRel,
     LoadAbs,
     LoadAddrRel,
+    DupLoad,
+    Dup,
     Call,
     Ret,
     Jump,

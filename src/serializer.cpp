@@ -231,7 +231,7 @@ void StackEntry::disassemble() const {
 }
 
 Serializer::Serializer(SymbolTable &symbol_table)
-        : m_symbol_table(symbol_table), m_inline_frames(), 
+        : m_symbol_table(symbol_table), m_inline_frames(*this), 
         m_code_jobs(), m_labels(), m_stack() {}
 
 void Serializer::call(SymbolId id, 

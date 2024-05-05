@@ -418,7 +418,8 @@ protected:
 class FunctionNode : public CallableNode {
 public:
     FunctionNode(Token token, Token ident, 
-            CallableSignature signature, std::unique_ptr<BaseNode> body);
+            CallableSignature signature, std::unique_ptr<BaseNode> body,
+            bool writeback);
 
     void resolve_globals(
             SymbolTable &symbol_table, SymbolMap &symbol_map) override;
@@ -432,12 +433,14 @@ public:
     std::string label() const override;
 private:
     uint32_t m_frame_size;
+    bool m_writeback;
 };
 
 class InlineNode : public CallableNode {
 public:
     InlineNode(Token token, Token ident, 
-            CallableSignature signature, std::unique_ptr<BaseNode> body);
+            CallableSignature signature, std::unique_ptr<BaseNode> body,
+            bool writeback);
 
     void resolve_globals(SymbolTable &symbol_table, 
             SymbolMap &symbol_map) override;
@@ -452,6 +455,7 @@ public:
     std::string label() const override;
 private:
     std::vector<SymbolId> m_param_ids;
+    bool m_writeback;
 };
 
 

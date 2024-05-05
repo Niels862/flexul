@@ -28,6 +28,8 @@ std::string to_string(TokenType type) {
             return "function";
         case TokenType::Inline:
             return "inline";
+        case TokenType::Writeback:
+            return "writeback";
         case TokenType::TypeDef:
             return "typedef";
         case TokenType::Like:
@@ -59,6 +61,7 @@ std::string to_string(TokenType type) {
 SyntaxMap const default_syntax_map = {
     {"fn", TokenType::Function},
     {"inline", TokenType::Inline},
+    {"writeback", TokenType::Writeback},
     {"typedef", TokenType::TypeDef},
     {"like", TokenType::Like},
     {"return", TokenType::Return},

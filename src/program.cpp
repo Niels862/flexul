@@ -3,7 +3,7 @@
 #include "opcodes.hpp"
 #include <iostream>
 #include <iomanip>
-
+#include "utils.hpp"
 Program::Program() 
         : m_ip(0), m_bp(0), m_completed_instrs(0), m_execution_time(0) {}
 
@@ -131,6 +131,14 @@ uint32_t Program::run() {
             case OpCode::LoadAddrRel:
                 a = operand;
                 m_stack.push_back(m_bp + a);
+                break;
+            case OpCode::DupLoad:
+                m_stack.push_back(operand);
+                m_stack.push_back(m_stack[operand]);
+                break;
+            case OpCode::Dup:
+                m_stack.push_back(operand);
+                m_stack.push_back(operand);
                 break;
             case OpCode::Call:
                 // Before call: arguments, N arguments and func address pushed

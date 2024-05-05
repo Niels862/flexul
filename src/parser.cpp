@@ -155,6 +155,7 @@ void Parser::parse_include() {
 
 std::unique_ptr<StatementNode> Parser::parse_function_declaration() {
     Token fn_token = expect_type(TokenType::Function);
+    bool writeback = accept_type(TokenType::Writeback);
     Token ident = accept_type(TokenType::Identifier);
     if (!ident) {
         ident = expect_type(TokenType::Operator);
@@ -163,11 +164,12 @@ std::unique_ptr<StatementNode> Parser::parse_function_declaration() {
     std::unique_ptr<StatementNode> body = parse_braced_block(false);
     return std::make_unique<ScopeNode>(
             std::move(std::make_unique<FunctionNode>(fn_token, ident, 
-                std::move(signature), std::move(body))));
+                std::move(signature), std::move(body), writeback)));
 }
 
 std::unique_ptr<StatementNode> Parser::parse_inline_declaration() {
     Token inline_token = expect_type(TokenType::Inline);
+    bool writeback = accept_type(TokenType::Writeback);
     Token ident = accept_type(TokenType::Identifier);
     if (!ident) {
         ident = expect_type(TokenType::Operator);
@@ -178,7 +180,7 @@ std::unique_ptr<StatementNode> Parser::parse_inline_declaration() {
     expect_data(";");
     return std::make_unique<ScopeNode>(std::move(
             std::make_unique<InlineNode>(inline_token, ident, 
-                std::move(signature), std::move(body))));
+                std::move(signature), std::move(body), writeback)));
 }
 
 std::unique_ptr<ExpressionListNode> Parser::parse_param_list() {
@@ -430,7 +432,9 @@ std::unique_ptr<ExpressionNode> Parser::parse_assignment() {
     } else {
         auto iter = assignments.find(token.data());
         if (iter != assignments.end()) {
-            throw std::runtime_error("not implemented");
+            get_token();
+            return CallNode::make_binary_call(token, 
+                    std::move(left), parse_expression());
         }
     }
     return left;
@@ -572,10 +576,7 @@ std::unique_ptr<ExpressionNode> Parser::parse_postfix(
             std::unique_ptr<ExpressionNode> value) {
     static std::unordered_map<std::string, std::string> const assignments = {
         {"++", "+"},
-        {"--", "-"},
-        {"**", "*"},
-        {"//", "/"},
-        {"%%", "%"}
+        {"--", "-"}
     };
 
     while (true) {
@@ -595,11 +596,11 @@ std::unique_ptr<ExpressionNode> Parser::parse_postfix(
                         expect_type(TokenType::Identifier)));
         } else {
             auto iter = assignments.find(token.data());
-            if (iter == assignments.end()) {
-                return value;
+            if (iter != assignments.end()) {
+                get_token();
+                value = CallNode::make_unary_call(token, std::move(value));
             }
-            get_token();
-            throw std::runtime_error("not implemented");
+            return value;
         }
     }
 }

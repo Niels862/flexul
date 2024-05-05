@@ -4,8 +4,8 @@ std::string empty = "";
 
 std::string const op_names[] = {
     "nop", "syscall", "unary", "binary", 
-    "push", "pop", "addsp", "loadrel", "loadabs", "loadaddrrel",
-    "call", "ret", "jump", "brtrue", "brfalse"
+    "push", "pop", "addsp", "loadrel", "loadabs", "loadaddrrel", "dupload",
+    "dup", "call", "ret", "jump", "brtrue", "brfalse"
 };
 
 std::string const unary_func_names[] = {
