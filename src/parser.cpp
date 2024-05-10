@@ -14,7 +14,6 @@ std::unique_ptr<BaseNode> Parser::parse() {
         throw std::runtime_error(
                 "Unexpected token: " + to_string(m_curr_token));
     }
-    print_map(m_type_literals);
     return root;
 }
 

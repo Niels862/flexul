@@ -103,9 +103,11 @@ Token Tokenizer::get_identifier() {
     identifier = m_text.substr(start, m_i - start);
     SyntaxMap::const_iterator iter = default_syntax_map.find(identifier);
     if (iter == default_syntax_map.end()) {
-        return Token(TokenType::Identifier, identifier, m_row, m_col);
+        m_tokens.add(Token(TokenType::Identifier, identifier, m_row, m_col));
+    } else {
+        m_tokens.add(Token(iter->second, identifier, m_row, m_col));
     }
-    return Token(iter->second, identifier, m_row, m_col);
+    return m_tokens.m_tokens.back();
 }
 
 Token Tokenizer::get_intlit() {
@@ -113,8 +115,10 @@ Token Tokenizer::get_intlit() {
     do {
         next_char();
     } while (std::isdigit(m_text[m_i]));
-    return Token(TokenType::IntLit, 
-            m_text.substr(start, m_i - start), m_row, m_col);
+
+    m_tokens.add(Token(TokenType::IntLit, 
+            m_text.substr(start, m_i - start), m_row, m_col));
+    return m_tokens.m_tokens.back();
 }
 
 Token Tokenizer::get_charlit() {
@@ -124,8 +128,9 @@ Token Tokenizer::get_charlit() {
         assert_no_newline();
     } while (m_text[m_i] != '\'');
     next_char();
-    return Token(TokenType::IntLit, 
-            m_text.substr(start, m_i - start), m_row, m_col);
+    m_tokens.add(Token(TokenType::IntLit, 
+            m_text.substr(start, m_i - start), m_row, m_col));
+    return m_tokens.m_tokens.back();
 }
 
 Token Tokenizer::get_operator() {
@@ -133,15 +138,18 @@ Token Tokenizer::get_operator() {
     do {
         next_char();
     } while (is_op_char(m_text[m_i]));
-    return Token(TokenType::Operator, 
-            m_text.substr(start, m_i - start), m_row, m_col);
+
+    m_tokens.add(Token(TokenType::Operator, 
+            m_text.substr(start, m_i - start), m_row, m_col));
+    return m_tokens.m_tokens.back();
 }
 
 Token Tokenizer::get_separator() {
     Token token(TokenType::Separator, 
             m_text.substr(m_i, 1), m_row, m_col);
     next_char();
-    return token;
+    m_tokens.add(token);
+    return m_tokens.m_tokens.back();
 }
 
 bool is_op_char(char c) {

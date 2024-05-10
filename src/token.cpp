@@ -157,6 +157,11 @@ std::string to_string(Token const &token) {
         + std::to_string(token.row) + ":" + std::to_string(token.col) + ")";
 }
 
+std::ostream &operator <<(std::ostream &stream, Token const &token) {
+    stream << to_string(token);
+    return stream;
+}
+
 bool Token::operator ==(Token const &other) const {
     return m_type == other.m_type && m_data == other.m_data;
 }
@@ -167,6 +172,37 @@ bool Token::operator !=(Token const &other) const {
 
 Token::operator bool() const {
     return m_type != TokenType::Null;
+}
+
+TokenList::TokenList()
+        : m_tokens() {}
+
+Token const &TokenList::get() {
+    Token const &token = m_tokens[m_p];
+    if (m_p < m_tokens.size()) {
+        m_p++;
+    }
+    return token;
+}
+
+Token const &TokenList::peek() const {
+    return m_tokens[m_p];
+}
+
+Token const &TokenList::look_ahead(std::size_t offset) const {
+    return m_tokens[std::min(m_p + offset, m_tokens.size() - 1)];
+}
+
+std::vector<Token>::const_iterator TokenList::begin() const {
+    return m_tokens.begin();
+}
+
+std::vector<Token>::const_iterator TokenList::end() const {
+    return m_tokens.end();
+}
+
+void TokenList::add(Token token) {
+    m_tokens.push_back(token);
 }
 
 std::string tokenlist_to_string(std::vector<Token> const &tokens, 

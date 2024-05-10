@@ -20,6 +20,8 @@ using SyntaxMap = std::unordered_map<std::string, TokenType>;
 
 extern SyntaxMap const default_syntax_map;
 
+class Tokenizer;
+
 class Token {
 public:
     Token();
@@ -33,6 +35,7 @@ public:
     bool is_synthetic(std::string const &cmp_data) const;
 
     friend std::string to_string(Token const &token);
+    friend std::ostream &operator <<(std::ostream &stream, Token const &token);
 
     bool operator ==(Token const &other) const;
     bool operator !=(Token const &other) const;
@@ -52,8 +55,16 @@ public:
     Token const &get();
     Token const &peek() const;
     Token const &look_ahead(std::size_t offset) const;
+
+    std::vector<Token>::const_iterator begin() const;
+    std::vector<Token>::const_iterator end() const;
 private:
+    void add(Token token);
+
     std::vector<Token> m_tokens;
+    std::size_t m_p;
+
+    friend Tokenizer;
 };
 
 std::string tokenlist_to_string(std::vector<Token> const &tokens, 
