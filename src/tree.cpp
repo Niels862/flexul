@@ -70,11 +70,11 @@ TypeMatch AnyTypeNode::matching(TypeNode const *node) const {
     return TypeMatch::AnyMatch;
 }
 
-TypeNode *AnyTypeNode::called_type() {
+TypeNode const *AnyTypeNode::called_type() const {
     return this;
 }
 
-TypeNode *AnyTypeNode::pointed_type() {
+TypeNode const *AnyTypeNode::pointed_type() const {
     return this;
 }
 
@@ -104,11 +104,11 @@ TypeMatch NamedTypeNode::matching(TypeNode const *node) const {
     return TypeMatch::ExactMatch;
 }
 
-TypeNode *NamedTypeNode::called_type() {
+TypeNode const *NamedTypeNode::called_type() const {
     throw std::runtime_error("Cannot call '" + token().data() + "'");
 }
 
-TypeNode *NamedTypeNode::pointed_type() {
+TypeNode const *NamedTypeNode::pointed_type() const {
     throw std::runtime_error("No pointed type for '" + token().data() + "'");
 }
 
@@ -141,16 +141,23 @@ void PointerTypeNode::resolve_locals(SymbolTable &symbol_table,
 TypeMatch PointerTypeNode::matching(TypeNode const *node) const {
     PointerTypeNode const *other = dynamic_cast<PointerTypeNode const *>(node);
     if (other == nullptr) {
-        return TypeMatch::NoMatch;
+        ArrayTypeNode const *other = dynamic_cast<ArrayTypeNode const *>(node);
+        if (other == nullptr) {
+            return TypeMatch::NoMatch;
+        }
+        TypeMatch match = m_pointed_type_internal
+                ->matching(other->pointed_type());
+        return weakest_match(TypeMatch::ImplicitMatch, match);
     }
-    return m_pointed_type_internal->matching(other->m_pointed_type_internal);
+    return m_pointed_type_internal
+            ->matching(other->pointed_type());
 }
 
-TypeNode *PointerTypeNode::called_type() {
+TypeNode const *PointerTypeNode::called_type() const {
     throw std::runtime_error("Cannot call pointer type");
 }
 
-TypeNode *PointerTypeNode::pointed_type() {
+TypeNode const *PointerTypeNode::pointed_type() const {
     return m_pointed_type_internal;
 }
 
@@ -161,6 +168,49 @@ void PointerTypeNode::print(TreePrinter &printer) const {
 
 std::string PointerTypeNode::type_string() const {
     return m_pointed_type_internal->type_string() + "*";
+}
+
+ArrayTypeNode::ArrayTypeNode(Token token, std::unique_ptr<TypeNode> array_type,
+        std::unique_ptr<ExpressionNode> size) 
+        : TypeNode(token), m_array_type(std::move(array_type)), 
+        m_size(std::move(size)) {}
+
+void ArrayTypeNode::resolve_locals(SymbolTable &symbol_table, 
+        ScopeTracker &scopes) {
+    m_array_type->resolve_locals(symbol_table, scopes);
+    m_size->resolve_locals(symbol_table, scopes); // todo extend resolve_types to m_type
+}
+
+TypeMatch ArrayTypeNode::matching(TypeNode const *node) const {
+    ArrayTypeNode const *other = dynamic_cast<ArrayTypeNode const *>(node);
+    if (other == nullptr) {
+        PointerTypeNode const *other = 
+                dynamic_cast<PointerTypeNode const *>(node);
+        if (other == nullptr) {
+            return TypeMatch::NoMatch;
+        }
+        TypeMatch match = m_array_type->matching(other->pointed_type());
+        return weakest_match(TypeMatch::ImplicitMatch, match);
+    }
+    return m_array_type->matching(other->pointed_type());
+}
+
+TypeNode const *ArrayTypeNode::called_type() const {
+    throw std::runtime_error("Cannot call array type");
+}
+
+TypeNode const *ArrayTypeNode::pointed_type() const {
+    return m_array_type.get();
+}
+
+void ArrayTypeNode::print(TreePrinter &printer) const {
+    printer.print_node(this);
+    printer.next_child(m_array_type.get());
+    printer.last_child(m_size.get());
+}
+
+std::string ArrayTypeNode::type_string() const {
+    return m_array_type->type_string() + "[" + "(N)" + "]";
 }
 
 TypeListNode::TypeListNode(std::vector<std::unique_ptr<TypeNode>> type_list)
@@ -192,11 +242,11 @@ TypeMatch TypeListNode::matching(TypeNode const *node) const {
     return match;
 }
 
-TypeNode *TypeListNode::called_type() {
+TypeNode const *TypeListNode::called_type() const {
     throw std::runtime_error("Cannot call typelist");
 }
 
-TypeNode *TypeListNode::pointed_type() {
+TypeNode const *TypeListNode::pointed_type() const {
     throw std::runtime_error("No pointed type for typelist");
 }
 
@@ -248,11 +298,11 @@ TypeMatch CallableTypeNode::matching(TypeNode const *node) const {
             m_return_type->matching(other->return_type()));
 }
 
-TypeNode *CallableTypeNode::called_type() {
+TypeNode const *CallableTypeNode::called_type() const {
     return m_return_type.get();
 }
 
-TypeNode *CallableTypeNode::pointed_type() {
+TypeNode const *CallableTypeNode::pointed_type() const {
     throw std::runtime_error("No pointed type for callable type");
 }
 
@@ -435,7 +485,7 @@ bool DereferenceNode::is_lvalue() const {
 
 void DereferenceNode::resolve_types(SymbolTable &symbol_table) {
     m_operand->resolve_types(symbol_table);
-    m_type = m_operand->type()->pointed_type();
+    m_type = const_cast<TypeNode *>(m_operand->type()->pointed_type());
 }
 
 void DereferenceNode::serialize(Serializer &serializer) const {
@@ -559,7 +609,7 @@ bool SubscriptNode::is_lvalue() const {
 void SubscriptNode::resolve_types(SymbolTable &symbol_table) {
     m_left->resolve_types(symbol_table);
     m_right->resolve_types(symbol_table);
-    m_type = m_left->type()->pointed_type();
+    m_type = const_cast<TypeNode *>(m_left->type()->pointed_type());
 }
 
 void SubscriptNode::serialize(Serializer &serializer) const {
@@ -616,7 +666,7 @@ void CallNode::resolve_types(SymbolTable &symbol_table) {
     SymbolEntry const &entry = symbol_table.get(m_func->id());
     
     if (entry.storage_type != StorageType::Callable) {
-        m_type = m_func->type()->called_type();
+        m_type = const_cast<TypeNode *>(m_func->type()->called_type());
         return;
     }
 
@@ -649,7 +699,8 @@ void CallNode::resolve_types(SymbolTable &symbol_table) {
         throw std::runtime_error("No matching call found");
     }
 
-    m_type = symbol_table.get(m_overload_id).type->called_type();
+    m_type = const_cast<TypeNode *>(
+            symbol_table.get(m_overload_id).type->called_type());
 }
 
 void CallNode::serialize(Serializer &serializer) const {

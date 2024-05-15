@@ -15,10 +15,12 @@ class TreePrinter;
 
 class TypeNode;
 
+class ExpressionNode;
+
 class ExpressionListNode;
 
 enum class TypeMatch {
-    NoMatch, AnyMatch, ExactMatch
+    NoMatch, ImplicitMatch, AnyMatch, ExactMatch
 };
 
 class BaseNode {
@@ -61,8 +63,8 @@ public:
     
     virtual TypeMatch matching(TypeNode const *node) const = 0;
 
-    virtual TypeNode *called_type() = 0;
-    virtual TypeNode *pointed_type() = 0;
+    virtual TypeNode const *called_type() const = 0;
+    virtual TypeNode const *pointed_type() const = 0;
 
     friend std::string to_string(TypeNode const *node);
     virtual std::string type_string() const = 0;
@@ -76,8 +78,8 @@ public:
 
     TypeMatch matching(TypeNode const *node) const override;
 
-    TypeNode *called_type();
-    TypeNode *pointed_type();
+    TypeNode const *called_type() const override;
+    TypeNode const *pointed_type() const override;
 
     void print(TreePrinter &printer) const override;
     std::string type_string() const override;
@@ -93,8 +95,8 @@ public:
 
     TypeMatch matching(TypeNode const *node) const override;
 
-    TypeNode *called_type();
-    TypeNode *pointed_type();
+    TypeNode const *called_type() const override;
+    TypeNode const *pointed_type() const override;
 
     void print(TreePrinter &printer) const override;
     std::string type_string() const override;
@@ -111,14 +113,33 @@ public:
 
     TypeMatch matching(TypeNode const *node) const override;
 
-    TypeNode *called_type();
-    TypeNode *pointed_type();
+    TypeNode const *called_type() const override;
+    TypeNode const *pointed_type() const override;
 
     void print(TreePrinter &printer) const override;
     std::string type_string() const override;
 private:
     std::unique_ptr<TypeNode> m_pointed_type;
     TypeNode *m_pointed_type_internal;
+};
+
+class ArrayTypeNode : public TypeNode {
+public:
+    ArrayTypeNode(Token token, std::unique_ptr<TypeNode> array_type,
+            std::unique_ptr<ExpressionNode> size);
+
+    void resolve_locals(SymbolTable &symbol_table, ScopeTracker &scopes) override;
+
+    TypeMatch matching(TypeNode const *node) const override;
+
+    TypeNode const *called_type() const override;
+    TypeNode const *pointed_type() const override;
+
+    void print(TreePrinter &printer) const override;
+    std::string type_string() const override;
+private:
+    std::unique_ptr<TypeNode> m_array_type;
+    std::unique_ptr<ExpressionNode> m_size;
 };
 
 class TypeListNode : public TypeNode {
@@ -129,8 +150,8 @@ public:
 
     TypeMatch matching(TypeNode const *node) const override;
 
-    TypeNode *called_type();
-    TypeNode *pointed_type();
+    TypeNode const *called_type() const override;
+    TypeNode const *pointed_type() const override;
 
     void print(TreePrinter &printer) const override;
     std::string type_string() const override;
@@ -149,8 +170,8 @@ public:
 
     TypeMatch matching(TypeNode const *node) const override;
 
-    TypeNode *called_type();
-    TypeNode *pointed_type();
+    TypeNode const *called_type() const override;
+    TypeNode const *pointed_type() const override;
 
     void print(TreePrinter &printer) const override;
     std::string type_string() const override;
